@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.7"
 dependencies = [
     "pygls>=1.1.1",
-    "lsprotocol>=2023.0.0"
+    "lsprotocol>=2023.0.1"
 ]
 
 [project.optional-dependencies]

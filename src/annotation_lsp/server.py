@@ -20,6 +20,8 @@ from lsprotocol.types import (
 	TEXT_DOCUMENT_DID_OPEN,
 	TEXT_DOCUMENT_DID_CHANGE,
 	INITIALIZE,
+	ServerCapabilities,
+	TextDocumentSyncOptions,
 )
 
 from .db_manager import DatabaseManager
@@ -98,111 +100,110 @@ class AnnotationServer(LanguageServer):
 server = AnnotationServer()
 
 @server.feature(INITIALIZE)
-def initialize(ls: AnnotationServer, params):
+def initialize(params):
 	"""初始化 LSP 服务器"""
-	ls.show_message("Initializing annotation LSP server...")
+	server.show_message("Initializing annotation LSP server...")
 	
-	# 注册自定义方法
-	custom_methods = [
-		'textDocument/createAnnotation',
-		'textDocument/listAnnotations',
-		'textDocument/deleteAnnotation',
-	]
+	capabilities = ServerCapabilities(
+		text_document_sync=TextDocumentSyncOptions(
+			open_close=True,
+			change=TextDocumentSyncKind.FULL,
+			save=True
+		),
+		hover_provider=True,
+		execute_command_provider={
+			"commands": [
+				"textDocument/createAnnotation",
+				"textDocument/listAnnotations",
+				"textDocument/deleteAnnotation"
+			]
+		}
+	)
 	
-	capabilities = {
-		'textDocumentSync': {
-			'openClose': True,
-			'change': TextDocumentSyncKind.INCREMENTAL,
-		},
-		'hoverProvider': True,
-	}
-	
-	# 添加自定义方法到服务器能力中
-	for method in custom_methods:
-		capabilities[method] = True
-	
-	return {'capabilities': capabilities}
+	return {"capabilities": capabilities}
 
 @server.feature(TEXT_DOCUMENT_DID_OPEN)
-def did_open(ls: AnnotationServer, params: DidOpenTextDocumentParams):
+def did_open(params: DidOpenTextDocumentParams):
 	"""文档打开时的处理"""
-	doc = ls.workspace.get_document(params.text_document.uri)
-	ranges = ls.find_annotation_ranges(doc.source)
-	ls.show_message(f"Opened {doc.uri}")
-	# TODO: Validate annotations and update database
+	server.show_message(f"Document opened: {params.text_document.uri}")
 
 @server.feature(TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: AnnotationServer, params: DidChangeTextDocumentParams):
+def did_change(params: DidChangeTextDocumentParams):
 	"""文档变化时的处理"""
-	doc = ls.workspace.get_document(params.text_document.uri)
-	ranges = ls.find_annotation_ranges(doc.source)
-	# TODO: Update database with new ranges
+	server.show_message(f"Document changed: {params.text_document.uri}")
 
 @server.feature(TEXT_DOCUMENT_HOVER)
-def hover(ls: AnnotationServer, params):
+def hover(params):
 	"""处理悬停事件，显示标注内容"""
-	doc = ls.workspace.get_document(params.text_document.uri)
-	annotation = ls.get_annotation_at_position(doc.source, params.position)
+	doc = server.workspace.get_document(params.text_document.uri)
+	position = params.position
 	
-	if annotation:
-		aid, start_line, start_char, end_line, end_char = annotation
-		# TODO: Get annotation content from database/file
-		content = "Annotation #" + str(aid)  # Placeholder
-		return Hover(
-			contents=MarkupContent(kind=MarkupKind.Markdown, value=content),
-			range=Range(
-				start=Position(line=start_line, character=start_char),
-				end=Position(line=end_line, character=end_char + 1)
-			)
-		)
+	# 检查当前位置是否在标注区间内
+	annotations = server.find_annotation_ranges(doc.source)
+	for start_line, start_char, end_line, end_char, annotation_id in annotations:
+		if (start_line <= position.line <= end_line and
+			(start_line != position.line or start_char <= position.character) and
+			(end_line != position.line or position.character <= end_char)):
+			
+			note = server.note_manager.get_note(annotation_id)
+			if note:
+				return Hover(
+					contents=MarkupContent(
+						kind=MarkupKind.MARKDOWN,
+						value=f"**Annotation {annotation_id}**\n\n{note}"
+					),
+					range=Range(
+						start=Position(line=start_line, character=start_char),
+						end=Position(line=end_line, character=end_char)
+					)
+				)
+	
 	return None
 
-@server.feature('textDocument/createAnnotation')
-def create_annotation(ls: AnnotationServer, params):
+@server.command("textDocument/createAnnotation")
+def create_annotation(params):
 	"""处理创建标注的逻辑"""
-	ls.show_message("Creating annotation...")
-	doc = ls.workspace.get_document(params.textDocument.uri)
-	start = params.range.start
-	end = params.range.end
+	doc = server.workspace.get_document(params.textDocument.uri)
+	range = params.range
 	
-	# 在文本中插入标注括号
+	# 获取选中的文本
 	lines = doc.source.splitlines()
-	start_line = lines[start.line]
-	end_line = lines[end.line]
+	if range.start.line == range.end.line:
+		# 单行选择
+		selected_text = lines[range.start.line][range.start.character:range.end.character]
+	else:
+		# 多行选择
+		selected_text = []
+		for i in range(range.start.line, range.end.line + 1):
+			if i == range.start.line:
+				selected_text.append(lines[i][range.start.character:])
+			elif i == range.end.line:
+				selected_text.append(lines[i][:range.end.character])
+			else:
+				selected_text.append(lines[i])
+		selected_text = '\n'.join(selected_text)
 	
-	# 插入结束括号
-	new_end_line = (
-		end_line[:end.character] + 
-		ls.annotation_brackets[1] + 
-		end_line[end.character:]
+	# 创建标注
+	annotation_id = server.db_manager.create_annotation(
+		doc_uri=params.textDocument.uri,
+		start_line=range.start.line,
+		start_char=range.start.character,
+		end_line=range.end.line,
+		end_char=range.end.character,
+		text=selected_text
 	)
-	lines[end.line] = new_end_line
 	
-	# 插入开始括号
-	new_start_line = (
-		start_line[:start.character] + 
-		ls.annotation_brackets[0] + 
-		start_line[start.character:]
-	)
-	lines[start.line] = new_start_line
-	
-	# 更新文档
-	new_text = '\n'.join(lines)
-	ls.apply_edit(doc.uri, new_text)
-	ls.show_message("Annotation created successfully!")
-	
+	return {"success": True, "annotation_id": annotation_id}
+
+@server.command("textDocument/listAnnotations")
+def list_annotations(params):
+	"""处理列出标注的逻辑"""
+	doc = server.workspace.get_document(params.textDocument.uri)
 	return {"success": True}
 
-@server.feature('textDocument/listAnnotations')
-def list_annotations(ls: AnnotationServer, params):
-	"""处理列出标注的逻辑"""
-	doc = ls.workspace.get_document(params.textDocument.uri)
-	annotations = ls.find_annotation_ranges(doc.source)
-	return {"annotations": annotations}
-
-@server.feature('textDocument/deleteAnnotation')
-def delete_annotation(ls: AnnotationServer, params):
+@server.command("textDocument/deleteAnnotation")
+def delete_annotation(params):
 	"""处理删除标注的逻辑"""
-	doc = ls.workspace.get_document(params.textDocument.uri)
+	doc = server.workspace.get_document(params.textDocument.uri)
 	annotation_id = params.annotationId
 	return {"success": True}

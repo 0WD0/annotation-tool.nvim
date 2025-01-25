@@ -5,7 +5,7 @@ local function get_python_path()
 	-- 获取当前文件所在目录
 	local current_file = debug.getinfo(1, "S").source:sub(2)  -- 移除开头的 '@'
 	local plugin_root = vim.fn.fnamemodify(current_file, ":h:h")  -- 上级目录就是插件根目录
-	
+
 	-- 首先检查项目虚拟环境
 	local venv_python = plugin_root .. "/.venv/bin/python"
 	if vim.fn.executable(venv_python) == 1 then
@@ -21,111 +21,45 @@ local function get_python_path()
 	return nil, nil
 end
 
--- 初始化插件
-M.setup = function(opts)
-	opts = opts or {}
-	
-	local lspconfig = require('lspconfig')
-	local configs = require('lspconfig.configs')
-
-	-- 获取 Python 解释器和项目根目录
-	local python_path, plugin_root = get_python_path()
-	if not python_path then
-		vim.notify("No Python interpreter found", vim.log.levels.ERROR)
-		return
-	end
-
-	-- 构建 Python 命令
-	local python_cmd = {
-		python_path,
-		"-c",
-		string.format([[import sys; sys.path.insert(0, '%s'); from annotation_lsp.__main__ import main; main()]], plugin_root)
-	}
-
-	-- 注册自定义 LSP
-	if not configs.annotation_ls then
-		configs.annotation_ls = {
-			default_config = {
-				cmd = python_cmd,
-				filetypes = { 'markdown', 'text', 'annot' },
-				root_dir = function(fname)
-					return lspconfig.util.find_git_ancestor(fname) or vim.fn.getcwd()
-				end,
-				settings = {},
-			},
-		}
-	end
-
-	-- 设置 LSP
-	lspconfig.annotation_ls.setup({
-		cmd = python_cmd,
-		on_attach = function(client, bufnr)
-			-- 设置 buffer 的按键映射
-			vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>a', '<cmd>lua require("annotation-tool").create_annotation()<CR>', { noremap = true, silent = true })
-			vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>f', '<cmd>lua require("annotation-tool").find_annotations()<CR>', { noremap = true, silent = true })
-			vim.api.nvim_buf_set_keymap(bufnr, 'n', '<Leader>p', '<cmd>lua require("annotation-tool").setup_annotation_preview()<CR>', { noremap = true, silent = true })
-			vim.api.nvim_buf_set_keymap(bufnr, 'n', 'K', '<cmd>lua vim.lsp.buf.hover()<CR>', { noremap = true, silent = true })
-
-			-- 启用标注模式
-			vim.b.annotation_mode = true
-
-			-- 设置其他 LSP 相关的配置
-			vim.api.nvim_buf_set_option(bufnr, 'omnifunc', 'v:lua.vim.lsp.omnifunc')
-
-			-- 启用文档高亮
-			if client.server_capabilities.documentHighlightProvider then
-				vim.cmd [[
-					augroup lsp_document_highlight
-					autocmd! * <buffer>
-					autocmd CursorHold <buffer> lua vim.lsp.buf.document_highlight()
-					autocmd CursorMoved <buffer> lua vim.lsp.buf.clear_references()
-					augroup END
-				]]
-			end
-
-			vim.notify("LSP attached successfully", vim.log.levels.INFO)
-		end,
-
-		capabilities = vim.lsp.protocol.make_client_capabilities(),
-
-		settings = vim.tbl_deep_extend("force", {
-			annotation = {
-				saveDir = vim.fn.expand('~/.local/share/nvim/annotation-notes'),
-			}
-		}, opts.settings or {})
+-- LSP 回调函数
+local function on_attach(client, bufnr)
+	-- 创建标注（可视模式）
+	vim.keymap.set('v', '<Leader>na', M.create_annotation, {
+		buffer = bufnr,
+		desc = "Create annotation at selection",
+		noremap = true,
+		silent = true
 	})
-
-	-- 设置命令
-	M.setup_commands()
-
-	-- 设置自动命令：当打开支持的文件类型时自动启用 LSP
-	vim.api.nvim_create_autocmd("FileType", {
-		pattern = { "markdown", "text", "annot" },
-		callback = function(args)
-			local clients = vim.lsp.get_active_clients({
-				bufnr = args.buf,
-				name = "annotation_ls"
-			})
-			
-			if #clients == 0 then
-				vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
-				lspconfig.annotation_ls.setup({})  -- 使用 lspconfig 的 setup 方法
-			end
-		end,
+	-- 列出标注
+	vim.keymap.set('n', '<Leader>nl', M.list_annotations, {
+		buffer = bufnr,
+		desc = "List annotations",
+		noremap = true,
+		silent = true
 	})
+	-- 显示标注内容
+	vim.keymap.set('n', 'K', vim.lsp.buf.hover, {
+		buffer = bufnr,
+		desc = "Show hover information",
+		noremap = true,
+		silent = true
+	})
+	-- 启用标注模式
+	vim.b.annotation_mode = true
+	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
 end
 
 -- 启用标注模式
-M.enable_annotation_mode = function()
+function M.enable_annotation_mode()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
+	local filetype = vim.bo[bufnr].filetype
 
-	if filetype ~= 'markdown' and filetype ~= 'text' and filetype ~= 'annot' then
-		vim.notify("Annotation mode only works with markdown, text and annot files", vim.log.levels.WARN)
+	if not vim.tbl_contains({ "markdown", "text", "annot" }, filetype) then
+		vim.notify("Annotation mode only supports markdown, text and annot files", vim.log.levels.WARN)
 		return
 	end
 
-	-- 如果 LSP 客户端还没有启动，启动它
+	--[[
 	local clients = vim.lsp.get_active_clients({
 		bufnr = bufnr,
 		name = "annotation_ls"
@@ -136,13 +70,34 @@ M.enable_annotation_mode = function()
 		require('annotation-tool').setup()
 		-- LSP 会自动 attach 到合适的 buffer
 	end
+	--]]
 
-	vim.b.annotation_mode = true
+	-- 设置 buffer 变量
+	vim.b[bufnr].annotation_mode = true
+
+	-- 设置高亮组
+	vim.cmd([[
+		highlight default link AnnotationMarker Comment
+		highlight default link AnnotationText String
+		]])
+
+	-- 设置自动命令组
+	local augroup = vim.api.nvim_create_augroup("AnnotationMode_" .. bufnr, { clear = true })
+
+	-- 当光标移动时更新预览窗口
+	vim.api.nvim_create_autocmd("CursorMoved", {
+		group = augroup,
+		buffer = bufnr,
+		callback = function()
+			M.update_annotation_preview()
+		end,
+	})
+
 	vim.notify("Annotation mode enabled", vim.log.levels.INFO)
 end
 
 -- 切换annotation mode
-M.toggle_annotation_mode = function()
+function M.toggle_annotation_mode()
 	local buf = vim.api.nvim_get_current_buf()
 	local enabled = vim.b[buf].annotation_mode
 
@@ -163,52 +118,108 @@ end
 
 -- 创建新标注
 function M.create_annotation()
-    local bufnr = vim.api.nvim_get_current_buf()
-    local clients = vim.lsp.get_active_clients({
-        bufnr = bufnr,
-        name = "annotation_ls"
-    })
+	local bufnr = vim.api.nvim_get_current_buf()
+	local clients = vim.lsp.get_active_clients({
+		bufnr = bufnr,
+		name = "annotation_ls"
+	})
 
-    if #clients == 0 then
-        vim.notify("LSP not attached", vim.log.levels.ERROR)
-        return
-    end
+	if #clients == 0 then
+		vim.notify("LSP not attached", vim.log.levels.ERROR)
+		return
+	end
 
-    -- 获取当前选中的范围
-    local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos("'>")
-    
-    -- 创建请求参数
-    local params = {
-        textDocument = {
-            uri = vim.uri_from_bufnr(bufnr)
-        },
-        range = {
-            start = {
-                line = start_pos[2] - 1,
-                character = start_pos[3] - 1
-            },
-            ['end'] = {
-                line = end_pos[2] - 1,
-                character = end_pos[3] - 1
-            }
-        }
-    }
+	-- 获取当前选中的范围
+	local start_pos = vim.fn.getpos("'<")
+	local end_pos = vim.fn.getpos("'>")
 
-    -- 发送请求到 LSP 服务器
-    clients[1].request('textDocument/createAnnotation', params, function(err, result)
-        if err then
-            vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
-            return
-        end
-        if result and result.success then
-            vim.notify("Annotation created successfully", vim.log.levels.INFO)
-        end
-    end, bufnr)
+	-- 创建请求参数
+	local params = {
+		textDocument = {
+			uri = vim.uri_from_bufnr(bufnr)
+		},
+		range = {
+			start = {
+				line = start_pos[2] - 1,
+				character = start_pos[3] - 1
+			},
+			['end'] = {
+				line = end_pos[2] - 1,
+				character = end_pos[3] - 1
+			}
+		}
+	}
+
+	-- 发送请求到 LSP 服务器
+	clients[1].request('textDocument/createAnnotation', params, function(err, result)
+		if err then
+			vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
+			return
+		end
+		if result and result.success then
+			vim.notify("Annotation created successfully", vim.log.levels.INFO)
+		end
+	end, bufnr)
 end
 
+--[[
+-- LSP 请求函数
+function M.create_annotation()
+	local client = vim.lsp.get_active_clients({ name = "annotation_ls" })[1]
+	if not client then
+		vim.notify("LSP client not found", vim.log.levels.ERROR)
+		return
+	end
+
+	local start_pos = vim.fn.getpos("'<")
+	local end_pos = vim.fn.getpos("'>")
+
+	local params = {
+		textDocument = {
+			uri = vim.uri_from_bufnr(0)
+		},
+		range = {
+			start = {
+				line = start_pos[2] - 1,
+				character = start_pos[3] - 1
+			},
+			['end'] = {
+				line = end_pos[2] - 1,
+				character = end_pos[3]
+			}
+		}
+	}
+
+	client.request('textDocument/createAnnotation', params, function(err, result)
+		if err then
+			vim.notify('Failed to create annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
+		else
+			vim.notify('Annotation created successfully!', vim.log.levels.INFO)
+		end
+	end)
+end
+--]]
+
+function M.list_annotations()
+	local client = vim.lsp.get_active_clients({ name = "annotation_ls" })[1]
+	if not client then
+		vim.notify("LSP client not found", vim.log.levels.ERROR)
+		return
+	end
+
+	client.request('textDocument/listAnnotations', {
+		textDocument = { uri = vim.uri_from_bufnr(0) }
+	}, function(err, result)
+			if err then
+				vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
+			else
+				vim.notify('Found ' .. #result.annotations .. ' annotations', vim.log.levels.INFO)
+				-- TODO: 在 quickfix 窗口中显示标注列表
+			end
+		end)
+end
 -- 使用telescope进行标注搜索
-M.find_annotations = function()
+function M.find_annotations()
 	if not vim.b.annotation_mode then
 		vim.notify("Please enable annotation mode first", vim.log.levels.WARN)
 		return
@@ -269,7 +280,7 @@ M.find_annotations = function()
 end
 
 -- 在右侧打开标注预览窗口
-M.setup_annotation_preview = function()
+function M.setup_annotation_preview()
 	if not vim.b.annotation_mode then
 		vim.notify("Please enable annotation mode first", vim.log.levels.WARN)
 		return
@@ -326,7 +337,7 @@ M.setup_annotation_preview = function()
 end
 
 -- 更新标注预览窗口的内容
-M.update_annotation_preview = function()
+function M.update_annotation_preview()
 	local win = vim.g.annotation_preview_win
 	local buf = vim.g.annotation_preview_buf
 
@@ -375,37 +386,59 @@ M.update_annotation_preview = function()
 end
 
 -- 手动 attach LSP 到当前 buffer
-M.attach_lsp = function()
+function M.attach_lsp()
 	local bufnr = vim.api.nvim_get_current_buf()
-	local filetype = vim.api.nvim_buf_get_option(bufnr, 'filetype')
+	local filetype = vim.bo[bufnr].filetype
 
-	if filetype ~= 'markdown' and filetype ~= 'text' and filetype ~= 'annot' then
-		vim.notify("Annotation LSP only works with markdown, text and annot files", vim.log.levels.WARN)
+	if not vim.tbl_contains({ "markdown", "text", "annot" }, filetype) then
+		vim.notify("LSP only supports markdown, text and annot files", vim.log.levels.WARN)
 		return
 	end
 
-	-- 检查 LSP 是否已经 attach
 	local clients = vim.lsp.get_active_clients({
 		bufnr = bufnr,
 		name = "annotation_ls"
 	})
 
 	if #clients > 0 then
-		vim.notify("LSP already attached to this buffer", vim.log.levels.INFO)
+		vim.notify("LSP already attached", vim.log.levels.INFO)
 		return
 	end
 
-	-- 确保 LSP 配置已经设置
-	if not require('lspconfig.configs').annotation_ls then
-		require('annotation-tool').setup()
+	-- 获取 Python 解释器和项目根目录
+	local python_path, plugin_root = get_python_path()
+	if not python_path then
+		vim.notify("No Python interpreter found", vim.log.levels.ERROR)
+		return
 	end
 
-	-- 手动启动 LSP 客户端并 attach 到当前 buffer
-	lspconfig.annotation_ls.setup({})  -- 使用 lspconfig 的 setup 方法
+	-- 构建 Python 命令
+	local python_cmd = {
+		python_path,
+		"-c",
+		string.format([[import sys; sys.path.insert(0, '%s'); from annotation_lsp.__main__ import main; main()]], plugin_root)
+	}
+
+	-- 启动 LSP 服务器
+	local client_id = vim.lsp.start_client({
+		name = "annotation_ls",
+		cmd = python_cmd,
+		root_dir = vim.fn.getcwd(),
+		on_attach = on_attach
+	})
+
+	if not client_id then
+		vim.notify("Failed to start LSP client", vim.log.levels.ERROR)
+		return
+	end
+
+	-- 将 LSP 客户端附加到当前 buffer
+	vim.lsp.buf_attach_client(bufnr, client_id)
+	vim.notify("LSP attached successfully", vim.log.levels.INFO)
 end
 
 -- 创建用户命令
-M.setup_commands = function()
+local function setup_commands()
 	vim.api.nvim_create_user_command('AnnotationLspAttach', function()
 		require('annotation-tool').attach_lsp()
 	end, {})
@@ -425,6 +458,67 @@ M.setup_commands = function()
 	vim.api.nvim_create_user_command('AnnotationModeToggle', function()
 		require('annotation-tool').toggle_annotation_mode()
 	end, {})
+end
+
+-- 初始化插件
+function M.setup(opts)
+	opts = opts or {}
+	local lspconfig = require('lspconfig')
+	local configs = require('lspconfig.configs')
+	-- 获取 Python 解释器和项目根目录
+	local python_path, plugin_root = get_python_path()
+	if not python_path then
+		vim.notify("No Python interpreter found", vim.log.levels.ERROR)
+		return
+	end
+	-- 构建 Python 命令
+	local python_cmd = {
+		python_path,
+		"-c",
+		string.format([[import sys; sys.path.insert(0, '%s'); from annotation_lsp.__main__ import main; main()]], plugin_root)
+	}
+	-- 注册自定义 LSP
+	if not configs.annotation_ls then
+		configs.annotation_ls = {
+			default_config = {
+				cmd = python_cmd,
+				filetypes = { 'markdown', 'text', 'annot' },
+				root_dir = function(fname)
+					return lspconfig.util.find_git_ancestor(fname) or vim.fn.getcwd()
+				end,
+				settings = {},
+			},
+		}
+	end
+	setup_commands()
+	-- 设置 LSP
+	lspconfig.annotation_ls.setup({
+		cmd = python_cmd,
+		on_attach = on_attach,
+		capabilities = vim.lsp.protocol.make_client_capabilities(),
+		settings = vim.tbl_deep_extend("force", {
+			annotation = {
+				saveDir = vim.fn.expand('~/.local/share/nvim/annotation-notes'),
+			}
+		}, opts.settings or {})
+	})
+
+	--[[
+	-- 设置自动命令：当打开支持的文件类型时自动启用 LSP
+	vim.api.nvim_create_autocmd("FileType", {
+		pattern = { "markdown", "text", "annot" },
+		callback = function(args)
+			local clients = vim.lsp.get_active_clients({
+				bufnr = args.buf,
+				name = "annotation_ls"
+			})
+			if #clients == 0 then
+				vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
+				lspconfig.annotation_ls.setup({})
+			end
+		end,
+	})
+	--]]
 end
 
 return M
