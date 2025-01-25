@@ -13,22 +13,22 @@ function M.get_visual_selection()
 		vim.notify("Please select text in visual mode first", vim.log.levels.WARN)
 		return nil
 	end
-	
+
 	local start_pos = vim.fn.getpos('v')
 	local end_pos = vim.fn.getpos('.')
-	
+
 	-- 调试输出
 	-- vim.notify(string.format(
 	-- 	"Selection: start=[bufnum=%d, line=%d, col=%d, off=%d] end=[bufnum=%d, line=%d, col=%d, off=%d]",
 	-- 	start_pos[1], start_pos[2], start_pos[3], start_pos[4],
 	-- 	end_pos[1], end_pos[2], end_pos[3], end_pos[4]
 	-- ), vim.log.levels.INFO)
-	
+
 	-- 确保 start_pos 在 end_pos 之前
 	if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
 		start_pos, end_pos = end_pos, start_pos
 	end
-	
+
 	-- 转换为 LSP 位置格式
 	return {
 		start = {
@@ -45,7 +45,7 @@ end
 -- 切换标注模式
 function M.toggle_mode(bufnr)
 	local enabled = vim.b[bufnr].annotation_mode
-	
+
 	if enabled then
 		-- 禁用标注模式
 		vim.b[bufnr].annotation_mode = false

@@ -20,13 +20,13 @@ M.toggle_mode = core.toggle_mode
 -- 初始化插件
 function M.setup(opts)
 	opts = opts or {}
-	
+
 	-- 设置 LSP
 	lsp.setup(opts)
-	
+
 	-- 设置命令
 	commands.setup()
-	
+
 	-- 设置自动命令：当打开支持的文件类型时自动启用 LSP
 	if opts.auto_attach == true then
 		vim.api.nvim_create_autocmd("FileType", {
