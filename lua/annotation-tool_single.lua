@@ -151,7 +151,10 @@ function M.create_annotation()
 	}
 
 	-- 发送请求到 LSP 服务器
-	clients[1].request('textDocument/createAnnotation', params, function(err, result)
+	clients[1].request('workspace/executeCommand', {
+		command = "createAnnotation",
+		arguments = { params }
+	}, function(err, result)
 		if err then
 			vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
 			return
@@ -207,16 +210,19 @@ function M.list_annotations()
 		return
 	end
 
-	client.request('textDocument/listAnnotations', {
-		textDocument = { uri = vim.uri_from_bufnr(0) }
+	client.request('workspace/executeCommand', {
+		command = "listAnnotations",
+		arguments = { {
+			textDocument = { uri = vim.uri_from_bufnr(0) }
+		} }
 	}, function(err, result)
-			if err then
-				vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
-			else
-				vim.notify('Found ' .. #result.annotations .. ' annotations', vim.log.levels.INFO)
-				-- TODO: 在 quickfix 窗口中显示标注列表
-			end
-		end)
+		if err then
+			vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
+		else
+			vim.notify('Found ' .. #result.annotations .. ' annotations', vim.log.levels.INFO)
+			-- TODO: 在 quickfix 窗口中显示标注列表
+		end
+	end)
 end
 -- 使用telescope进行标注搜索
 function M.find_annotations()

@@ -77,9 +77,9 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 		hover_provider=True,
 		execute_command_provider=types.ExecuteCommandOptions(
 			commands=[
-				"textDocument/createAnnotation",
-				"textDocument/listAnnotations",
-				"textDocument/deleteAnnotation"
+				"createAnnotation",
+				"listAnnotations",
+				"deleteAnnotation"
 			]
 		)
 	)
@@ -124,50 +124,67 @@ def hover(params: types.HoverParams) -> Optional[types.Hover]:
 	
 	return None
 
-@server.command("textDocument/createAnnotation")
-def create_annotation(params):
+@server.command("createAnnotation")
+def create_annotation(ls: LanguageServer, params: dict) -> dict:
 	"""处理创建标注的逻辑"""
-	doc = server.workspace.get_document(params.textDocument.uri)
-	range = params.range
+	# params 是一个列表，第一个元素才是我们需要的字典
+	params = params[0]
+	doc = ls.workspace.get_document(params["textDocument"]["uri"])
+	selection_range = types.Range(
+		start=types.Position(
+			line=params["range"]["start"]["line"],
+			character=params["range"]["start"]["character"]
+		),
+		end=types.Position(
+			line=params["range"]["end"]["line"],
+			character=params["range"]["end"]["character"]
+		)
+	)
 	
 	# 获取选中的文本
 	lines = doc.source.splitlines()
-	if range.start.line == range.end.line:
+	if selection_range.start.line == selection_range.end.line:
 		# 单行选择
-		selected_text = lines[range.start.line][range.start.character:range.end.character]
+		selected_text = lines[selection_range.start.line][selection_range.start.character:selection_range.end.character]
 	else:
 		# 多行选择
 		selected_text = []
-		for i in range(range.start.line, range.end.line + 1):
-			if i == range.start.line:
-				selected_text.append(lines[i][range.start.character:])
-			elif i == range.end.line:
-				selected_text.append(lines[i][:range.end.character])
+		for i in range(selection_range.start.line, selection_range.end.line + 1):
+			if i == selection_range.start.line:
+				selected_text.append(lines[i][selection_range.start.character:])
+			elif i == selection_range.end.line:
+				selected_text.append(lines[i][:selection_range.end.character])
 			else:
 				selected_text.append(lines[i])
 		selected_text = '\n'.join(selected_text)
 	
 	# 创建标注
 	annotation_id = db_manager.create_annotation(
-		doc_uri=params.textDocument.uri,
-		start_line=range.start.line,
-		start_char=range.start.character,
-		end_line=range.end.line,
-		end_char=range.end.character,
+		doc_uri=params["textDocument"]["uri"],
+		start_line=selection_range.start.line,
+		start_char=selection_range.start.character,
+		end_line=selection_range.end.line,
+		end_char=selection_range.end.character,
 		text=selected_text
 	)
 	
+	server.show_message(f"Created annotation {annotation_id}")
 	return {"success": True, "annotation_id": annotation_id}
 
-@server.command("textDocument/listAnnotations")
-def list_annotations(params):
+@server.command("listAnnotations")
+def list_annotations(ls: LanguageServer, params: dict) -> dict:
 	"""处理列出标注的逻辑"""
-	doc = server.workspace.get_document(params.textDocument.uri)
-	return {"success": True}
+	# params 是一个列表，第一个元素才是我们需要的字典
+	params = params[0]
+	doc = ls.workspace.get_document(params["textDocument"]["uri"])
+	annotations = find_annotation_ranges(doc.source)
+	return {"success": True, "annotations": annotations}
 
-@server.command("textDocument/deleteAnnotation")
-def delete_annotation(params):
+@server.command("deleteAnnotation")
+def delete_annotation(ls: LanguageServer, params: dict) -> dict:
 	"""处理删除标注的逻辑"""
-	doc = server.workspace.get_document(params.textDocument.uri)
-	annotation_id = params.annotationId
+	params = params[0]
+	annotation_id = params["annotationId"]
+	# TODO: 实现删除标注的逻辑
+	ls.show_message(f"Deleted annotation {annotation_id}")
 	return {"success": True}
