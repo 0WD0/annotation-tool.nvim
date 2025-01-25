@@ -7,12 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pygls.server import LanguageServer
-from pygls.lsp.methods import (
-    TEXT_DOCUMENT_DID_CHANGE,
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_HOVER,
-)
-from pygls.lsp.types import (
+from lsprotocol.types import (
+    TextDocumentSyncKind,
+    DidChangeTextDocumentParams,
+    DidOpenTextDocumentParams,
     Hover,
     Position,
     Range,
@@ -25,7 +23,11 @@ from .note_manager import NoteManager
 
 class AnnotationServer(LanguageServer):
     def __init__(self):
-        super().__init__()
+        super().__init__(
+            name="annotation-lsp",
+            version="0.1.0",
+            # sync_kind=TextDocumentSyncKind.Incremental
+        )
         self.annotation_brackets = ('｢', '｣')  # 使用日语半角括号作为标注区间
         self.db_manager = DatabaseManager()
         self.note_manager = NoteManager()
@@ -79,22 +81,22 @@ class AnnotationServer(LanguageServer):
 
 server = AnnotationServer()
 
-@server.feature(TEXT_DOCUMENT_DID_OPEN)
-def did_open(ls: AnnotationServer, params):
+@server.feature("textDocument/didOpen")
+async def did_open(ls: AnnotationServer, params: DidOpenTextDocumentParams):
     """文档打开时的处理"""
     doc = ls.workspace.get_document(params.text_document.uri)
     ranges = ls.find_annotation_ranges(doc.source)
     # TODO: Validate annotations and update database
 
-@server.feature(TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: AnnotationServer, params):
+@server.feature("textDocument/didChange")
+async def did_change(ls: AnnotationServer, params: DidChangeTextDocumentParams):
     """文档变化时的处理"""
     doc = ls.workspace.get_document(params.text_document.uri)
     ranges = ls.find_annotation_ranges(doc.source)
     # TODO: Update database with new ranges
 
-@server.feature(TEXT_DOCUMENT_HOVER)
-async def hover(ls: AnnotationServer, params):
+@server.feature("textDocument/hover")
+async def hover(ls: AnnotationServer, params) -> Optional[Hover]:
     """处理悬停事件，显示标注内容"""
     doc = ls.workspace.get_document(params.text_document.uri)
     annotation = ls.get_annotation_at_position(doc.source, params.position)

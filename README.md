@@ -18,11 +18,11 @@
 - Neovim >= 0.8.0
 - Python >= 3.8
 - 以下Python包：
-  - python-lsp-server
-  - pygls
-  - sqlalchemy
-  - fuzzyfinder
-  - watchdog
+	- python-lsp-server
+	- pygls
+	- sqlalchemy
+	- fuzzyfinder
+	- watchdog
 
 ## 安装
 
@@ -35,16 +35,14 @@ pip install -r requirements.txt
 2. 在你的Neovim配置中添加插件（使用你喜欢的插件管理器）：
 
 ```lua
--- 使用packer.nvim
-use {
-    'path/to/annotation-tool',
-    requires = {
-        'neovim/nvim-lspconfig',
-        'nvim-telescope/telescope.nvim',
-    },
-    config = function()
-        require('annotation-tool').setup()
-    end
+-- 使用lazy.nvim
+return {
+	'annotation-tool',
+	dependencies = {
+		'neovim/nvim-lspconfig',
+		'nvim-telescope/telescope.nvim',
+	},
+	opts = {}
 }
 ```
 
@@ -69,8 +67,8 @@ use {
 ├── db/
 │   ├── annotations.db
 │   └── backups/
-└── notes/
-    └── note_*.md
+├── notes/
+└── note_*.md
 ```
 
 ### 批注文件格式
@@ -94,7 +92,7 @@ id: 1
 
 ```lua
 require('annotation-tool').setup({
-    -- 自定义选项将在后续版本中添加
+	-- 自定义选项将在后续版本中添加
 })
 ```
 
