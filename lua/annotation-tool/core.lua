@@ -29,17 +29,23 @@ function M.get_visual_selection()
 		start_pos, end_pos = end_pos, start_pos
 	end
 
+	-- 获取行内容
+	local start_line = vim.fn.getline(start_pos[2])
+	local end_line = vim.fn.getline(end_pos[2])
+
 	-- 转换为 LSP 位置格式
-	return {
+	local result = {
 		start = {
 			line = start_pos[2] - 1,
-			character = start_pos[3] - 1
+			character = mode == 'V' and 0 or start_pos[3] - 1
 		},
 		['end'] = {
 			line = end_pos[2] - 1,
-			character = end_pos[3] - 1
+			character = mode == 'V' and #end_line or end_pos[3] - 1
 		}
 	}
+
+	return result
 end
 
 -- 切换标注模式
