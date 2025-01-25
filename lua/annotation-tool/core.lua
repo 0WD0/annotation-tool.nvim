@@ -5,6 +5,34 @@ function M.is_markdown_file()
 	return vim.bo.filetype == "markdown"
 end
 
+-- 将字节位置转换为 UTF-8 字符位置
+local function byte_to_char(line, byte_idx)
+	if byte_idx <= 1 then
+		return 0
+	end
+	-- 截取到字节位置的子串
+	local sub = line:sub(1, byte_idx - 1)
+	-- 计算 UTF-8 字符数
+	local pos = 1
+	local chars = 0
+	while pos <= #sub do
+		local byte = string.byte(sub, pos)
+		if byte < 0x80 then
+			pos = pos + 1
+		elseif byte >= 0xF0 then
+			pos = pos + 4
+		elseif byte >= 0xE0 then
+			pos = pos + 3
+		elseif byte >= 0xC0 then
+			pos = pos + 2
+		else
+			pos = pos + 1
+		end
+		chars = chars + 1
+	end
+	return chars
+end
+
 -- 获取选中区域
 function M.get_visual_selection()
 	-- 获取当前选区
@@ -17,12 +45,6 @@ function M.get_visual_selection()
 	local start_pos = vim.fn.getpos('v')
 	local end_pos = vim.fn.getpos('.')
 
-	-- 调试输出
-	-- vim.notify(string.format(
-	-- 	"Selection: start=[bufnum=%d, line=%d, col=%d, off=%d] end=[bufnum=%d, line=%d, col=%d, off=%d]",
-	-- 	start_pos[1], start_pos[2], start_pos[3], start_pos[4],
-	-- 	end_pos[1], end_pos[2], end_pos[3], end_pos[4]
-	-- ), vim.log.levels.INFO)
 
 	-- 确保 start_pos 在 end_pos 之前
 	if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
@@ -37,13 +59,19 @@ function M.get_visual_selection()
 	local result = {
 		start = {
 			line = start_pos[2] - 1,
-			character = mode == 'V' and 0 or start_pos[3] - 1
+			character = mode == 'V' and 0 or byte_to_char(start_line, start_pos[3])
 		},
 		['end'] = {
 			line = end_pos[2] - 1,
-			character = mode == 'V' and #end_line or end_pos[3] - 1
+			character = mode == 'V' and byte_to_char(end_line, #end_line + 1) or byte_to_char(end_line, end_pos[3] + 1)
 		}
 	}
+
+	-- 调试输出
+	vim.notify(string.format(
+		"Selection: start=[line=%d, col=%d] end=[line=%d, col=%d]",
+		result.start.line, result.start.character, result['end'].line, result['end'].character
+	), vim.log.levels.INFO)
 
 	return result
 end
