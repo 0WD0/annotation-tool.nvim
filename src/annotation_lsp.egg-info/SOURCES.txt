@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/annotation_lsp/__init__.py
+src/annotation_lsp/__main__.py
+src/annotation_lsp.egg-info/PKG-INFO
+src/annotation_lsp.egg-info/SOURCES.txt
+src/annotation_lsp.egg-info/dependency_links.txt
+src/annotation_lsp.egg-info/requires.txt
+src/annotation_lsp.egg-info/top_level.txt
