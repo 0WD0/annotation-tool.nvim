@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-from .server import AnnotationServer
-
-def main():
-	server = AnnotationServer()
-	server.start_io()
+from .server import server
 
 if __name__ == "__main__":
-	main()
+	server.start_io()
