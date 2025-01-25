@@ -7,14 +7,29 @@ end
 
 -- 获取选中区域
 function M.get_visual_selection()
-	local start_pos = vim.fn.getpos("'<")
-	local end_pos = vim.fn.getpos("'>")
-	
-	if start_pos[2] == 0 or end_pos[2] == 0 then
-		vim.notify("No text selected", vim.log.levels.ERROR)
+	-- 获取当前选区
+	local mode = vim.api.nvim_get_mode().mode
+	if mode ~= 'v' and mode ~= 'V' and mode ~= '' then
+		vim.notify("Please select text in visual mode first", vim.log.levels.WARN)
 		return nil
 	end
 	
+	local start_pos = vim.fn.getpos('v')
+	local end_pos = vim.fn.getpos('.')
+	
+	-- 调试输出
+	-- vim.notify(string.format(
+	-- 	"Selection: start=[bufnum=%d, line=%d, col=%d, off=%d] end=[bufnum=%d, line=%d, col=%d, off=%d]",
+	-- 	start_pos[1], start_pos[2], start_pos[3], start_pos[4],
+	-- 	end_pos[1], end_pos[2], end_pos[3], end_pos[4]
+	-- ), vim.log.levels.INFO)
+	
+	-- 确保 start_pos 在 end_pos 之前
+	if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
+		start_pos, end_pos = end_pos, start_pos
+	end
+	
+	-- 转换为 LSP 位置格式
 	return {
 		start = {
 			line = start_pos[2] - 1,
