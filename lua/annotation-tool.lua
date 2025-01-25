@@ -162,54 +162,49 @@ M.toggle_annotation_mode = function()
 end
 
 -- 创建新标注
-M.create_annotation = function()
-	if not vim.b.annotation_mode then
-		vim.notify("Please enable annotation mode first", vim.log.levels.WARN)
-		return
-	end
+function M.create_annotation()
+    local bufnr = vim.api.nvim_get_current_buf()
+    local clients = vim.lsp.get_active_clients({
+        bufnr = bufnr,
+        name = "annotation_ls"
+    })
 
-	-- 获取当前选中的文本范围
-	local start_pos = vim.fn.getpos("'<")
-	local end_pos = vim.fn.getpos("'>")
-	local start_line = start_pos[2]
-	local start_col = start_pos[3]
-	local end_line = end_pos[2]
-	local end_col = end_pos[3]
+    if #clients == 0 then
+        vim.notify("LSP not attached", vim.log.levels.ERROR)
+        return
+    end
 
-	-- 插入标注括号
-	vim.cmd('normal! `>a｣')
-	vim.cmd('normal! `<i｢')
+    -- 获取当前选中的范围
+    local start_pos = vim.fn.getpos("'<")
+    local end_pos = vim.fn.getpos("'>")
+    
+    -- 创建请求参数
+    local params = {
+        textDocument = {
+            uri = vim.uri_from_bufnr(bufnr)
+        },
+        range = {
+            start = {
+                line = start_pos[2] - 1,
+                character = start_pos[3] - 1
+            },
+            ['end'] = {
+                line = end_pos[2] - 1,
+                character = end_pos[3] - 1
+            }
+        }
+    }
 
-	-- 通知LSP服务器创建新标注
-	local params = {
-		textDocument = {
-			uri = vim.uri_from_bufnr(0)
-		},
-		position = {
-			line = start_line - 1,
-			character = start_col - 1
-		},
-		range = {
-			start = {
-				line = start_line - 1,
-				character = start_col - 1
-			},
-			["end"] = {
-				line = end_line - 1,
-				character = end_col - 1
-			}
-		}
-	}
-
-	vim.lsp.buf_request(0, 'textDocument/createAnnotation', params, function(err, result, ctx, config)
-		if err then
-			vim.notify("Failed to create annotation: " .. err.message, vim.log.levels.ERROR)
-			return
-		end
-		if result then
-			vim.notify("Annotation created", vim.log.levels.INFO)
-		end
-	end)
+    -- 发送请求到 LSP 服务器
+    clients[1].request('textDocument/createAnnotation', params, function(err, result)
+        if err then
+            vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
+            return
+        end
+        if result and result.success then
+            vim.notify("Annotation created successfully", vim.log.levels.INFO)
+        end
+    end, bufnr)
 end
 
 -- 使用telescope进行标注搜索

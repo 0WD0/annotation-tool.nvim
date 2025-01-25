@@ -2,8 +2,8 @@
 from .server import AnnotationServer
 
 def main():
-    server = AnnotationServer()
-    server.start_io()
+	server = AnnotationServer()
+	server.start_io()
 
 if __name__ == "__main__":
-    main()
+	main()
