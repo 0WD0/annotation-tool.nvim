@@ -5,11 +5,12 @@ import re
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlparse
 
 from pygls.server import LanguageServer
 from lsprotocol import types
 
-from .db_manager import DatabaseManager
+from .db_manager import DatabaseManager, DatabaseError
 from .note_manager import NoteManager
 
 server = LanguageServer("annotation-lsp", "v0.1.0")
@@ -68,6 +69,13 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""初始化 LSP 服务器"""
 	server.show_message("Initializing annotation LSP server...")
 	
+	# 设置工作目录
+	if params.root_uri:
+		root_path = urlparse(params.root_uri).path
+		os.chdir(root_path)
+		db_manager.init_db(root_path)
+		note_manager.init_project(root_path)
+	
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
 			open_close=True,
@@ -81,10 +89,20 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"listAnnotations",
 				"deleteAnnotation"
 			]
-		)
+		),
 	)
 	
 	return types.InitializeResult(capabilities=capabilities)
+
+@server.feature("workspace/didChangeWorkspaceFolders")
+def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
+	"""处理工作区变化事件"""
+	if params.event.added:
+		# 使用新添加的第一个工作区
+		root_uri = params.event.added[0].uri
+		root_path = urlparse(root_uri).path
+		db_manager.init_db(root_path)
+		note_manager.init_project(root_path)
 
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
 def did_open(params: types.DidOpenTextDocumentParams):
@@ -97,94 +115,128 @@ def did_change(params: types.DidChangeTextDocumentParams):
 	server.show_message(f"Document changed: {params.text_document.uri}")
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
-def hover(params: types.HoverParams) -> Optional[types.Hover]:
+def hover(params: types.HoverParams) -> types.Hover:
 	"""处理悬停事件，显示标注内容"""
 	doc = server.workspace.get_document(params.text_document.uri)
-	position = params.position
 	
-	# 检查当前位置是否在标注区间内
-	annotations = find_annotation_ranges(doc.source)
-	for start_line, start_char, end_line, end_char, annotation_id in annotations:
-		if (start_line <= position.line <= end_line and
-			(start_line != position.line or start_char <= position.character) and
-			(end_line != position.line or position.character <= end_char)):
-			
-			note = note_manager.get_note(annotation_id)
-			if note:
-				return types.Hover(
-					contents=types.MarkupContent(
-						kind=types.MarkupKind.MARKDOWN,
-						value=f"**Annotation {annotation_id}**\n\n{note}"
-					),
-					range=types.Range(
-						start=types.Position(line=start_line, character=start_char),
-						end=types.Position(line=end_line, character=end_char)
-					)
-				)
+	# 获取当前位置的标注
+	annotation = get_annotation_at_position(doc.source, params.position)
+	if not annotation:
+		return types.Hover(contents=[])
 	
-	return None
+	start_line, start_char, end_line, end_char, annotation_id = annotation
+	
+	# 获取笔记文件
+	note_file = db_manager.get_annotation_note_file(params.text_document.uri, annotation_id)
+	if not note_file:
+		return types.Hover(contents=[])
+	
+	# 读取笔记内容
+	note_content = note_manager.get_note_content(note_file)
+	if not note_content:
+		return types.Hover(contents=[])
+	
+	return types.Hover(contents=[types.MarkupContent(
+		kind=types.MarkupKind.Markdown,
+		value=note_content
+	)])
 
 @server.command("createAnnotation")
 def create_annotation(ls: LanguageServer, params: dict) -> dict:
 	"""处理创建标注的逻辑"""
-	# params 是一个列表，第一个元素才是我们需要的字典
-	params = params[0]
-	doc = ls.workspace.get_document(params["textDocument"]["uri"])
-	selection_range = types.Range(
-		start=types.Position(
-			line=params["range"]["start"]["line"],
-			character=params["range"]["start"]["character"]
-		),
-		end=types.Position(
-			line=params["range"]["end"]["line"],
-			character=params["range"]["end"]["character"]
+	try:
+		# params 是一个列表，第一个元素才是我们需要的字典
+		params = params[0]
+		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		selection_range = types.Range(
+			start=types.Position(
+				line=params["range"]["start"]["line"],
+				character=params["range"]["start"]["character"]
+			),
+			end=types.Position(
+				line=params["range"]["end"]["line"],
+				character=params["range"]["end"]["character"]
+			)
 		)
-	)
-	
-	# 获取选中的文本
-	lines = doc.source.splitlines()
-	if selection_range.start.line == selection_range.end.line:
-		# 单行选择
-		selected_text = lines[selection_range.start.line][selection_range.start.character:selection_range.end.character]
-	else:
-		# 多行选择
-		selected_text = []
-		for i in range(selection_range.start.line, selection_range.end.line + 1):
-			if i == selection_range.start.line:
-				selected_text.append(lines[i][selection_range.start.character:])
-			elif i == selection_range.end.line:
-				selected_text.append(lines[i][:selection_range.end.character])
-			else:
-				selected_text.append(lines[i])
-		selected_text = '\n'.join(selected_text)
-	
-	# 创建标注
-	annotation_id = db_manager.create_annotation(
-		doc_uri=params["textDocument"]["uri"],
-		start_line=selection_range.start.line,
-		start_char=selection_range.start.character,
-		end_line=selection_range.end.line,
-		end_char=selection_range.end.character,
-		text=selected_text
-	)
-	
-	server.show_message(f"Created annotation {annotation_id}")
-	return {"success": True, "annotation_id": annotation_id}
+		
+		# 获取选中的文本
+		lines = doc.source.splitlines()
+		if selection_range.start.line == selection_range.end.line:
+			# 单行选择
+			selected_text = lines[selection_range.start.line][selection_range.start.character:selection_range.end.character]
+		else:
+			# 多行选择
+			selected_text = []
+			for i in range(selection_range.start.line, selection_range.end.line + 1):
+				if i == selection_range.start.line:
+					selected_text.append(lines[i][selection_range.start.character:])
+				elif i == selection_range.end.line:
+					selected_text.append(lines[i][:selection_range.end.character])
+				else:
+					selected_text.append(lines[i])
+			selected_text = '\n'.join(selected_text)
+		
+		# 创建标注
+		annotation_id = db_manager.create_annotation(
+			doc_uri=params["textDocument"]["uri"],
+			start_line=selection_range.start.line,
+			start_char=selection_range.start.character,
+			end_line=selection_range.end.line,
+			end_char=selection_range.end.character,
+			text=selected_text
+		)
+		
+		# 创建笔记文件
+		note_manager.create_annotation_note(
+			file_path=params["textDocument"]["uri"],
+			annotation_id=annotation_id,
+			text=selected_text
+		)
+		
+		return {"success": True, "annotationId": annotation_id}
+	except DatabaseError as e:
+		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}
+	except Exception as e:
+		ls.show_message(f"Failed to create annotation: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}
 
 @server.command("listAnnotations")
 def list_annotations(ls: LanguageServer, params: dict) -> dict:
 	"""处理列出标注的逻辑"""
-	# params 是一个列表，第一个元素才是我们需要的字典
-	params = params[0]
-	doc = ls.workspace.get_document(params["textDocument"]["uri"])
-	annotations = find_annotation_ranges(doc.source)
-	return {"success": True, "annotations": annotations}
+	try:
+		# params 是一个列表，第一个元素才是我们需要的字典
+		params = params[0]
+		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		annotations = db_manager.get_file_annotations(doc.uri)
+		return {"success": True, "annotations": annotations}
+	except DatabaseError as e:
+		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}
+	except Exception as e:
+		ls.show_message(f"Failed to list annotations: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}
 
 @server.command("deleteAnnotation")
 def delete_annotation(ls: LanguageServer, params: dict) -> dict:
 	"""处理删除标注的逻辑"""
-	params = params[0]
-	annotation_id = params["annotationId"]
-	# TODO: 实现删除标注的逻辑
-	ls.show_message(f"Deleted annotation {annotation_id}")
-	return {"success": True}
+	try:
+		# params 是一个列表，第一个元素才是我们需要的字典
+		params = params[0]
+		doc_uri = params["textDocument"]["uri"]
+		annotation_id = params["annotationId"]
+		
+		# 删除标注记录
+		if not db_manager.delete_annotation(doc_uri, annotation_id):
+			return {"success": False, "error": "Annotation not found"}
+		
+		# 删除笔记文件
+		note_manager.delete_note(annotation_id)
+		
+		return {"success": True}
+	except DatabaseError as e:
+		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}
+	except Exception as e:
+		ls.show_message(f"Failed to delete annotation: {str(e)}", types.MessageType.Error)
+		return {"success": False, "error": str(e)}

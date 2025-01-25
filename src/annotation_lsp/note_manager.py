@@ -13,23 +13,46 @@ class NoteManager:
 		self.current_project = project_root
 		notes_dir = Path(project_root) / '.annotation' / 'notes'
 		notes_dir.mkdir(parents=True, exist_ok=True)
-		
-	def create_note(self, file_path: str, annotation_id: int, content: str) -> Optional[str]:
-		"""创建新的笔记文件"""
+	
+	def get_notes_dir(self) -> Optional[Path]:
+		"""获取笔记目录"""
 		if not self.current_project:
 			return None
-			
-		notes_dir = Path(self.current_project) / '.annotation' / 'notes'
-		note_file = notes_dir / f'note_{annotation_id}.md'
-		
-		if note_file.exists():
+		return Path(self.current_project) / '.annotation' / 'notes'
+	
+	def create_annotation_note(self, file_path: str, annotation_id: int, text: str) -> Optional[str]:
+		"""为标注创建笔记文件"""
+		notes_dir = self.get_notes_dir()
+		if not notes_dir:
 			return None
-			
-		with note_file.open('w', encoding='utf-8') as f:
-			f.write(f'---\nfile: {file_path}\nid: {annotation_id}\n---\n\n')
-			f.write(f'> {content}\n\n')
 		
-		return str(note_file)
+		note_file = f'note_{annotation_id}.md'
+		note_path = notes_dir / note_file
+		
+		if note_path.exists():
+			return None
+		
+		with note_path.open('w', encoding='utf-8') as f:
+			f.write(f'---\nfile: {file_path}\nid: {annotation_id}\n---\n\n')
+			f.write('## Selected Text\n\n')
+			f.write('```\n')
+			f.write(text)
+			f.write('\n```\n\n')
+			f.write('## Notes\n\n')
+		
+		return str(note_path)
+	
+	def delete_note(self, annotation_id: int) -> bool:
+		"""删除标注对应的笔记文件"""
+		notes_dir = self.get_notes_dir()
+		if not notes_dir:
+			return False
+		
+		note_path = notes_dir / f'note_{annotation_id}.md'
+		if note_path.exists():
+			note_path.unlink()
+			return True
+		return False
 	
 	def update_note_source(self, note_file: str, file_path: str):
 		"""更新笔记文件中记录的源文件路径"""
@@ -64,12 +87,11 @@ class NoteManager:
 		"""搜索笔记文件
 		search_type可以是：'file_path', 'content', 'note', 'all'
 		"""
-		if not self.current_project:
+		notes_dir = self.get_notes_dir()
+		if not notes_dir:
 			return []
-			
-		notes_dir = Path(self.current_project) / '.annotation' / 'notes'
-		results = []
 		
+		results = []
 		for note_file in notes_dir.glob('*.md'):
 			with note_file.open('r', encoding='utf-8') as f:
 				content = f.read()
