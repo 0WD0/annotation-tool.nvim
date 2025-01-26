@@ -64,6 +64,27 @@ def get_annotation_at_position(text: str, position: types.Position) -> Optional[
 	
 	return None
 
+def extract_notes_content(content: str) -> str:
+	"""从笔记内容中提取 ## Notes 后面的内容
+	
+	Args:
+		content: 完整的笔记内容
+		
+	Returns:
+		## Notes 后面的内容，如果没有找到则返回空字符串
+	"""
+	if not content:
+		return ""
+	
+	# 按行分割并查找 ## Notes
+	lines = content.splitlines()
+	for i, line in enumerate(lines):
+		if line.strip() == "## Notes":
+			# 返回 ## Notes 后面的所有内容
+			return "\n".join(lines[i+1:]).strip()
+	
+	return ""
+
 @server.feature(types.INITIALIZE)
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""初始化 LSP 服务器"""
@@ -115,31 +136,36 @@ def did_change(params: types.DidChangeTextDocumentParams):
 	server.show_message(f"Document changed: {params.text_document.uri}")
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
-def hover(params: types.HoverParams) -> types.Hover:
-	"""处理悬停事件，显示标注内容"""
-	doc = server.workspace.get_document(params.text_document.uri)
-	
-	# 获取当前位置的标注
-	annotation = get_annotation_at_position(doc.source, params.position)
-	if not annotation:
-		return types.Hover(contents=[])
-	
-	start_line, start_char, end_line, end_char, annotation_id = annotation
-	
-	# 获取笔记文件
-	note_file = db_manager.get_annotation_note_file(params.text_document.uri, annotation_id)
-	if not note_file:
-		return types.Hover(contents=[])
-	
-	# 读取笔记内容
-	note_content = note_manager.get_note_content(note_file)
-	if not note_content:
-		return types.Hover(contents=[])
-	
-	return types.Hover(contents=[types.MarkupContent(
-		kind=types.MarkupKind.Markdown,
-		value=note_content
-	)])
+def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover]:
+	"""处理悬停请求"""
+	try:
+		# 获取当前位置的标注
+		doc = ls.workspace.get_document(params.text_document.uri)
+		annotation = get_annotation_at_position(doc.source, params.position)
+		if not annotation:
+			return None
+		
+		# 获取笔记内容
+		note_file = db_manager.get_annotation_note_file(params.text_document.uri, annotation[4])
+		if not note_file:
+			return None
+		
+		note_content = note_manager.get_note_content(note_file)
+		if not note_content:
+			return types.Hover(contents=[])
+			
+		# 只显示 ## Notes 后面的内容
+		notes_content = extract_notes_content(note_content)
+		if not notes_content:
+			return types.Hover(contents=[])
+			
+		return types.Hover(contents=types.MarkupContent(
+			kind=types.MarkupKind.Markdown,
+			value=notes_content
+		))
+	except Exception as e:
+		server.show_message(f"Failed to hover: {str(e)}", types.MessageType.Error)
+		return None
 
 @server.command("createAnnotation")
 def create_annotation(ls: LanguageServer, params: dict) -> dict:
