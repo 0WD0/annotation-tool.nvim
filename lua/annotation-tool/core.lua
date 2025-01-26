@@ -76,23 +76,55 @@ function M.get_visual_selection()
 	return result
 end
 
--- 切换标注模式
-function M.toggle_mode(bufnr)
-	local enabled = vim.b[bufnr].annotation_mode
+-- 启用标注模式
+function M.enable_annotation_mode(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
 
-	if enabled then
-		-- 禁用标注模式
-		vim.b[bufnr].annotation_mode = false
-		vim.wo.conceallevel = 0
-		vim.cmd([[syntax clear AnnotationBracket]])
-		vim.notify("Annotation mode disabled", vim.log.levels.INFO)
-	else
-		-- 启用标注模式
-		vim.b[bufnr].annotation_mode = true
-		vim.wo.conceallevel = 2
-		vim.cmd([[syntax match AnnotationBracket "｢\|｣" conceal]])
-		vim.notify("Annotation mode enabled", vim.log.levels.INFO)
+	-- 如果已经启用，直接返回
+	if vim.b[bufnr].annotation_mode then
+		return
 	end
+
+	vim.b[bufnr].annotation_mode = true
+	vim.wo.conceallevel = 2
+	vim.cmd([[
+		syn conceal on
+		syn match AnnotationBracket "｢\|｣"
+		syn conceal off
+	]])
+	vim.notify("Annotation mode enabled", vim.log.levels.INFO)
+end
+
+-- 禁用标注模式
+function M.disable_annotation_mode(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+
+	-- 如果已经禁用，直接返回
+	if not vim.b[bufnr].annotation_mode then
+		return
+	end
+
+	vim.b[bufnr].annotation_mode = false
+	vim.wo.conceallevel = 0
+	vim.cmd([[syntax clear AnnotationBracket]])
+	vim.notify("Annotation mode disabled", vim.log.levels.INFO)
+end
+
+-- 切换标注模式
+function M.toggle_annotation_mode(bufnr)
+	bufnr = bufnr or vim.api.nvim_get_current_buf()
+
+	if vim.b[bufnr].annotation_mode then
+		M.disable_annotation_mode(bufnr)
+	else
+		M.enable_annotation_mode(bufnr)
+	end
+end
+
+-- 查看当前 buffer 的 conceal 规则
+function M.show_conceal_rules()
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.cmd('syn list AnnotationBracket')
 end
 
 return M

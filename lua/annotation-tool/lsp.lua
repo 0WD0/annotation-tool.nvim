@@ -45,7 +45,7 @@ end
 
 -- 获取 LSP 客户端
 function M.get_client()
-	local clients = vim.lsp.get_active_clients({
+	local clients = vim.lsp.get_clients({
 		name = "annotation_ls"
 	})
 
@@ -179,7 +179,7 @@ function M.attach()
 		return
 	end
 
-	local clients = vim.lsp.get_active_clients({
+	local clients = vim.lsp.get_clients({
 		bufnr = bufnr,
 		name = "annotation_ls"
 	})

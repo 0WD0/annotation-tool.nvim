@@ -83,7 +83,7 @@ function M.update()
 		if err then
 			return
 		end
-		
+
 		if result then
 			-- 更新预览窗口内容
 			vim.bo[buf].modifiable = true

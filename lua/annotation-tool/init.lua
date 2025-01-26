@@ -1,21 +1,22 @@
 local M = {}
 
--- 导入所有模块
-local core = require('annotation-tool.core')
 local lsp = require('annotation-tool.lsp')
-local preview = require('annotation-tool.preview')
-local telescope = require('annotation-tool.telescope')
+local core = require('annotation-tool.core')
 local commands = require('annotation-tool.commands')
+local telescope = require('annotation-tool.telescope')
+local preview = require('annotation-tool.preview')
 
 -- 暴露主要函数
--- M.setup = lsp.setup
 M.enable = lsp.attach
 M.create_annotation = lsp.create_annotation
 M.list_annotations = lsp.list_annotations
 M.delete_annotation = lsp.delete_annotation
 M.find_annotations = telescope.find
 M.setup_preview = preview.setup
-M.toggle_mode = core.toggle_mode
+M.enable_annotation_mode = core.enable_annotation_mode
+M.disable_annotation_mode = core.disable_annotation_mode
+M.toggle_annotation_mode = core.toggle_annotation_mode
+M.show_conceal_rules = core.show_conceal_rules
 
 -- 初始化插件
 function M.setup(opts)
@@ -32,16 +33,22 @@ function M.setup(opts)
 		vim.api.nvim_create_autocmd("FileType", {
 			pattern = { "markdown", "text", "annot" },
 			callback = function(args)
-				local clients = vim.lsp.get_active_clients({
+				local clients = vim.lsp.get_clients({
 					bufnr = args.buf,
 					name = "annotation_ls"
 				})
+
 				if #clients == 0 then
-					vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
+						vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
 					lsp.attach()
 				end
 			end,
 		})
+	end
+
+	-- 设置预览窗口
+	if opts.preview == true then
+		preview.setup()
 	end
 end
 
