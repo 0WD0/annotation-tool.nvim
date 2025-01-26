@@ -100,7 +100,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
 			open_close=True,
-			change=types.TextDocumentSyncKind.FULL,
+			change=types.TextDocumentSyncKind.Full,
 			save=True
 		),
 		hover_provider=True,

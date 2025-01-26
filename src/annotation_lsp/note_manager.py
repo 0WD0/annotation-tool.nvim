@@ -105,6 +105,8 @@ class NoteManager:
 				if line.startswith('file:'):
 					file_path = line.split(':', 1)[1].strip()
 					break
+			if file_path == None:
+				return results
 					
 			# 分离原文和笔记
 			parts = content.split('---', 2)

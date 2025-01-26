@@ -240,6 +240,60 @@ class DatabaseManager:
 		
 		return True
 	
+	def update_file_annotation_ids(self, doc_uri: str, file_content: str) -> None:
+		"""根据文件内容中左括号的顺序更新所有标注的 ID
+		
+		Args:
+			doc_uri: 文档 URI
+			file_content: 文件内容
+		"""
+		conn = self._get_current_conn()
+		cursor = conn.cursor()
+		
+		try:
+			# 获取文件 ID
+			cursor.execute('SELECT id FROM files WHERE path = ?', (doc_uri,))
+			file_id = cursor.fetchone()[0]
+			
+			# 获取文件中所有标注的位置信息
+			cursor.execute('''
+				SELECT id, start_line, start_char, end_line, end_char
+				FROM annotations
+				WHERE file_id = ?
+				ORDER BY start_line, start_char
+			''', (file_id,))
+			annotations = cursor.fetchall()
+			
+			# 构建位置到数据库 ID 的映射
+			positions = []
+			id_map = {}
+			for ann in annotations:
+				db_id, start_line, start_char, end_line, end_char = ann
+				pos = (start_line, start_char)
+				positions.append((pos, db_id))
+			
+			# 获取文件中所有左括号的位置，按顺序排列
+			lines = file_content.splitlines()
+			bracket_positions = []
+			for line_num, line in enumerate(lines):
+				for char_num, char in enumerate(line):
+					if char == '｢':
+						bracket_positions.append((line_num, char_num))
+			
+			# 为每个标注分配新的 ID
+			for new_id, (bracket_pos, db_id) in enumerate(zip(bracket_positions, positions), 1):
+				cursor.execute('''
+					UPDATE annotations
+					SET annotation_id = ?
+					WHERE id = ?
+				''', (new_id, db_id[1]))
+			
+			conn.commit()
+			
+		except sqlite3.Error as e:
+			conn.rollback()
+			raise e
+	
 	def __del__(self):
 		"""关闭所有数据库连接"""
 		for conn in self.connections.values():

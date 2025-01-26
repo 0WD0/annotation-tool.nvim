@@ -67,8 +67,8 @@ return {
 ├── db/
 │   ├── annotations.db
 │   └── backups/
-├── notes/
-└── note_*.md
+└── notes/
+	  └── note_*.md
 ```
 
 ### 批注文件格式
@@ -85,6 +85,71 @@ id: 1
 
 你的批注内容
 ```
+
+## 数据库设计
+
+数据库使用 SQLite，包含两个主要表：
+
+### files 表
+
+存储文件信息：
+
+```sql
+CREATE TABLE files (
+    id INTEGER PRIMARY KEY,   -- 文件ID
+    path TEXT UNIQUE,         -- 文件路径（唯一）
+    last_modified TIMESTAMP   -- 最后修改时间
+)
+```
+
+### annotations 表
+
+存储标注信息：
+
+```sql
+CREATE TABLE annotations (
+    id INTEGER PRIMARY KEY,   -- 标注在数据库中的唯一ID
+    file_id INTEGER,          -- 关联的文件ID
+    annotation_id INTEGER,    -- 标注在文件中的序号（基于左括号顺序）
+    start_line INTEGER,       -- 开始行
+    start_char INTEGER,       -- 开始字符位置
+    end_line INTEGER,         -- 结束行
+    end_char INTEGER,         -- 结束字符位置
+    note_file TEXT,           -- 关联的笔记文件名
+    created_at TIMESTAMP,     -- 创建时间
+    FOREIGN KEY (file_id) REFERENCES files(id)  -- 外键约束
+)
+```
+
+说明：
+- `annotation_id` 是标注在文件中的序号，基于左括号（｢）在文件中出现的顺序，从1开始编号
+- 每个标注都有一个对应的笔记文件（`note_file`），存储在 `.annotation/notes` 目录下
+- 标注的位置使用行号和字符位置来定位，支持跨行标注
+- 使用外键约束确保数据完整性，每个标注必须关联到一个有效的文件
+
+### 外键约束说明
+
+外键约束（Foreign Key Constraint）是一种数据库完整性约束，用于确保数据的一致性和完整性。在我们的设计中：
+
+1. `annotations` 表中的 `file_id` 是一个外键，它引用了 `files` 表的 `id` 字段
+2. 这个约束确保：
+   - 不能创建指向不存在文件的标注（插入约束）
+   - 不能删除还有标注的文件（删除约束）
+   - 如果文件的 ID 发生变化，相关标注的 `file_id` 也会自动更新（更新约束）
+
+例如：
+```sql
+-- 这个操作会失败，因为 file_id=999 在 files 表中不存在
+INSERT INTO annotations (file_id, ...) VALUES (999, ...);
+
+-- 这个操作会失败，因为该文件还有关联的标注
+DELETE FROM files WHERE id = 1;
+```
+
+这样的设计可以防止：
+- 孤立的标注（没有对应文件的标注）
+- 数据不一致（文件和标注的关联关系混乱）
+- 意外删除（防止删除还在使用的文件）
 
 ## 配置选项
 
@@ -105,3 +170,4 @@ require('annotation-tool').setup({
 ## License
 
 MIT
+
