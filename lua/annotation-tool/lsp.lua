@@ -84,7 +84,7 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 启用标注模式
-	vim.b.annotation_mode = true
+	core.enable_annotation_mode()
 	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
 end
 
@@ -130,11 +130,13 @@ function M.list_annotations()
 		return
 	end
 
+	local params = {
+		textDocument = vim.lsp.util.make_text_document_params()
+	}
+
 	client.request('workspace/executeCommand', {
 		command = "listAnnotations",
-		arguments = { {
-			textDocument = { uri = vim.uri_from_bufnr(0) }
-		} }
+		arguments = { params }
 	}, function(err, result)
 		if err then
 			vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
@@ -146,20 +148,17 @@ function M.list_annotations()
 end
 
 -- 删除标注
-function M.delete_annotation(annotation_id)
+function M.delete_annotation()
 	local client = M.get_client()
 	if not client then
 		return
 	end
 
-	if not annotation_id then
-		vim.notify("No annotation ID provided", vim.log.levels.ERROR)
-		return
-	end
+	local params = vim.lsp.util.make_position_params()
 
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",
-		arguments = { annotation_id }
+		arguments = { params }
 	}, function(err, result)
 		if err then
 			vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
