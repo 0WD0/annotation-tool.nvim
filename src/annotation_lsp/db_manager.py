@@ -53,26 +53,21 @@ class DatabaseManager:
 				end_line INTEGER,
 				end_char INTEGER,
 				note_file TEXT,
-				FOREIGN KEY (file_id) REFERENCES files(id),
-				UNIQUE (file_id, annotation_id)
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+				FOREIGN KEY (file_id) REFERENCES files(id)
 			)
 		''')
 		
-		conn.commit()
+		# 管理连接池
+		if len(self.connections) >= self.max_connections:
+			# 移除最旧的连接
+			oldest = next(iter(self.connections))
+			self.connections[oldest].close()
+			del self.connections[oldest]
 		
-		# 添加到连接池
 		self.connections[str(db_path)] = conn
 		self.current_db = str(db_path)
-		
-		# 如果连接池太大，关闭最旧的连接
-		if len(self.connections) > self.max_connections:
-			# 选择一个非当前数据库的连接关闭
-			candidates = [k for k in self.connections.keys() if k != self.current_db]
-			if candidates:
-				oldest_db = candidates[0]  # 简单起见，选第一个
-				self.connections[oldest_db].close()
-				del self.connections[oldest_db]
-	
+
 	def _get_current_conn(self) -> sqlite3.Connection:
 		"""获取当前数据库连接，如果没有则在当前目录初始化一个"""
 		if not self.current_db:
@@ -148,8 +143,8 @@ class DatabaseManager:
 		result = cursor.fetchone()
 		return result[0] if result else None
 	
-	def create_annotation(self, doc_uri: str, start_line: int, start_char: int, end_line: int, end_char: int, text: str) -> int:
-		"""创建新的标注"""
+	def create_annotation(self, doc_uri: str, start_line: int, start_char: int, end_line: int, end_char: int, text: str) -> Tuple[int, str]:
+		"""创建新的标注，返回 (annotation_id, note_file)"""
 		conn = self._get_current_conn()
 		
 		# 获取或创建文件记录
@@ -172,19 +167,34 @@ class DatabaseManager:
 		)
 		annotation_id = cursor.fetchone()[0]
 		
-		# 创建标注记录
-		note_file = f'note_{annotation_id}.md'
-		conn.execute('''
+		# 创建标注记录，让数据库自动设置创建时间
+		cursor = conn.execute('''
 			INSERT INTO annotations 
-			(file_id, annotation_id, start_line, start_char, end_line, end_char, note_file)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-		''', (file_id, annotation_id, start_line, start_char, end_line, end_char, note_file))
+			(file_id, annotation_id, start_line, start_char, end_line, end_char)
+			VALUES (?, ?, ?, ?, ?, ?)
+		''', (file_id, annotation_id, start_line, start_char, end_line, end_char))
+		
+		# 获取创建时间并生成笔记文件名
+		cursor = conn.execute('''
+			SELECT created_at 
+			FROM annotations 
+			WHERE id = ?
+		''', (cursor.lastrowid,))
+		created_at = cursor.fetchone()[0]
+		note_file = f'{created_at}_{annotation_id}.md'
+		
+		# 更新笔记文件名
+		conn.execute('''
+			UPDATE annotations 
+			SET note_file = ? 
+			WHERE file_id = ? AND annotation_id = ?
+		''', (note_file, file_id, annotation_id))
 		
 		conn.commit()
 		if self.current_db:
 			self._backup_db(self.current_db)
 		
-		return annotation_id
+		return annotation_id, note_file
 	
 	def get_file_annotations(self, file_path: str) -> List[Dict]:
 		"""获取文件中的所有标注"""

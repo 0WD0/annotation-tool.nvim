@@ -20,13 +20,12 @@ class NoteManager:
 			return None
 		return Path(self.current_project) / '.annotation' / 'notes'
 	
-	def create_annotation_note(self, file_path: str, annotation_id: int, text: str) -> Optional[str]:
+	def create_annotation_note(self, file_path: str, annotation_id: int, text: str, note_file: str) -> Optional[str]:
 		"""为标注创建笔记文件"""
 		notes_dir = self.get_notes_dir()
 		if not notes_dir:
 			return None
 		
-		note_file = f'note_{annotation_id}.md'
 		note_path = notes_dir / note_file
 		
 		if note_path.exists():
@@ -42,13 +41,13 @@ class NoteManager:
 		
 		return str(note_path)
 	
-	def delete_note(self, annotation_id: int) -> bool:
-		"""删除标注对应的笔记文件"""
+	def delete_note(self, note_file: str) -> bool:
+		"""删除笔记文件"""
 		notes_dir = self.get_notes_dir()
 		if not notes_dir:
 			return False
 		
-		note_path = notes_dir / f'note_{annotation_id}.md'
+		note_path = notes_dir / note_file
 		if note_path.exists():
 			note_path.unlink()
 			return True
@@ -74,7 +73,11 @@ class NoteManager:
 	
 	def get_note_content(self, note_file: str) -> Optional[str]:
 		"""获取笔记文件的内容"""
-		note_path = Path(note_file)
+		notes_dir = self.get_notes_dir()
+		if not notes_dir:
+			return None
+			
+		note_path = notes_dir / note_file
 		if not note_path.exists():
 			return None
 			

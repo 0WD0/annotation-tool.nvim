@@ -177,7 +177,7 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 			selected_text = '\n'.join(selected_text)
 		
 		# 创建标注
-		annotation_id = db_manager.create_annotation(
+		annotation_id, note_file = db_manager.create_annotation(
 			doc_uri=params["textDocument"]["uri"],
 			start_line=selection_range.start.line,
 			start_char=selection_range.start.character,
@@ -190,7 +190,8 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 		note_manager.create_annotation_note(
 			file_path=params["textDocument"]["uri"],
 			annotation_id=annotation_id,
-			text=selected_text
+			text=selected_text,
+			note_file=note_file
 		)
 		
 		return {"success": True, "annotationId": annotation_id}
@@ -226,12 +227,17 @@ def delete_annotation(ls: LanguageServer, params: dict) -> dict:
 		doc_uri = params["textDocument"]["uri"]
 		annotation_id = params["annotationId"]
 		
-		# 删除标注记录
-		if not db_manager.delete_annotation(doc_uri, annotation_id):
+		# 获取笔记文件名
+		note_file = db_manager.get_annotation_note_file(doc_uri, annotation_id)
+		if not note_file:
 			return {"success": False, "error": "Annotation not found"}
 		
+		# 删除标注记录
+		if not db_manager.delete_annotation(doc_uri, annotation_id):
+			return {"success": False, "error": "Failed to delete annotation"}
+		
 		# 删除笔记文件
-		note_manager.delete_note(annotation_id)
+		note_manager.delete_note(note_file)
 		
 		return {"success": True}
 	except DatabaseError as e:
