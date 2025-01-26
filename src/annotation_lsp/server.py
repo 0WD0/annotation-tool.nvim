@@ -163,17 +163,21 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 		lines = doc.source.splitlines()
 		if selection_range.start.line == selection_range.end.line:
 			# 单行选择
-			selected_text = lines[selection_range.start.line][selection_range.start.character:selection_range.end.character]
+			line = lines[selection_range.start.line]
+			selected_text = ''.join(c for c in line[selection_range.start.character:selection_range.end.character] if c not in '｢｣')
 		else:
 			# 多行选择
 			selected_text = []
 			for i in range(selection_range.start.line, selection_range.end.line + 1):
 				if i == selection_range.start.line:
-					selected_text.append(lines[i][selection_range.start.character:])
+					line = lines[i][selection_range.start.character:]
 				elif i == selection_range.end.line:
-					selected_text.append(lines[i][:selection_range.end.character])
+					line = lines[i][:selection_range.end.character]
 				else:
-					selected_text.append(lines[i])
+					line = lines[i]
+				# 过滤掉半角括号
+				filtered_line = ''.join(c for c in line if c not in '｢｣')
+				selected_text.append(filtered_line)
 			selected_text = '\n'.join(selected_text)
 		
 		# 创建标注
