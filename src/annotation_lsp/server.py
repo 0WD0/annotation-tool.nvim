@@ -186,6 +186,29 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 			text=selected_text
 		)
 		
+		# 在原文中插入日语半角括号
+		edits = [
+			types.TextEdit(
+				range=types.Range(
+					start=types.Position(line=selection_range.start.line, character=selection_range.start.character),
+					end=types.Position(line=selection_range.start.line, character=selection_range.start.character)
+				),
+				new_text="｢"
+			),
+			types.TextEdit(
+				range=types.Range(
+					start=types.Position(line=selection_range.end.line, character=selection_range.end.character),
+					end=types.Position(line=selection_range.end.line, character=selection_range.end.character)
+				),
+				new_text="｣"
+			)
+		]
+		
+		edit = types.WorkspaceEdit(
+			changes={params["textDocument"]["uri"]: edits}
+		)
+		ls.apply_edit(edit)
+		
 		# 创建笔记文件
 		note_manager.create_annotation_note(
 			file_path=params["textDocument"]["uri"],
