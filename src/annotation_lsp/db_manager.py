@@ -123,8 +123,8 @@ class DatabaseManager:
 			note_file = f'note_{aid}.md'
 			conn.execute('''
 				INSERT INTO annotations 
-				(file_id, annotation_id, start_line, start_char, end_line, end_char, note_file)
-				VALUES (?, ?, ?, ?, ?, ?, ?)
+				(file_id, annotation_id, start_line, start_char, end_line, end_char, note_file, created_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
 			''', (file_id, aid, start_line, start_char, end_line, end_char, note_file))
 		
 		conn.commit()
@@ -170,25 +170,20 @@ class DatabaseManager:
 		# 创建标注记录，让数据库自动设置创建时间
 		cursor = conn.execute('''
 			INSERT INTO annotations 
-			(file_id, annotation_id, start_line, start_char, end_line, end_char)
-			VALUES (?, ?, ?, ?, ?, ?)
+			(file_id, annotation_id, start_line, start_char, end_line, end_char, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, datetime('now', 'localtime'))
 		''', (file_id, annotation_id, start_line, start_char, end_line, end_char))
 		
-		# 获取创建时间并生成笔记文件名
-		cursor = conn.execute('''
-			SELECT created_at 
-			FROM annotations 
-			WHERE id = ?
-		''', (cursor.lastrowid,))
-		created_at = cursor.fetchone()[0]
-		note_file = f'{created_at}_{annotation_id}.md'
+		# 生成笔记文件名
+		now = datetime.now()
+		note_file = f"note_{now.strftime('%Y%m%d_%H%M%S')}.md"
 		
 		# 更新笔记文件名
 		conn.execute('''
-			UPDATE annotations 
-			SET note_file = ? 
-			WHERE file_id = ? AND annotation_id = ?
-		''', (note_file, file_id, annotation_id))
+			UPDATE annotations
+			SET note_file = ?
+			WHERE id = ?
+		''', (note_file, annotation_id))
 		
 		conn.commit()
 		if self.current_db:
@@ -200,7 +195,7 @@ class DatabaseManager:
 		"""获取文件中的所有标注"""
 		conn = self._get_current_conn()
 		cursor = conn.execute('''
-			SELECT a.annotation_id, a.start_line, a.start_char, a.end_line, a.end_char, a.note_file
+			SELECT a.annotation_id, a.start_line, a.start_char, a.end_line, a.end_char, a.note_file, a.created_at
 			FROM annotations a
 			JOIN files f ON a.file_id = f.id
 			WHERE f.path = ?
@@ -208,7 +203,7 @@ class DatabaseManager:
 		
 		annotations = []
 		for row in cursor:
-			annotation_id, start_line, start_char, end_line, end_char, note_file = row
+			annotation_id, start_line, start_char, end_line, end_char, note_file, created_at = row
 			
 			annotations.append({
 				'id': annotation_id,
@@ -216,7 +211,8 @@ class DatabaseManager:
 					'start': {'line': start_line, 'character': start_char},
 					'end': {'line': end_line, 'character': end_char}
 				},
-				'note_file': note_file
+				'note_file': note_file,
+				'created_at': created_at
 			})
 		
 		return annotations
