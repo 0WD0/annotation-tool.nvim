@@ -1,19 +1,65 @@
 local M = {}
 local core = require('annotation-tool.core')
 
--- 获取 Python 解释器路径
-local function get_python_path()
-	-- 获取当前文件所在目录
+-- 确保虚拟环境存在并安装依赖
+local function ensure_venv()
+	-- 获取插件根目录
 	local current_file = debug.getinfo(1, "S").source:sub(2)
 	local plugin_root = vim.fn.fnamemodify(current_file, ":h:h:h")
+	local venv_path = plugin_root .. "/.venv"
+	local venv_python = venv_path .. "/bin/python"
+	local venv_pip = venv_path .. "/bin/pip"
 
-	-- 首先检查项目虚拟环境
-	local venv_python = plugin_root .. "/.venv/bin/python"
-	if vim.fn.executable(venv_python) == 1 then
+	-- 检查虚拟环境是否存在
+	if vim.fn.isdirectory(venv_path) == 0 then
+		-- 创建虚拟环境
+		local python = vim.fn.exepath('python3') or vim.fn.exepath('python')
+		if not python then
+			vim.notify("Python not found", vim.log.levels.ERROR)
+			return nil
+		end
+
+		vim.notify("Creating virtual environment...", vim.log.levels.INFO)
+		local venv_cmd = string.format("%s -m venv %s", python, venv_path)
+		local venv_result = vim.fn.system(venv_cmd)
+
+		if vim.v.shell_error ~= 0 then
+			vim.notify("Failed to create virtual environment: " .. venv_result, vim.log.levels.ERROR)
+			return nil
+		end
+	end
+
+	-- 检查依赖是否已安装
+	if vim.fn.executable(venv_pip) == 1 then
+		-- 安装依赖
+		vim.notify("Installing dependencies...", vim.log.levels.INFO)
+		local install_cmd = string.format("%s install -e %s", venv_pip, plugin_root)
+		local install_result = vim.fn.system(install_cmd)
+
+		if vim.v.shell_error ~= 0 then
+			vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
+			return nil
+		end
+
+		vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+	else
+		vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
+		return nil
+	end
+
+	return venv_python, plugin_root
+end
+
+-- 获取 Python 解释器路径
+local function get_python_path()
+	-- 确保虚拟环境和依赖存在
+	local venv_python, plugin_root = ensure_venv()
+	if venv_python then
 		return venv_python, plugin_root
 	end
 
-	-- 如果没有虚拟环境，尝试系统 Python
+	-- 如果虚拟环境创建失败，尝试使用系统 Python（不推荐）
+	vim.notify("Falling back to system Python (not recommended)", vim.log.levels.WARN)
 	local system_python = vim.fn.exepath('python3') or vim.fn.exepath('python')
 	if system_python then
 		return system_python, plugin_root
@@ -198,8 +244,8 @@ function M.attach()
 	-- 构建 Python 命令
 	local python_cmd = {
 		python_path,
-		"-c",
-		string.format([[import sys; sys.path.insert(0, '%s'); from annotation_lsp.__main__ import main; main()]], plugin_root)
+		"-m",
+		"annotation_lsp"
 	}
 
 	-- 启动 LSP 客户端
@@ -236,8 +282,8 @@ function M.setup(opts)
 	-- 构建 Python 命令
 	local python_cmd = {
 		python_path,
-		"-c",
-		string.format([[import sys; sys.path.insert(0, '%s'); from annotation_lsp.__main__ import main; main()]], plugin_root)
+		"-m",
+		"annotation_lsp"
 	}
 
 	-- 注册自定义 LSP
