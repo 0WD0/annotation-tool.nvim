@@ -110,7 +110,6 @@ class DatabaseManager:
 
 	def create_annotation(self, doc_uri: str, annotation_id: int) -> str:
 		"""创建新的标注，返回 note_file"""
-		# TODO: rebuild all
 		conn = self._get_current_conn()
 		
 		# 获取或创建文件记录
@@ -132,6 +131,8 @@ class DatabaseManager:
 			(file_id, annotation_id, created_at)
 			VALUES (?, ?, datetime('now', 'localtime'))
 		''', (file_id, annotation_id))
+
+		info(f"Creating annotation {annotation_id}")
 		
 		# 生成笔记文件名
 		now = datetime.now()
@@ -207,18 +208,25 @@ class DatabaseManager:
 				return None;
 
 			file_id = result[0]
-			# 从大到小更新，避免id冲突
+			
+			# 获取需要更新的标注 ID 列表，按降序排列
 			cursor.execute('''
-				UPDATE annotations
-				SET annotation_id = annotation_id + 1
+				SELECT annotation_id
+				FROM annotations
 				WHERE file_id = ? AND annotation_id >= ?
-				AND annotation_id IN (
-					SELECT annotation_id
-					FROM annotations
-					WHERE file_id = ? AND annotation_id >= ?
-					ORDER BY annotation_id DESC
-				)
-			''', (file_id, from_id, file_id, from_id))
+				ORDER BY annotation_id DESC
+			''', (file_id, from_id))
+			
+			annotation_ids = cursor.fetchall()
+			
+			# 从大到小更新每个标注 ID
+			for (annotation_id,) in annotation_ids:
+				cursor.execute('''
+					UPDATE annotations
+					SET annotation_id = annotation_id + 1
+					WHERE file_id = ? AND annotation_id = ?
+				''', (file_id, annotation_id))
+				info(f"Updating annotation {annotation_id} to {annotation_id+1}")
 
 	def reload_file_annotations(self, doc_uri: str):
 		"""重新载入一个源文件中的所有批注"""
