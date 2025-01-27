@@ -142,7 +142,7 @@ class DatabaseManager:
 		conn.execute('''
 			UPDATE annotations
 			SET note_file = ?
-			WHERE id = ?
+			WHERE annotation_id = ?
 		''', (note_file, annotation_id))
 		
 		conn.commit()
