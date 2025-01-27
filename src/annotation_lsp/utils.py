@@ -78,7 +78,7 @@ def get_annotation_id_before_position(doc: TextDocument, position: types.Positio
 	pos_char = position.character
 	return bisect_left(annotations,(pos_line, pos_char))
 
-def get_annotation_at_position(doc: TextDocument, position: types.Position) -> Optional[Tuple[int, int, int, int, int]]:
+def get_annotation_at_position(doc: TextDocument, position: types.Position) -> Optional[int]:
 	"""获取给定位置所在的批注区间"""
 	annotations = find_annotation_ranges(doc)
 	if annotations == None: return None
@@ -91,7 +91,7 @@ def get_annotation_at_position(doc: TextDocument, position: types.Position) -> O
 		if (start_line <= pos_line <= end_line and
 			(start_line != pos_line or start_char <= pos_char) and
 			(end_line != pos_line or pos_char <= end_char)):
-			return annotation+(i+1,)
+			return i+1
 	
 	return None
 
@@ -102,9 +102,6 @@ def extract_notes_content(content: str) -> str:
 	Returns:
 		## Notes 后面的内容，如果没有找到则返回空字符串
 	"""
-	if not content:
-		return ""
-	
 	# 按行分割并查找 ## Notes
 	lines = content.splitlines()
 	for i, line in enumerate(lines):

@@ -21,7 +21,7 @@ class NoteManager:
 		return Path(self.current_project) / '.annotation' / 'notes'
 	
 	def create_annotation_note(self, file_path: str, annotation_id: int, text: str, note_file: str) -> Optional[str]:
-		"""为标注创建笔记文件"""
+		"""为标注创建批注文件"""
 		notes_dir = self.get_notes_dir()
 		if not notes_dir:
 			return None
@@ -42,7 +42,7 @@ class NoteManager:
 		return str(note_path)
 	
 	def delete_note(self, note_file: str) -> bool:
-		"""删除笔记文件"""
+		"""删除批注文件"""
 		notes_dir = self.get_notes_dir()
 		if not notes_dir:
 			return False
@@ -54,7 +54,7 @@ class NoteManager:
 		return False
 	
 	def update_note_source(self, note_file: str, file_path: str):
-		"""更新笔记文件中记录的源文件路径"""
+		"""更新批注文件中记录的源文件路径"""
 		note_path = Path(note_file)
 		if not note_path.exists():
 			return
@@ -71,8 +71,27 @@ class NoteManager:
 		with note_path.open('w', encoding='utf-8') as f:
 			f.writelines(lines)
 	
+	def update_note_aid(self, note_file: str, annotation_id: int):
+		"""更新批注文件中记录的id"""
+		note_path = Path(note_file)
+		if not note_path.exists():
+			return
+			
+		with note_path.open('r', encoding='utf-8') as f:
+			lines = f.readlines()
+			
+		# 更新文件路径
+		for i, line in enumerate(lines):
+			if line.startswith('id:'):
+				lines[i] = f'id: {annotation_id}\n'
+				break
+				
+		with note_path.open('w', encoding='utf-8') as f:
+			f.writelines(lines)
+	
+	
 	def get_note_content(self, note_file: str) -> Optional[str]:
-		"""获取笔记文件的内容"""
+		"""获取批注文件的内容"""
 		notes_dir = self.get_notes_dir()
 		if not notes_dir:
 			return None
@@ -87,7 +106,7 @@ class NoteManager:
 		return content
 	
 	def search_notes(self, query: str, search_type: str = 'all') -> List[Dict]:
-		"""搜索笔记文件
+		"""搜索批注文件
 		search_type可以是：'file_path', 'content', 'note', 'all'
 		"""
 		notes_dir = self.get_notes_dir()
@@ -108,7 +127,7 @@ class NoteManager:
 			if file_path == None:
 				return results
 					
-			# 分离原文和笔记
+			# 分离原文和批注
 			parts = content.split('---', 2)
 			if len(parts) >= 3:
 				note_content = parts[2].strip()

@@ -80,22 +80,26 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 	try:
 		# 获取当前位置的标注
 		doc = ls.workspace.get_document(params.text_document.uri)
-		annotation = get_annotation_at_position(doc, params.position)
-		if not annotation:
+		annotation_id = get_annotation_at_position(doc, params.position)
+		if not annotation_id:
+			server.show_message("Failed to get current annotation_id", types.MessageType.Info)
 			return None
 		
 		# 获取笔记内容
-		note_file = db_manager.get_annotation_note_file(params.text_document.uri, annotation[4])
+		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
+			server.show_message("Failed to get note file path", types.MessageType.Info)
 			return None
 		
 		note_content = note_manager.get_note_content(note_file)
 		if not note_content:
+			server.show_message("Failed to get note file contents", types.MessageType.Info)
 			return types.Hover(contents=[])
 			
 		# 只显示 ## Notes 后面的内容
 		notes_content = extract_notes_content(note_content)
 		if not notes_content:
+			server.show_message("Empty note", types.MessageType.Info)
 			return types.Hover(contents=[])
 			
 		return types.Hover(contents=types.MarkupContent(
@@ -129,10 +133,13 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 		if annotation_id == None:
 			ls.show_message("Failed to get annotation_id before left bracket")
 			return {"success": False, "error": "1"}
+		annotation_id += 1
+
+		db_manager.increase_annotation_ids(doc.uri,annotation_id)
 		
 		# 创建标注
 		note_file = db_manager.create_annotation(
-			doc_uri=params["textDocument"]["uri"],
+			doc_uri=doc.uri,
 			annotation_id = annotation_id
 		)
 		
