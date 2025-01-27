@@ -29,19 +29,24 @@ local function ensure_venv()
 		end
 	end
 
-	-- 检查依赖是否已安装
+	-- 检查是否已安装依赖
 	if vim.fn.executable(venv_pip) == 1 then
-		-- 安装依赖
-		vim.notify("Installing dependencies...", vim.log.levels.INFO)
-		local install_cmd = string.format("%s install -e %s", venv_pip, plugin_root)
-		local install_result = vim.fn.system(install_cmd)
-
+		-- 检查 annotation-tool 是否已安装
+		local check_cmd = string.format("%s -c 'import annotation_lsp' 2>/dev/null", venv_python)
+		local check_result = vim.fn.system(check_cmd)
 		if vim.v.shell_error ~= 0 then
-			vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
-			return nil
-		end
+			-- 依赖未安装，进行安装
+			vim.notify("Installing dependencies...", vim.log.levels.INFO)
+			local install_cmd = string.format("%s install -e %s", venv_pip, plugin_root)
+			local install_result = vim.fn.system(install_cmd)
 
-		vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+			if vim.v.shell_error ~= 0 then
+				vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
+				return nil
+			end
+
+			vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+		end
 	else
 		vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
 		return nil
