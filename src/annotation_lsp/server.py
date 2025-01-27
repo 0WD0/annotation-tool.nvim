@@ -98,7 +98,7 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		
 		note_content = note_manager.get_note_content(note_file)
 		if not note_content:
-			server.show_message("Failed to get note file contents", types.MessageType.Info)
+			error("Failed to get note file contents")
 			return types.Hover(contents=[])
 			
 		# 只显示 ## Notes 后面的内容
@@ -136,7 +136,7 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		selected_text = get_text_in_range(doc,selection_range)
 		annotation_id = get_annotation_id_before_position(doc,selection_range.start)
 		if annotation_id == None:
-			ls.show_message("Failed to get annotation_id before left bracket")
+			error("Failed to get annotation_id before left bracket")
 			return {"success": False, "error": "1"}
 		annotation_id += 1
 
