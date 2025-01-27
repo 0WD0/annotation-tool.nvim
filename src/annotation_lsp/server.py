@@ -12,78 +12,17 @@ from lsprotocol import types
 
 from .db_manager import DatabaseManager, DatabaseError
 from .note_manager import NoteManager
+from .config import AnnotationConfig
+from .utils import *
 
-server = LanguageServer("annotation-lsp", "v0.1.0")
+class AnnotationServer(LanguageServer):
+	def __init__(self):
+		super().__init__("annotation-lsp", "v0.1.0")
+		self.config = AnnotationConfig()
+
+server = AnnotationServer()
 db_manager = DatabaseManager()
 note_manager = NoteManager()
-
-def find_annotation_ranges(text: str) -> List[Tuple[int, int, int, int, int]]:
-	"""找出所有标注区间及其ID（基于左括号出现顺序）"""
-	annotations = []
-	lines = text.splitlines()
-	annotation_id = 1
-	
-	# 使用日语半角括号作为标注区间
-	left_bracket = '｢'
-	right_bracket = '｣'
-	
-	# 遍历每一行
-	for line_num, line in enumerate(lines):
-		# 在当前行中查找所有左括号和右括号
-		left_positions = [i for i, char in enumerate(line) if char == left_bracket]
-		right_positions = [i for i, char in enumerate(line) if char == right_bracket]
-		
-		# 如果找到配对的括号
-		if left_positions and right_positions:
-			# 为每对括号创建一个标注区间
-			for left_pos, right_pos in zip(left_positions, right_positions):
-				if left_pos < right_pos:  # 确保左括号在右括号之前
-					annotations.append((
-						line_num,  # 开始行
-						left_pos,  # 开始列
-						line_num,  # 结束行
-						right_pos,  # 结束列
-						annotation_id  # 标注ID
-					))
-					annotation_id += 1
-	
-	return annotations
-
-def get_annotation_at_position(text: str, position: types.Position) -> Optional[Tuple[int, int, int, int, int]]:
-	"""获取给定位置所在的标注区间"""
-	annotations = find_annotation_ranges(text)
-	pos_line = position.line
-	pos_char = position.character
-	
-	for annotation in annotations:
-		start_line, start_char, end_line, end_char, aid = annotation
-		if (start_line <= pos_line <= end_line and
-			(start_line != pos_line or start_char <= pos_char) and
-			(end_line != pos_line or pos_char <= end_char)):
-			return annotation
-	
-	return None
-
-def extract_notes_content(content: str) -> str:
-	"""从笔记内容中提取 ## Notes 后面的内容
-	
-	Args:
-		content: 完整的笔记内容
-		
-	Returns:
-		## Notes 后面的内容，如果没有找到则返回空字符串
-	"""
-	if not content:
-		return ""
-	
-	# 按行分割并查找 ## Notes
-	lines = content.splitlines()
-	for i, line in enumerate(lines):
-		if line.strip() == "## Notes":
-			# 返回 ## Notes 后面的所有内容
-			return "\n".join(lines[i+1:]).strip()
-	
-	return ""
 
 @server.feature(types.INITIALIZE)
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
@@ -141,7 +80,7 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 	try:
 		# 获取当前位置的标注
 		doc = ls.workspace.get_document(params.text_document.uri)
-		annotation = get_annotation_at_position(doc.source, params.position)
+		annotation = get_annotation_at_position(doc, params.position)
 		if not annotation:
 			return None
 		
@@ -184,36 +123,17 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 				character=params["range"]["end"]["character"]
 			)
 		)
-		
-		# 获取选中的文本
-		lines = doc.source.splitlines()
-		if selection_range.start.line == selection_range.end.line:
-			# 单行选择
-			line = lines[selection_range.start.line]
-			selected_text = ''.join(c for c in line[selection_range.start.character:selection_range.end.character] if c not in '｢｣')
-		else:
-			# 多行选择
-			selected_text = []
-			for i in range(selection_range.start.line, selection_range.end.line + 1):
-				if i == selection_range.start.line:
-					line = lines[i][selection_range.start.character:]
-				elif i == selection_range.end.line:
-					line = lines[i][:selection_range.end.character]
-				else:
-					line = lines[i]
-				# 过滤掉半角括号
-				filtered_line = ''.join(c for c in line if c not in '｢｣')
-				selected_text.append(filtered_line)
-			selected_text = '\n'.join(selected_text)
+
+		selected_text = get_text_in_range(doc,selection_range)
+		annotation_id = get_annotation_id_before_position(doc,selection_range.start)
+		if annotation_id == None:
+			ls.show_message("Failed to get annotation_id before left bracket")
+			return {"success": False, "error": "1"}
 		
 		# 创建标注
-		annotation_id, note_file = db_manager.create_annotation(
+		note_file = db_manager.create_annotation(
 			doc_uri=params["textDocument"]["uri"],
-			start_line=selection_range.start.line,
-			start_char=selection_range.start.character,
-			end_line=selection_range.end.line,
-			end_char=selection_range.end.character,
-			text=selected_text
+			annotation_id = annotation_id
 		)
 		
 		# 在原文中插入日语半角括号
@@ -223,14 +143,14 @@ def create_annotation(ls: LanguageServer, params: dict) -> dict:
 					start=types.Position(line=selection_range.start.line, character=selection_range.start.character),
 					end=types.Position(line=selection_range.start.line, character=selection_range.start.character)
 				),
-				new_text="｢"
+				new_text=server.config.left_bracket
 			),
 			types.TextEdit(
 				range=types.Range(
 					start=types.Position(line=selection_range.end.line, character=selection_range.end.character),
 					end=types.Position(line=selection_range.end.line, character=selection_range.end.character)
 				),
-				new_text="｣"
+				new_text=server.config.right_bracket
 			)
 		]
 		
