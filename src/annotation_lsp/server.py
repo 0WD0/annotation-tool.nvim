@@ -111,7 +111,7 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		return None
 
 @server.command("createAnnotation")
-def create_annotation(ls: LanguageServer, params: dict) -> dict:
+def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 	"""处理创建标注的逻辑"""
 	try:
 		# params 是一个列表，第一个元素才是我们需要的字典

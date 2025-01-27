@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict
+from .utils import *
 
 class DatabaseError(Exception):
 	"""数据库相关错误"""
@@ -191,113 +192,32 @@ class DatabaseManager:
 			self._backup_db(self.current_db)
 		
 		return True
-		
-	# def update_file_annotation_ids(self, doc_uri: str, file_content: str) -> None:
-	# 	"""根据文件内容中左括号的顺序更新所有标注的 ID
-	# 	
-	# 	Args:
-	# 		doc_uri: 文档 URI
-	# 		file_content: 文件内容
-	# 	"""
-	# 	# TODO: 完全错了
-	# 	conn = self._get_current_conn()
-	# 	cursor = conn.cursor()
-	# 	
-	# 	try:
-	# 		# 获取文件 ID
-	# 		cursor.execute('SELECT id FROM files WHERE path = ?', (doc_uri,))
-	# 		file_id = cursor.fetchone()[0]
-	# 		
-	# 		# 获取文件中所有标注的位置信息
-	# 		cursor.execute('''
-	# 			SELECT id
-	# 			FROM annotations
-	# 			WHERE file_id = ?
-	# 			ORDER BY start_line, start_char
-	# 		''', (file_id,))
-	# 		annotations = cursor.fetchall()
-	# 		
-	# 		# 构建位置到数据库 ID 的映射
-	# 		positions = []
-	# 		id_map = {}
-	# 		# for ann in annotations:
-	# 		# 	db_id, start_line, start_char, end_line, end_char = ann
-	# 		# 	pos = (start_line, start_char)
-	# 		# 	positions.append((pos, db_id))
-	# 		
-	# 		# 获取文件中所有左括号的位置，按顺序排列
-	# 		lines = file_content.splitlines()
-	# 		bracket_positions = []
-	# 		for line_num, line in enumerate(lines):
-	# 			for char_num, char in enumerate(line):
-	# 				if char == '｢':
-	# 					bracket_positions.append((line_num, char_num))
-	# 		
-	# 		# 为每个标注分配新的 ID
-	# 		for new_id, (bracket_pos, db_id) in enumerate(zip(bracket_positions, positions), 1):
-	# 			cursor.execute('''
-	# 				UPDATE annotations
-	# 				SET annotation_id = ?
-	# 				WHERE id = ?
-	# 			''', (new_id, db_id[1]))
-	# 		
-	# 		conn.commit()
-	# 		
-	# 	except sqlite3.Error as e:
-	# 		conn.rollback()
-	# 		raise e
-	#
-	# def update_file_annotations(self, file_path: str, annotations: List[int]):
-	# 	"""更新文件的标注信息"""
-	# 	conn = self._get_current_conn()
-	# 	
-	# 	# 获取或创建文件记录
-	# 	cursor = conn.execute(
-	# 		'INSERT OR IGNORE INTO files (path, last_modified) VALUES (?, ?)',
-	# 		(file_path, datetime.now())
-	# 	)
-	# 	conn.execute(
-	# 		'UPDATE files SET last_modified = ? WHERE path = ?',
-	# 		(datetime.now(), file_path)
-	# 	)
-	# 	
-	# 	cursor = conn.execute('SELECT id FROM files WHERE path = ?', (file_path,))
-	# 	file_id = cursor.fetchone()[0]
-	# 	
-	# 	# 删除旧的标注
-	# 	conn.execute('DELETE FROM annotations WHERE file_id = ?', (file_id,))
-	# 	
-	# 	# 插入新的标注
-	# 	for aid in annotations:
-	# 		note_file = f'note_{aid}.md'
-	# 		conn.execute('''
-	# 			INSERT INTO annotations 
-	# 			(file_id, annotation_id, note_file, created_at)
-	# 			VALUES (?, ?, ?, datetime('now', 'localtime'))
-	# 		''', (file_id, aid, note_file))
-	# 	
-	# 	conn.commit()
-	# 	if self.current_db:
-	# 		self._backup_db(self.current_db)
 	
 	def increase_annotation_ids(self, doc_uri: str, from_id: int) -> None:
 		"""将指定文件中大于等于from_id的所有标注id加1"""
 		conn = self._get_current_conn()
-		cursor = conn.cursor()
-		
-		# 获取文件 ID
-		cursor.execute('SELECT id FROM files WHERE path = ?', (doc_uri,))
-		file_id = cursor.fetchone()[0]
-		
 		with conn:
 			cursor = conn.cursor()
+			# 获取文件 ID
+			cursor.execute('SELECT id FROM files WHERE path = ?', (doc_uri,))
+			result = cursor.fetchone()
+			if result == None:
+				error("Can not find file id when increasing annotation ids")
+				return None;
+
+			file_id = result[0]
 			# 从大到小更新，避免id冲突
 			cursor.execute('''
 				UPDATE annotations
 				SET annotation_id = annotation_id + 1
 				WHERE file_id = ? AND annotation_id >= ?
-				ORDER BY annotation_id DESC
-			''', (file_id, from_id))
+				AND annotation_id IN (
+					SELECT annotation_id
+					FROM annotations
+					WHERE file_id = ? AND annotation_id >= ?
+					ORDER BY annotation_id DESC
+				)
+			''', (file_id, from_id, file_id, from_id))
 
 	def reload_file_annotations(self, doc_uri: str):
 		"""重新载入一个源文件中的所有批注"""

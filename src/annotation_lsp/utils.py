@@ -2,6 +2,14 @@ from typing import Dict, List, Optional, Tuple
 from pygls.workspace.text_document import TextDocument
 from lsprotocol import types
 from bisect import bisect_left
+from .server import server
+
+def error(msg: str = "", ls=server) -> None:
+	ls.show_message(msg, types.MessageType.Error)
+
+def info(msg: str = "", ls=server) -> None:
+	ls.show_message(msg, types.MessageType.Info)
+
 
 def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
 	return types.Range(
