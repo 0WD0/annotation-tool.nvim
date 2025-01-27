@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, List, Tuple, Dict
 from .utils import *
+from .logger import (error, info)
 
 class DatabaseError(Exception):
 	"""数据库相关错误"""

@@ -14,11 +14,13 @@ from .db_manager import DatabaseManager, DatabaseError
 from .note_manager import NoteManager
 from .config import AnnotationConfig
 from .utils import *
+from .logger import *
 
 class AnnotationServer(LanguageServer):
 	def __init__(self):
 		super().__init__("annotation-lsp", "v0.1.0")
 		self.config = AnnotationConfig()
+		logger.set_server(self)
 
 server = AnnotationServer()
 db_manager = DatabaseManager()
@@ -82,13 +84,16 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		doc = ls.workspace.get_document(params.text_document.uri)
 		annotation_id = get_annotation_at_position(doc, params.position)
 		if not annotation_id:
-			server.show_message("Failed to get current annotation_id", types.MessageType.Info)
+			error("Failed to get current annotation_id")
 			return None
+
+		info(f"Current doc_uri is {doc.uri}")
+		info(f"Current annotation_id is {annotation_id}")
 		
 		# 获取笔记内容
 		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
-			server.show_message("Failed to get note file path", types.MessageType.Info)
+			error("Failed to get note file path")
 			return None
 		
 		note_content = note_manager.get_note_content(note_file)
