@@ -42,8 +42,8 @@ function M.get_visual_selection()
 		return nil
 	end
 
-	local start_pos = vim.fn.getpos('v')
-	local end_pos = vim.fn.getpos('.')
+	local start_pos = vim.fn.getcharpos('v')
+	local end_pos = vim.fn.getcharpos('.')
 
 
 	-- 确保 start_pos 在 end_pos 之前
@@ -51,19 +51,15 @@ function M.get_visual_selection()
 		start_pos, end_pos = end_pos, start_pos
 	end
 
-	-- 获取行内容
-	local start_line = vim.fn.getline(start_pos[2])
-	local end_line = vim.fn.getline(end_pos[2])
-
 	-- 转换为 LSP 位置格式
 	local result = {
 		start = {
-			line = start_pos[2] - 1,
-			character = mode == 'V' and 0 or byte_to_char(start_line, start_pos[3])
+			line = start_pos[2],
+			character = start_pos[3]
 		},
 		['end'] = {
-			line = end_pos[2] - 1,
-			character = mode == 'V' and byte_to_char(end_line, #end_line + 1) or byte_to_char(end_line, end_pos[3] + 1)
+			line = end_pos[2],
+			character = end_pos[3]
 		}
 	}
 
