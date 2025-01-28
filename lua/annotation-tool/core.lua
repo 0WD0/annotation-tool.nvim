@@ -5,6 +5,31 @@ function M.is_markdown_file()
 	return vim.bo.filetype == "markdown"
 end
 
+function M.get_current_position()
+	local mode = vim.api.nvim_get_mode().mode
+	if mode ~= 'n' then
+		vim.notify("Please get_current_position in normal mode", vim.log.levels.WARN)
+		return nil
+	end
+	local pos = vim.fn.getcharpos('.')
+
+	local result = {
+		line = pos[2]-1,
+		character = pos[3]-1
+	}
+	return result
+end
+
+function M.make_position_params()
+	local params = {
+		textDocument = {
+			uri = vim.uri_from_bufnr(0)
+		},
+		position = M.get_current_position()
+	}
+	return params
+end
+
 -- 获取选中区域
 function M.get_visual_selection()
 	-- 获取当前选区

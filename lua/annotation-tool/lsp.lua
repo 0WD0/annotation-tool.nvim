@@ -134,7 +134,7 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 显示标注内容
-	vim.keymap.set('n', 'K', vim.lsp.buf.hover, {
+	vim.keymap.set('n', 'K', M.hover_annotation, {
 		buffer = bufnr,
 		desc = "Show hover information",
 		noremap = true,
@@ -144,6 +144,23 @@ local function on_attach(client, bufnr)
 	-- 启用标注模式
 	core.enable_annotation_mode()
 	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
+end
+
+
+--- copy from nvim source code
+local function request(method, params, handler)
+	vim.validate({
+		method = { method, 's' },
+		handler = { handler, 'f', true },
+	})
+	return vim.lsp.buf_request(0, method, params, handler)
+end
+local ms= require('vim.lsp.protocol').Methods
+--- Displays hover information about the symbol under the cursor in a floating 
+--- window. Calling the function twice will jump into the floating window.
+function M.hover_annotation()
+	local params = core.make_position_params()
+	request(ms.textDocument_hover, params)
 end
 
 -- 创建标注
@@ -212,7 +229,8 @@ function M.delete_annotation()
 		return
 	end
 
-	local params = vim.lsp.util.make_position_params()
+	-- local params = vim.lsp.util.make_position_params()
+	local params = core.make_position_params()
 
 	vim.notify('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character),vim.log.levels.INFO)
 
