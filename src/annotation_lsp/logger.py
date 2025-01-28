@@ -11,7 +11,7 @@ class Logger:
 		self._server = server
 
 	def error(self, msg: str) -> None:
-		if self._server and self.debug:
+		if self._server:
 			self._server.show_message(msg, types.MessageType.Error)
 
 	def info(self, msg: str) -> None:
