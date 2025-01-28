@@ -8,38 +8,58 @@
 - 悬停预览
 - 自动备份数据库
 - 批注区间可以嵌套
+- 多项目多文件支持
+- [ ] 支持项目移动
 - [ ] 支持在右侧窗口实时预览当前批注
+- [ ] 光标下的批注区间高亮
 - [ ] 自动同步批注文件frontmatter，支持双向跳转
 - [ ] 支持文件重命名和移动后的自动同步
-- [ ] 实时高亮
-- [ ] 支持通过文件路径、原文内容或批注内容进行搜索
+- [ ] 支持通过文件路径、原文内容或批注内容进行模糊搜索
 
 ## 依赖
 
 - Neovim >= 0.8.0
-- Python >= 3.8
-- 以下Python包：
-	- python-lsp-server
-	- pygls
-	- sqlalchemy
-	- fuzzyfinder
-	- watchdog
+- Python >= 3.7
+- 以下 Neovim 插件：
+  - neovim/nvim-lspconfig
+  - nvim-telescope/telescope.nvim（可选，用于全局搜索功能）
+
+插件会自动创建和管理 Python 虚拟环境，你不需要手动安装任何 Python 包。虚拟环境会被创建在插件目录下的 `.venv` 目录中，包含以下主要依赖：
+
+- pygls >= 1.1.1：LSP 服务器实现
+- lsprotocol >= 2023.0.1：LSP 协议定义
+
+如果你想使用自己的 Python 环境，可以在配置中指定：
+
+```lua
+require('annotation-tool').setup({
+    python_path = '/path/to/your/python'
+})
+```
 
 ## 安装
 
-在你的Neovim配置中添加插件（使用你喜欢的插件管理器）：
+在你的 Neovim 配置中添加插件（使用你喜欢的插件管理器）：
 
 ```lua
--- 使用lazy.nvim
+-- 使用 lazy.nvim
 return {
-	'annotation-tool',
-	dependencies = {
-		'neovim/nvim-lspconfig',
-		'nvim-telescope/telescope.nvim',
-	},
-	opts = {}
+    'annotation-tool',
+    dependencies = {
+        'neovim/nvim-lspconfig',
+        'nvim-telescope/telescope.nvim', -- 可选
+    },
+    opts = {
+        -- 可选配置
+        -- python_path = '/path/to/your/python'
+    }
 }
 ```
+
+首次启动时，插件会：
+1. 创建 Python 虚拟环境（在插件目录下的 `.venv` 目录）
+2. 安装必要的依赖
+3. 启动 LSP 服务器
 
 ## 使用方法
 
@@ -47,19 +67,22 @@ return {
 
 - `<Leader>na`: 创建新批注（在visual mode下选中文本后使用）
 - `<Leader>nd`: 删除当前光标下的批注（默认删除批注的笔记文件）
+- `<Leader>nl`: 显示当前文件的批注个数（使用数据库统计，不是括号对数）
 - [ ] `<Leader>aa`: 切换annotation mode（启用/禁用批注功能）
 - [ ] `<Leader>nf`: 搜索批注（使用telescope）
 
 ### 批注格式
 
 批注使用日语半角括号（｢｣）来标记区间。在annotation mode下，这些括号会被隐藏以保持文本的可读性。
-你也可以自己选择左右括号的标识
+你也可以自己选择左右括号的标识。
 
-nvim 和 lsp 端的括号设置还未同步
+nvim 和 lsp 端的括号设置还未同步。
 
 ### 项目结构
 
-批注工具会在项目根目录创建一个`.annotation`目录，包含以下内容：
+默认情况下，你需要手动创建一个 `.annotation` 目录，annotation-tool将以它所在的目录作为这个批注项目的根目录
+
+annotation-tool 会在`.annotation`目录填充以下文件内容：
 
 ```
 .annotation/
@@ -74,19 +97,18 @@ nvim 和 lsp 端的括号设置还未同步
 
 每个批注文件（`.md`）包含以下内容：
 
-```markdown
+````markdown
 ---
-file: /path/to/source/file
+file: /relative/path/to/source/file
 id: 1
 ---
 
 ```
-
 原文内容
 ```
 
 你的批注内容
-```
+````
 
 ## 数据库设计
 
@@ -138,4 +160,3 @@ require('annotation-tool').setup({
 ## License
 
 MIT
-
