@@ -1,6 +1,0 @@
-python-lsp-server>=1.7.4
-pygls>=1.1.0
-lsprotocol>=2023.0.0
-sqlalchemy>=2.0.0
-fuzzyfinder>=2.1.0
-watchdog>=3.0.0
