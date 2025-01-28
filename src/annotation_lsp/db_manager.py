@@ -179,23 +179,23 @@ class DatabaseManager:
 		# 获取文件 ID
 		cursor = conn.execute('SELECT id FROM files WHERE path = ?', (doc_uri,))
 		result = cursor.fetchone()
-		if not result:
+		if result == None:
+			error("Delete annotation: Failed to get file_id")
 			return False
 		file_id = result[0]
 		
-		# 删除标注记录
-		conn.execute(
-			'DELETE FROM annotations WHERE file_id = ? AND annotation_id = ?',
-			(file_id, annotation_id)
-		)
-		
-		conn.commit()
 		if self.current_db:
 			self._backup_db(self.current_db)
+
+		with conn:
+			conn.execute(
+				'DELETE FROM annotations WHERE file_id = ? AND annotation_id = ?',
+				(file_id, annotation_id)
+			)
 		
 		return True
 	
-	def increase_annotation_ids(self, doc_uri: str, from_id: int) -> None:
+	def increase_annotation_ids(self, doc_uri: str, from_id: int, num: int = 1) -> None:
 		"""将指定文件中大于等于from_id的所有标注id加1"""
 		conn = self._get_current_conn()
 		with conn:
@@ -223,9 +223,9 @@ class DatabaseManager:
 			for (annotation_id,) in annotation_ids:
 				cursor.execute('''
 					UPDATE annotations
-					SET annotation_id = annotation_id + 1
+					SET annotation_id = annotation_id + ?
 					WHERE file_id = ? AND annotation_id = ?
-				''', (file_id, annotation_id))
+				''', (num, file_id, annotation_id))
 				info(f"Updating annotation {annotation_id} to {annotation_id+1}")
 
 	def reload_file_annotations(self, doc_uri: str):

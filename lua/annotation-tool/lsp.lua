@@ -126,6 +126,13 @@ local function on_attach(client, bufnr)
 		silent = true
 	})
 
+	vim.keymap.set('n', '<Leader>nd', M.delete_annotation, {
+		buffer = bufnr,
+		desc = "Delete annotation at position",
+		noremap = true,
+		silent = true
+	})
+
 	-- 显示标注内容
 	vim.keymap.set('n', 'K', vim.lsp.buf.hover, {
 		buffer = bufnr,
@@ -205,7 +212,10 @@ function M.delete_annotation()
 		return
 	end
 
-	local params = vim.lsp.util.make_position_params()
+	local params = {
+		textDocument = vim.lsp.util.make_text_document_params(),
+		position = vim.lsp.util.make_position_params()
+	}
 
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",

@@ -152,15 +152,15 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		edits = [
 			types.TextEdit(
 				range=types.Range(
-					start=types.Position(line=selection_range.start.line, character=selection_range.start.character),
-					end=types.Position(line=selection_range.start.line, character=selection_range.start.character)
+					start=selection_range.start,
+					end=selection_range.start
 				),
 				new_text=server.config.left_bracket
 			),
 			types.TextEdit(
 				range=types.Range(
-					start=types.Position(line=selection_range.end.line, character=selection_range.end.character),
-					end=types.Position(line=selection_range.end.line, character=selection_range.end.character)
+					start=selection_range.end,
+					end=selection_range.end
 				),
 				new_text=server.config.right_bracket
 			)
@@ -209,25 +209,71 @@ def delete_annotation(ls: LanguageServer, params: dict) -> dict:
 	try:
 		# params 是一个列表，第一个元素才是我们需要的字典
 		params = params[0]
-		doc_uri = params["textDocument"]["uri"]
-		annotation_id = params["annotationId"]
+		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		position = types.Position(
+			line=params["position"]["line"],
+			character=params["position"]["character"]
+		)
+		annotation_id = get_annotation_at_position(doc,position)
+		if annotation_id == None:
+			error("Failed to get annotation_id")
+			return {"success": False}
 		
 		# 获取笔记文件名
-		note_file = db_manager.get_annotation_note_file(doc_uri, annotation_id)
+		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
-			return {"success": False, "error": "Annotation not found"}
+			error("Annotation not found")
+			return {"success": False}
 		
 		# 删除标注记录
-		if not db_manager.delete_annotation(doc_uri, annotation_id):
-			return {"success": False, "error": "Failed to delete annotation"}
+		if not db_manager.delete_annotation(doc.uri, annotation_id):
+			error("Failed to delete annotation")
+			return {"success": False}
+
+		annotations = find_annotation_Ranges(doc)
+		if annotations == None:
+			error("Delete annotation: Failed to get annotations")
+			return {"success": False}
+
+		current_annotation_range = annotations[annotation_id-1]
+
+		edits = [
+			types.TextEdit(
+				range=types.Range(
+					start=current_annotation_range.start,
+					end=types.Position(
+						line=current_annotation_range.start.line,
+						character=current_annotation_range.start.character+1
+					)
+				),
+				new_text=""
+			),
+			types.TextEdit(
+				range=types.Range(
+					start=current_annotation_range.end,
+					end=types.Position(
+						line=current_annotation_range.end.line,
+						character=current_annotation_range.end.character+1
+					)
+				),
+				new_text=""
+			)
+		]
+		
+		edit = types.WorkspaceEdit(
+			changes={doc.uri: edits}
+		)
+		ls.apply_edit(edit)
+
+		db_manager.increase_annotation_ids(doc.uri, annotation_id, -1)
 		
 		# 删除笔记文件
 		note_manager.delete_note(note_file)
 		
 		return {"success": True}
 	except DatabaseError as e:
-		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
+		error(f"Database error: {str(e)}")
 		return {"success": False, "error": str(e)}
 	except Exception as e:
-		ls.show_message(f"Failed to delete annotation: {str(e)}", types.MessageType.Error)
+		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
