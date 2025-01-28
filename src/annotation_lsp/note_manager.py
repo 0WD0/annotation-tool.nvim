@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 from typing import Optional, List, Dict
+from urllib.parse import urlparse, unquote
+from .logger import *
 
 class NoteManager:
 	def __init__(self):
@@ -20,6 +22,34 @@ class NoteManager:
 			return None
 		return Path(self.current_project) / '.annotation' / 'notes'
 	
+	def uri_to_path(self, uri: str) -> str:
+		"""Convert a URI to a file path"""
+		parsed = urlparse(uri)
+		# Remove the leading '/' for Windows paths
+		path = unquote(parsed.path)
+		if os.name == 'nt' and path.startswith('/'):
+			path = path[1:]
+		return path
+
+	def uri_to_relative_path(self, uri: str) -> str:
+		"""Convert a URI to a path relative to project root"""
+		parsed = urlparse(uri)
+		# 获取绝对路径
+		abs_path = unquote(parsed.path)
+		if os.name == 'nt' and abs_path.startswith('/'):
+			abs_path = abs_path[1:]
+		
+		if self.current_project == None:
+			error("uri_to_relative_path: Failed to get current_project root")
+			return ""
+
+		# 转换为相对路径
+		try:
+			return str(Path(abs_path).relative_to(self.current_project))
+		except ValueError:
+			# 如果文件不在项目目录下，返回原始路径
+			return abs_path
+
 	def create_annotation_note(self, file_path: str, annotation_id: int, text: str, note_file: str) -> Optional[str]:
 		"""为标注创建批注文件"""
 		notes_dir = self.get_notes_dir()
@@ -31,8 +61,11 @@ class NoteManager:
 		if note_path.exists():
 			return None
 		
+		# 将 URI 转换为相对路径
+		relative_path = self.uri_to_relative_path(file_path)
+		
 		with note_path.open('w', encoding='utf-8') as f:
-			f.write(f'---\nfile: {file_path}\nid: {annotation_id}\n---\n\n')
+			f.write(f'---\nfile: {relative_path}\nid: {annotation_id}\n---\n\n')
 			f.write('## Selected Text\n\n')
 			f.write('```\n')
 			f.write(text)

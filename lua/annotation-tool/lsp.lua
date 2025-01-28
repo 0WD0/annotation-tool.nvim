@@ -246,7 +246,7 @@ end
 local function get_workspace_folders()
 	local folders = {}
 	local cwd = vim.loop.cwd()
-	
+
 	-- 首先检查当前工作目录
 	local root = find_project_root(cwd)
 	if root then
@@ -255,7 +255,7 @@ local function get_workspace_folders()
 			name = vim.fn.fnamemodify(root, ":t")
 		})
 	end
-	
+
 	-- 然后检查当前打开的文件
 	local current_file_root = find_project_root()
 	if current_file_root and current_file_root ~= root then
@@ -264,7 +264,7 @@ local function get_workspace_folders()
 			name = vim.fn.fnamemodify(current_file_root, ":t")
 		})
 	end
-	
+
 	return folders
 end
 
