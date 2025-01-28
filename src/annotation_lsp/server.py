@@ -9,9 +9,8 @@ from urllib.parse import urlparse
 from pygls.server import LanguageServer
 from lsprotocol import types
 
-from .db_manager import DatabaseManager, DatabaseError
-from .note_manager import NoteManager
 from .config import config, initialize_config
+from .workspace_manager import workspace_manager
 from .utils import *
 from .logger import *
 
@@ -21,25 +20,22 @@ class AnnotationServer(LanguageServer):
 		logger.set_server(self)
 
 server = AnnotationServer()
-db_manager = DatabaseManager()
-note_manager = NoteManager()
 
 @server.feature(types.INITIALIZE)
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""初始化 LSP 服务器"""
 	server.show_message("Initializing annotation LSP server...")
 	
-	# 设置工作目录
-	root_path = None
-	if params.root_uri:
-		root_path = urlparse(params.root_uri).path
-		os.chdir(root_path)
-		db_manager.init_db(root_path)
-		note_manager.init_project(root_path)
-	
 	# 初始化配置
 	init_options = params.initialization_options if hasattr(params, 'initialization_options') else None
-	initialize_config(init_options, root_path)
+	initialize_config(init_options)
+
+	# 初始化工作区
+	if params.workspace_folders:
+		for folder in params.workspace_folders:
+			workspace_manager.add_workspace(folder.uri)
+	elif params.root_uri:
+		workspace_manager.add_workspace(params.root_uri)
 
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
@@ -63,11 +59,12 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
 	"""处理工作区变化事件"""
 	if params.event.added:
-		# 使用新添加的第一个工作区
-		root_uri = params.event.added[0].uri
-		root_path = urlparse(root_uri).path
-		db_manager.init_db(root_path)
-		note_manager.init_project(root_path)
+		for folder in params.event.added:
+			workspace_manager.add_workspace(folder.uri)
+	
+	if params.event.removed:
+		for folder in params.event.removed:
+			workspace_manager.remove_workspace(folder.uri)
 
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
 def did_open(params: types.DidOpenTextDocumentParams):
@@ -92,6 +89,14 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 
 		info(f"Current doc_uri is {doc.uri}")
 		info(f"Current annotation_id is {annotation_id}")
+		
+		# 获取对应的管理器
+		db_manager = workspace_manager.get_db_manager(doc.uri)
+		note_manager = workspace_manager.get_note_manager(doc.uri)
+		
+		if not db_manager or not note_manager:
+			error("Failed to get managers for document")
+			return None
 		
 		# 获取笔记内容
 		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
@@ -143,6 +148,14 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 			return {"success": False, "error": "1"}
 		annotation_id += 1
 
+		# 获取对应的管理器
+		db_manager = workspace_manager.get_db_manager(doc.uri)
+		note_manager = workspace_manager.get_note_manager(doc.uri)
+		
+		if not db_manager or not note_manager:
+			error("Failed to get managers for document")
+			return {"success": False, "error": "No workspace found for document"}
+
 		db_manager.increase_annotation_ids(doc.uri,annotation_id)
 		
 		# 创建标注
@@ -183,9 +196,6 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		)
 		
 		return {"success": True, "annotationId": annotation_id}
-	except DatabaseError as e:
-		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
-		return {"success": False, "error": str(e)}
 	except Exception as e:
 		ls.show_message(f"Failed to create annotation: {str(e)}", types.MessageType.Error)
 		return {"success": False, "error": str(e)}
@@ -197,11 +207,15 @@ def list_annotations(ls: LanguageServer, params: Dict) -> Dict:
 		# params 是一个列表，第一个元素才是我们需要的字典
 		params = params[0]
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		
+		# 获取对应的数据库管理器
+		db_manager = workspace_manager.get_db_manager(doc.uri)
+		if not db_manager:
+			error("Failed to get database manager for document")
+			return {"success": False, "error": "No workspace found for document"}
+			
 		annotations = db_manager.get_file_annotations(doc.uri)
 		return {"success": True, "annotations": annotations}
-	except DatabaseError as e:
-		ls.show_message(f"Database error: {str(e)}", types.MessageType.Error)
-		return {"success": False, "error": str(e)}
 	except Exception as e:
 		ls.show_message(f"Failed to list annotations: {str(e)}", types.MessageType.Error)
 		return {"success": False, "error": str(e)}
@@ -216,11 +230,18 @@ def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 			line=params['position']['line'],
 			character=params['position']['character']
 		)
-		info(f"Current position: {position.line},{position.character}")
 		annotation_id = get_annotation_at_position(doc,position)
 		if annotation_id == None:
 			error("Failed to get annotation_id")
 			return {"success": False}
+		
+		# 获取对应的管理器
+		db_manager = workspace_manager.get_db_manager(doc.uri)
+		note_manager = workspace_manager.get_note_manager(doc.uri)
+		
+		if not db_manager or not note_manager:
+			error("Failed to get managers for document")
+			return {"success": False, "error": "No workspace found for document"}
 		
 		# 获取笔记文件名
 		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
@@ -274,9 +295,6 @@ def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 		note_manager.delete_note(note_file)
 		
 		return {"success": True}
-	except DatabaseError as e:
-		error(f"Database error: {str(e)}")
-		return {"success": False, "error": str(e)}
 	except Exception as e:
 		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}

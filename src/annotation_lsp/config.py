@@ -1,12 +1,10 @@
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any
-from pathlib import Path
 
 # 默认配置 
 DEFAULT_CONFIG = {
 	'left_bracket': '｢',
 	'right_bracket': '｣',
-	'workspace_path': None,
 }
 
 @dataclass(frozen=True)
@@ -14,7 +12,6 @@ class AnnotationConfig:
 	"""标注工具的配置类"""
 	left_bracket: str = field(default=DEFAULT_CONFIG['left_bracket'])
 	right_bracket: str = field(default=DEFAULT_CONFIG['right_bracket'])
-	workspace_path: Optional[Path] = field(default=DEFAULT_CONFIG['workspace_path'])
 
 	@classmethod
 	def from_dict(cls, data: Optional[Dict[str, Any]] = None) -> 'AnnotationConfig':
@@ -31,9 +28,6 @@ class AnnotationConfig:
 			'left_bracket': data.get('leftBracket', DEFAULT_CONFIG['left_bracket']),
 			'right_bracket': data.get('rightBracket', DEFAULT_CONFIG['right_bracket']),
 		})
-		
-		if 'workspace_path' in data:
-			config_data['workspace_path'] = Path(data['workspace_path'])
 
 		return cls(**config_data)
 
@@ -54,23 +48,16 @@ class _ConfigManager:
 			self._config = AnnotationConfig()
 		return self._config
 
-	def initialize(self, options: Optional[dict] = None, workspace_path: Optional[str] = None) -> None:
+	def initialize(self, options: Optional[dict] = None) -> None:
 		"""初始化配置
 		
 		Args:
 			options: LSP客户端的初始化选项
-			workspace_path: 工作区路径
 		"""
 		if self._config is not None:
 			return
 
-		config_data = {}
-		if options:
-			config_data.update(options)
-		if workspace_path:
-			config_data['workspace_path'] = workspace_path
-
-		self._config = AnnotationConfig.from_dict(config_data)
+		self._config = AnnotationConfig.from_dict(options)
 
 # 创建全局配置管理器实例
 _config_manager = _ConfigManager()
@@ -79,11 +66,10 @@ _config_manager = _ConfigManager()
 config = _config_manager.config
 
 # 导出初始化函数
-def initialize_config(options: Optional[dict] = None, workspace_path: Optional[str] = None) -> None:
+def initialize_config(options: Optional[dict] = None) -> None:
 	"""初始化全局配置
 	
 	Args:
 		options: LSP客户端的初始化选项
-		workspace_path: 工作区路径
 	"""
-	_config_manager.initialize(options, workspace_path)
+	_config_manager.initialize(options)

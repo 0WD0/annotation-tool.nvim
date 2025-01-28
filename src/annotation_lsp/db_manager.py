@@ -66,7 +66,7 @@ class DatabaseManager:
 		self.connections[str(db_path)] = conn
 		self.current_db = str(db_path)
 
-	def _get_current_conn(self) -> sqlite3.Connection:
+	def _get_current_conn(self, doc_uri: Optional[str] = None) -> sqlite3.Connection:
 		"""获取当前数据库连接，如果没有则在当前目录初始化一个"""
 		if not self.current_db:
 			# 在当前目录初始化数据库
