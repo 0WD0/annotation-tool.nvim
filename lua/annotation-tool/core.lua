@@ -9,13 +9,22 @@ end
 function M.get_visual_selection()
 	-- 获取当前选区
 	local mode = vim.api.nvim_get_mode().mode
-	if mode ~= 'v' and mode ~= 'V' and mode ~= '' then
-		vim.notify("Please select text in visual mode first", vim.log.levels.WARN)
+	if mode ~= 'v' and mode ~= 'V' then
+		vim.notify("Please select text in visual mode or visual line mode first", vim.log.levels.WARN)
 		return nil
 	end
 
-	local start_pos = vim.fn.getcharpos("'<")
-	local end_pos = vim.fn.getcharpos("'>")
+	local start_pos = vim.fn.getcharpos('v')
+	local end_pos = vim.fn.getcharpos('.')
+
+	if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
+		start_pos, end_pos = end_pos, start_pos
+	end
+
+	if mode == 'V' then
+		start_pos[3]= 1
+		end_pos[3]= vim.fn.virtcol({end_pos[2],'$'})-1
+	end
 
 	-- 转换为 LSP 位置格式
 	local result = {
