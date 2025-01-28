@@ -227,7 +227,7 @@ def delete_annotation(ls: LanguageServer, params: dict) -> dict:
 		
 		# 删除标注记录
 		if not db_manager.delete_annotation(doc.uri, annotation_id):
-			error("Failed to delete annotation")
+			error("Failed to delete annotation in database")
 			return {"success": False}
 
 		annotations = find_annotation_Ranges(doc)

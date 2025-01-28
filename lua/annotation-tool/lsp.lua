@@ -212,14 +212,11 @@ function M.delete_annotation()
 		return
 	end
 
-	local params = {
-		textDocument = vim.lsp.util.make_text_document_params(),
-		position = vim.lsp.util.make_position_params()
-	}
+	local params = vim.lsp.util.make_position_params()
 
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",
-		arguments = { params }
+		arguments = params
 	}, function(err, result)
 		if err then
 			vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
