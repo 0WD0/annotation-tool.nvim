@@ -188,7 +188,7 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		return {"success": False, "error": str(e)}
 
 @server.command("listAnnotations")
-def list_annotations(ls: LanguageServer, params: dict) -> dict:
+def list_annotations(ls: LanguageServer, params: Dict) -> Dict:
 	"""处理列出标注的逻辑"""
 	try:
 		# params 是一个列表，第一个元素才是我们需要的字典
@@ -204,15 +204,14 @@ def list_annotations(ls: LanguageServer, params: dict) -> dict:
 		return {"success": False, "error": str(e)}
 
 @server.command("deleteAnnotation")
-def delete_annotation(ls: LanguageServer, params: dict) -> dict:
+def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 	"""处理删除标注的逻辑"""
 	try:
-		# params 是一个列表，第一个元素才是我们需要的字典
-		params = params[0]
+		params = param[0]
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
 		position = types.Position(
-			line=params["position"]["line"],
-			character=params["position"]["character"]
+			line=params['position']['line'],
+			character=params['position']['character']
 		)
 		annotation_id = get_annotation_at_position(doc,position)
 		if annotation_id == None:

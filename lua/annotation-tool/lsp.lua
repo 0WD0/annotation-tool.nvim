@@ -216,7 +216,7 @@ function M.delete_annotation()
 
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",
-		arguments = params
+		arguments = { params }
 	}, function(err, result)
 		if err then
 			vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
