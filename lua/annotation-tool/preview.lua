@@ -1,68 +1,9 @@
 local M = {}
 
--- 在右侧打开标注预览窗口
+-- 在右侧打开批注文件
 function M.setup()
 	if not vim.b.annotation_mode then
 		vim.notify("Please enable annotation mode first", vim.log.levels.WARN)
-		return
-	end
-
-	-- 如果预览窗口已经存在，关闭它
-	if vim.g.annotation_preview_win and vim.api.nvim_win_is_valid(vim.g.annotation_preview_win) then
-		vim.api.nvim_win_close(vim.g.annotation_preview_win, true)
-		vim.g.annotation_preview_win = nil
-		vim.g.annotation_preview_buf = nil
-		return
-	end
-
-	-- 创建新窗口
-	local width = math.floor(vim.o.columns * 0.3)
-	vim.cmd('botright vsplit')
-	vim.cmd('vertical resize ' .. width)
-
-	-- 设置窗口选项
-	local win = vim.api.nvim_get_current_win()
-	vim.wo[win].number = false
-	vim.wo[win].relativenumber = false
-	vim.wo[win].wrap = true
-	vim.wo[win].signcolumn = 'no'
-	vim.wo[win].foldcolumn = '0'
-	vim.wo[win].winfixwidth = true
-
-	-- 创建新buffer
-	local buf = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_win_set_buf(win, buf)
-
-	-- 设置buffer选项
-	vim.bo[buf].filetype = 'markdown'
-	vim.bo[buf].modifiable = false
-	vim.bo[buf].bufhidden = 'wipe'
-
-	-- 保存窗口和buffer的ID
-	vim.g.annotation_preview_win = win
-	vim.g.annotation_preview_buf = buf
-
-	-- 返回到原始窗口
-	vim.cmd('wincmd p')
-
-	-- 设置自动命令以更新预览内容
-	vim.api.nvim_create_autocmd({"CursorMoved", "CursorMovedI"}, {
-		buffer = vim.api.nvim_get_current_buf(),
-		callback = function()
-			M.update()
-		end,
-	})
-
-	-- 立即更新预览内容
-	M.update()
-end
-
--- 更新标注预览窗口的内容
-function M.update()
-	local win = vim.g.annotation_preview_win
-	local buf = vim.g.annotation_preview_buf
-
-	if not win or not buf or not vim.api.nvim_win_is_valid(win) then
 		return
 	end
 
@@ -78,30 +19,44 @@ function M.update()
 		}
 	}
 
-	-- 从LSP服务器获取当前位置的标注
-	vim.lsp.buf_request(0, 'textDocument/annotation', params, function(err, result, ctx, config)
+	-- 使用 LSP 命令获取批注文件
+	vim.lsp.buf.execute_command({
+		command = "getAnnotationNote",
+		arguments = { params }
+	}, function(err, result)
 		if err then
+			vim.notify("Failed to get annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
 			return
 		end
 
-		if result then
-			-- 更新预览窗口内容
-			vim.bo[buf].modifiable = true
-			vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-				"# Annotation",
-				"",
-				"> " .. result.content,
-				"",
-				result.note or ""
-			})
-			vim.bo[buf].modifiable = false
+		if result and result.note_file then
+			-- 在右侧分割窗口中打开笔记文件
+			local width = math.floor(vim.o.columns * 0.4)
+			vim.cmd('botright vsplit ' .. vim.fn.fnameescape(result.note_file))
+			vim.cmd('vertical resize ' .. width)
+			
+			-- 设置窗口选项
+			local win = vim.api.nvim_get_current_win()
+			vim.wo[win].number = true
+			vim.wo[win].relativenumber = false
+			vim.wo[win].wrap = true
+			vim.wo[win].winfixwidth = true
+			
+			-- 设置buffer选项
+			local buf = vim.api.nvim_get_current_buf()
+			vim.bo[buf].filetype = 'markdown'
+			
+			-- 跳转到笔记部分
+			vim.cmd([[
+				normal! G
+				?^## Notes
+				normal! 2j
+			]])
+			
+			-- 返回到原始窗口
+			vim.cmd('wincmd p')
 		else
-			-- 清空预览窗口
-			vim.bo[buf].modifiable = true
-			vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-				"No annotation at cursor"
-			})
-			vim.bo[buf].modifiable = false
+			vim.notify("No annotation found at cursor position", vim.log.levels.INFO)
 		end
 	end)
 end

@@ -48,7 +48,8 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 			commands=[
 				"createAnnotation",
 				"listAnnotations",
-				"deleteAnnotation"
+				"deleteAnnotation",
+				"getAnnotationNote"
 			]
 		),
 	)
@@ -298,3 +299,35 @@ def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 	except Exception as e:
 		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
+
+@server.command("getAnnotationNote")
+def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
+	"""获取当前位置的批注文件"""
+	try:
+		# 获取文档和位置
+		doc_uri = params["textDocument"]["uri"]
+		position = types.Position(**params["position"])
+		doc = ls.workspace.get_document(doc_uri)
+		
+		# 获取当前位置的批注
+		annotation_id = get_annotation_at_position(doc, position)
+		if not annotation_id:
+			return None
+			
+		# 获取批注文件路径
+		workspace = workspace_manager.get_workspace(doc_uri)
+		if not workspace:
+			return None
+			
+		note_file = workspace.db_manager.get_annotation_note_file(doc_uri, annotation_id)
+		if not note_file:
+			return None
+			
+		return {
+			"note_file": note_file,
+			"annotation_id": annotation_id
+		}
+			
+	except Exception as e:
+		error(f"Error getting annotation note: {str(e)}")
+		return None
