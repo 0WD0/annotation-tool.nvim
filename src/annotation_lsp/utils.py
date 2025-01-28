@@ -2,6 +2,7 @@ from typing import Dict, List, Optional, Tuple
 from pygls.workspace.text_document import TextDocument
 from lsprotocol import types
 from bisect import bisect_left
+from .config import config
 
 def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
 	return types.Range(
@@ -24,8 +25,8 @@ def find_annotation_ranges_raw(doc: TextDocument) -> Optional[List[Tuple[int, in
 	lines = doc.lines
 	
 	# 从服务器配置中获取括号
-	left_bracket = server.config.left_bracket
-	right_bracket = server.config.right_bracket
+	left_bracket = config.left_bracket
+	right_bracket = config.right_bracket
 	
 	# 遍历每一行
 	for line_num, line in enumerate(lines):
@@ -58,7 +59,7 @@ def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 	if selection_range.start.line == selection_range.end.line:
 		# 单行选择
 		line = lines[selection_range.start.line]
-		selected_text = ''.join(c for c in line[selection_range.start.character:selection_range.end.character] if c not in '｢｣')
+		selected_text = ''.join(c for c in line[selection_range.start.character:selection_range.end.character] if c != config.left_bracket and c != config.right_bracket)
 	else:
 		# 多行选择
 		selected_text = []
@@ -70,7 +71,7 @@ def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 			else:
 				line = lines[i]
 			# 过滤掉半角括号
-			filtered_line = ''.join(c for c in line if c not in '｢｣')
+			filtered_line = ''.join(c for c in line if c != config.left_bracket and c != config.right_bracket)
 			selected_text.append(filtered_line)
 		selected_text = '\n'.join(selected_text)
 	return selected_text

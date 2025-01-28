@@ -19,3 +19,5 @@ class AnnotationConfig:
 			left_bracket=options.get('leftBracket', cls.left_bracket),
 			right_bracket=options.get('rightBracket', cls.right_bracket)
 		)
+
+config: AnnotationConfig

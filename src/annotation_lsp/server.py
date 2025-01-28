@@ -12,14 +12,14 @@ from lsprotocol import types
 
 from .db_manager import DatabaseManager, DatabaseError
 from .note_manager import NoteManager
-from .config import AnnotationConfig
+from .config import *
 from .utils import *
 from .logger import *
 
 class AnnotationServer(LanguageServer):
 	def __init__(self):
 		super().__init__("annotation-lsp", "v0.1.0")
-		self.config = AnnotationConfig()
+		config = AnnotationConfig()
 		logger.set_server(self)
 
 server = AnnotationServer()
@@ -38,6 +38,10 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 		db_manager.init_db(root_path)
 		note_manager.init_project(root_path)
 	
+	# 从客户端配置中创建配置实例
+	init_options = params.initialization_options if hasattr(params, 'initialization_options') else None
+	config = AnnotationConfig.from_initialization_options(init_options)
+
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
 			open_close=True,
@@ -155,14 +159,14 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 					start=selection_range.start,
 					end=selection_range.start
 				),
-				new_text=server.config.left_bracket
+				new_text=config.left_bracket
 			),
 			types.TextEdit(
 				range=types.Range(
 					start=selection_range.end,
 					end=selection_range.end
 				),
-				new_text=server.config.right_bracket
+				new_text=config.right_bracket
 			)
 		]
 		
