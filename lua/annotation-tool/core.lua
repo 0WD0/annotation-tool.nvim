@@ -54,11 +54,11 @@ function M.get_visual_selection()
 	-- 转换为 LSP 位置格式
 	local result = {
 		start = {
-			line = start_pos[2],
-			character = start_pos[3]
+			line = start_pos[2]-1,
+			character = start_pos[3]-1
 		},
 		['end'] = {
-			line = end_pos[2],
+			line = end_pos[2]-1,
 			character = end_pos[3]
 		}
 	}
