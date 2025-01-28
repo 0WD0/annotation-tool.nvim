@@ -214,6 +214,8 @@ function M.delete_annotation()
 
 	local params = vim.lsp.util.make_position_params()
 
+	vim.notify('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character),vim.log.levels.INFO)
+
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",
 		arguments = { params }

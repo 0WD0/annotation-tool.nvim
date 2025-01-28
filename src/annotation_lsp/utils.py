@@ -3,6 +3,7 @@ from pygls.workspace.text_document import TextDocument
 from lsprotocol import types
 from bisect import bisect_left
 from .config import config
+from .logger import *
 
 def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
 	return types.Range(
@@ -18,8 +19,6 @@ def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
 
 def find_annotation_ranges_raw(doc: TextDocument) -> Optional[List[Tuple[int, int, int, int]]]:
 	"""找出所有标注区间及其ID（基于右括号出现顺序）"""
-	from .server import server
-	
 	annotations = []
 	start_stack = []
 	lines = doc.lines
@@ -89,6 +88,14 @@ def get_annotation_at_position(doc: TextDocument, position: types.Position) -> O
 	annotation_R = find_annotation_ranges_raw(doc)
 	if annotation_R == None: return None
 	annotation_L = sorted(annotation_R)
+
+	for i,annotation in enumerate(annotation_L):
+		start_line, start_char, end_line, end_char = annotation
+		info(f"Annotation_L {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
+
+	for i,annotation in enumerate(annotation_R):
+		start_line, start_char, end_line, end_char = annotation
+		info(f"Annotation_R {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
 
 	pos_line = position.line
 	pos_char = position.character

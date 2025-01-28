@@ -216,6 +216,7 @@ def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 			line=params['position']['line'],
 			character=params['position']['character']
 		)
+		info(f"Current position: {position.line},{position.character}")
 		annotation_id = get_annotation_at_position(doc,position)
 		if annotation_id == None:
 			error("Failed to get annotation_id")
