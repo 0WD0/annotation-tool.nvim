@@ -361,13 +361,7 @@ function M.setup(opts)
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
-				root_dir = function(fname)
-					local root = find_project_root(vim.fn.fnamemodify(fname, ":h"))
-					if root then
-						add_workspace_folder(root)
-					end
-					return root or vim.fn.fnamemodify(fname, ":h")
-				end,
+				root_dir = function() return vim.uv.os_homedir() end,
 				workspace_folders = get_workspace_folders,
 				capabilities = vim.tbl_deep_extend("force",
 					vim.lsp.protocol.make_client_capabilities(),
@@ -387,7 +381,8 @@ function M.setup(opts)
 	end
 
 	-- setup LSP
-	vim.notify("Setting up anotation_ls")
+	vim.notify("Setting up annotation_ls")
+	scan_workspace_folders()  -- 启动前扫描工作区
 	lspconfig.annotation_ls.setup({})
 end
 
