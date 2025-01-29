@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 
-import os
-from typing import Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from pathlib import Path
-from urllib.parse import urlparse
+from typing import Dict, Optional
 
 from pygls.server import LanguageServer
 from lsprotocol import types
 
-from .config import config, initialize_config
+from .config import initialize_config
 from .workspace_manager import workspace_manager
 from .utils import *
 from .logger import *
@@ -85,27 +81,20 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		doc = ls.workspace.get_document(params.text_document.uri)
 		annotation_id = get_annotation_at_position(doc, params.position)
 		if not annotation_id:
-			error("Failed to get current annotation_id")
 			return None
 
-		info(f"Current doc_uri is {doc.uri}")
-		info(f"Current annotation_id is {annotation_id}")
-		
-		# 获取对应的管理器
-		db_manager = workspace_manager.get_db_manager(doc.uri)
-		note_manager = workspace_manager.get_note_manager(doc.uri)
-		
-		if not db_manager or not note_manager:
-			error("Failed to get managers for document")
+		# 获取工作区
+		workspace = workspace_manager.get_workspace(doc.uri)
+		if not workspace:
+			error(f"No workspace found for {doc.uri}")
 			return None
 		
-		# 获取笔记内容
-		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
+		# 获取笔记文件
+		note_file = workspace.db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
-			error("Failed to get note file path")
 			return None
 		
-		note_content = note_manager.get_note_content(note_file)
+		note_content = workspace.note_manager.get_note_content(note_file)
 		if not note_content:
 			error("Failed to get note file contents")
 			return types.Hover(contents=[])
@@ -116,16 +105,18 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 			server.show_message("Empty note", types.MessageType.Info)
 			return types.Hover(contents=[])
 			
-		return types.Hover(contents=types.MarkupContent(
-			kind=types.MarkupKind.Markdown,
-			value=notes_content
-		))
+		return types.Hover(
+			contents=types.MarkupContent(
+				kind=types.MarkupKind.Markdown,
+				value=notes_content
+			)
+		)
 	except Exception as e:
-		server.show_message(f"Failed to hover: {str(e)}", types.MessageType.Error)
+		error(f"Error in hover: {str(e)}")
 		return None
 
 @server.command("createAnnotation")
-def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
+def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""处理创建标注的逻辑"""
 	try:
 		# params 是一个列表，第一个元素才是我们需要的字典
@@ -149,21 +140,16 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 			return {"success": False, "error": "1"}
 		annotation_id += 1
 
-		# 获取对应的管理器
-		db_manager = workspace_manager.get_db_manager(doc.uri)
-		note_manager = workspace_manager.get_note_manager(doc.uri)
-		
-		if not db_manager or not note_manager:
-			error("Failed to get managers for document")
-			return {"success": False, "error": "No workspace found for document"}
-
+		# 获取工作区
+		workspace = workspace_manager.get_workspace(doc.uri)
+		if not workspace:
+			raise Exception(f"No workspace found for {doc.uri}")
+		db_manager = workspace.db_manager
+		note_manager = workspace.note_manager
 		db_manager.increase_annotation_ids(doc.uri,annotation_id)
 		
 		# 创建标注
-		note_file = db_manager.create_annotation(
-			doc_uri=doc.uri,
-			annotation_id = annotation_id
-		)
+		note_file = db_manager.create_annotation(doc.uri, annotation_id)
 		
 		# 在原文中插入日语半角括号
 		edits = [
@@ -187,45 +173,43 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Dict:
 			changes={params["textDocument"]["uri"]: edits}
 		)
 		ls.apply_edit(edit)
-		
 		# 创建笔记文件
-		note_manager.create_annotation_note(
-			file_path=params["textDocument"]["uri"],
-			annotation_id=annotation_id,
-			text=selected_text,
-			note_file=note_file
+		note_path = note_manager.create_annotation_note(
+			doc.uri, annotation_id, selected_text, note_file
 		)
-		
-		return {"success": True, "annotationId": annotation_id}
+		if not note_path:
+			raise Exception("Failed to create note file")
+
+		return {"success": True, "note_file": note_path}
+
 	except Exception as e:
-		ls.show_message(f"Failed to create annotation: {str(e)}", types.MessageType.Error)
+		error(f"Failed to create annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
 
 @server.command("listAnnotations")
-def list_annotations(ls: LanguageServer, params: Dict) -> Dict:
+def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""处理列出标注的逻辑"""
 	try:
-		# params 是一个列表，第一个元素才是我们需要的字典
-		params = params[0]
-		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		doc_uri = params["textDocument"]["uri"]
 		
-		# 获取对应的数据库管理器
-		db_manager = workspace_manager.get_db_manager(doc.uri)
-		if not db_manager:
-			error("Failed to get database manager for document")
-			return {"success": False, "error": "No workspace found for document"}
-			
-		annotations = db_manager.get_file_annotations(doc.uri)
-		return {"success": True, "annotations": annotations}
+		# 获取工作区
+		workspace = workspace_manager.get_workspace(doc_uri)
+		if not workspace:
+			raise Exception(f"No workspace found for {doc_uri}")
+
+		# 获取文件的所有标注
+		annotations = workspace.db_manager.get_file_annotations(doc_uri)
+		return {"annotations": annotations}
+
 	except Exception as e:
-		ls.show_message(f"Failed to list annotations: {str(e)}", types.MessageType.Error)
+		error(f"Failed to list annotations: {str(e)}")
 		return {"success": False, "error": str(e)}
 
 @server.command("deleteAnnotation")
-def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
+def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 	"""处理删除标注的逻辑"""
 	try:
-		params = param[0]
+		params = params[0]
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
 		position = types.Position(
 			line=params['position']['line'],
@@ -233,32 +217,27 @@ def delete_annotation(ls: LanguageServer, param: Dict) -> Dict:
 		)
 		annotation_id = get_annotation_at_position(doc,position)
 		if annotation_id == None:
-			error("Failed to get annotation_id")
-			return {"success": False}
+			raise Exception("Failed to get annotation_id")
 		
-		# 获取对应的管理器
-		db_manager = workspace_manager.get_db_manager(doc.uri)
-		note_manager = workspace_manager.get_note_manager(doc.uri)
-		
-		if not db_manager or not note_manager:
-			error("Failed to get managers for document")
-			return {"success": False, "error": "No workspace found for document"}
-		
-		# 获取笔记文件名
+		# 获取工作区
+		workspace = workspace_manager.get_workspace(doc.uri)
+		if not workspace:
+			raise Exception(f"No workspace found for {doc.uri}")
+		db_manager = workspace.db_manager
+		note_manager = workspace.note_manager
+
+		# 获取笔记文件路径
 		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
-			error("Annotation not found")
-			return {"success": False}
-		
+			raise Exception("Annotation not found")
+
 		# 删除标注记录
 		if not db_manager.delete_annotation(doc.uri, annotation_id):
-			error("Failed to delete annotation in database")
-			return {"success": False}
+			raise Exception("Failed to delete annotation in database")
 
 		annotations = find_annotation_Ranges(doc)
 		if annotations == None:
-			error("Delete annotation: Failed to get annotations")
-			return {"success": False}
+			raise Exception("Delete annotation: Failed to get annotations")
 
 		current_annotation_range = annotations[annotation_id-1]
 
@@ -314,11 +293,12 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		if not annotation_id:
 			return None
 			
-		# 获取批注文件路径
+		# 获取工作区
 		workspace = workspace_manager.get_workspace(doc_uri)
 		if not workspace:
 			return None
 			
+		# 获取笔记文件路径
 		note_file = workspace.db_manager.get_annotation_note_file(doc_uri, annotation_id)
 		if not note_file:
 			return None
@@ -330,4 +310,4 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			
 	except Exception as e:
 		error(f"Error getting annotation note: {str(e)}")
-		return None
+		return {"success": False, "error": str(e)}

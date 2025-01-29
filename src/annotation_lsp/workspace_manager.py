@@ -1,108 +1,91 @@
-from typing import Dict, Optional, Set
+import os
 from pathlib import Path
+from typing import Optional, Dict
 from urllib.parse import urlparse, unquote
+
 from .db_manager import DatabaseManager
 from .note_manager import NoteManager
-from .logger import info, error
+from .logger import *
+
+class Workspace:
+	"""表示一个工作区"""
+	def __init__(self, folder_uri: str):
+		self.folder_uri = folder_uri
+		self.folder_path = self._uri_to_path(folder_uri)
+		self.db_manager = DatabaseManager()
+		self.note_manager = NoteManager()
+		
+		# 初始化管理器
+		self.db_manager.init_db(self.folder_path)
+		self.note_manager.init_project(self.folder_path)
+	
+	def _uri_to_path(self, uri: str) -> str:
+		"""将 URI 转换为文件路径"""
+		parsed = urlparse(uri)
+		path = unquote(parsed.path)
+		if os.name == 'nt' and path.startswith('/'):
+			path = path[1:]
+		return path
+	
+	def contains_file(self, file_uri: str) -> bool:
+		"""检查文件是否在此工作区内"""
+		file_path = self._uri_to_path(file_uri)
+		try:
+			Path(file_path).relative_to(self.folder_path)
+			return True
+		except ValueError:
+			return False
+	
+	def get_relative_path(self, file_uri: str) -> str:
+		"""获取文件相对于工作区的路径"""
+		file_path = self._uri_to_path(file_uri)
+		try:
+			return str(Path(file_path).relative_to(self.folder_path))
+		except ValueError:
+			return file_path
 
 class WorkspaceManager:
-	"""工作区管理器，用于管理多个工作区及其对应的数据库连接"""
+	"""管理所有工作区"""
 	def __init__(self):
-		self._workspace_folders: Set[Path] = set()
-		self._db_managers: Dict[Path, DatabaseManager] = {}
-		self._note_managers: Dict[Path, NoteManager] = {}
+		self.workspaces: Dict[str, Workspace] = {}  # folder_uri -> Workspace
 	
-	def add_workspace(self, uri: str) -> None:
-		"""添加工作区
-		
-		Args:
-			uri: 工作区URI
-		"""
-		path = Path(unquote(urlparse(uri).path))
-		if path in self._workspace_folders:
+	def add_workspace(self, folder_uri: str):
+		"""添加工作区"""
+		if folder_uri in self.workspaces:
 			return
-			
-		self._workspace_folders.add(path)
-		self._db_managers[path] = DatabaseManager()
-		self._db_managers[path].init_db(str(path))
 		
-		self._note_managers[path] = NoteManager()
-		self._note_managers[path].init_project(str(path))
-		
-		info(f"Added workspace: {path}")
+		try:
+			workspace = Workspace(folder_uri)
+			self.workspaces[folder_uri] = workspace
+			info(f"Added workspace: {folder_uri}")
+		except Exception as e:
+			error(f"Failed to add workspace {folder_uri}: {str(e)}")
 	
-	def remove_workspace(self, uri: str) -> None:
-		"""移除工作区
-		
-		Args:
-			uri: 工作区URI
-		"""
-		path = Path(unquote(urlparse(uri).path))
-		if path not in self._workspace_folders:
-			return
-			
-		self._workspace_folders.remove(path)
-		if path in self._db_managers:
-			del self._db_managers[path]
-		if path in self._note_managers:
-			del self._note_managers[path]
-			
-		info(f"Removed workspace: {path}")
-	
-	def get_workspace_for_file(self, file_uri: str) -> Optional[Path]:
-		"""获取文件所属的工作区路径
-		
-		Args:
-			file_uri: 文件URI
-			
-		Returns:
-			工作区路径，如果找不到则返回None
-		"""
-		file_path = Path(unquote(urlparse(file_uri).path))
-		
-		# 找到最长匹配的工作区路径
-		matching_workspace = None
-		max_parts = -1
-		
-		for workspace in self._workspace_folders:
-			try:
-				relative = file_path.relative_to(workspace)
-				parts = len(relative.parts)
-				if parts > max_parts:
-					max_parts = parts
-					matching_workspace = workspace
-			except ValueError:
-				continue
-				
-		return matching_workspace
-	
-	def get_db_manager(self, file_uri: str) -> Optional[DatabaseManager]:
-		"""获取文件对应的数据库管理器
-		
-		Args:
-			file_uri: 文件URI
-			
-		Returns:
-			数据库管理器，如果找不到则返回None
-		"""
-		workspace = self.get_workspace_for_file(file_uri)
-		if workspace:
-			return self._db_managers.get(workspace)
-		return None
-	
-	def get_note_manager(self, file_uri: str) -> Optional[NoteManager]:
-		"""获取文件对应的笔记管理器
-		
-		Args:
-			file_uri: 文件URI
-			
-		Returns:
-			笔记管理器，如果找不到则返回None
-		"""
-		workspace = self.get_workspace_for_file(file_uri)
-		if workspace:
-			return self._note_managers.get(workspace)
-		return None
+	def remove_workspace(self, folder_uri: str):
+		"""移除工作区"""
+		if folder_uri in self.workspaces:
+			del self.workspaces[folder_uri]
+			info(f"Removed workspace: {folder_uri}")
 
-# 创建全局工作区管理器实例
+	def get_workspace(self, doc_uri: str) -> Optional[Workspace]:
+		"""获取文档所在的工作区"""
+		# 按路径长度降序排序工作区，确保匹配最深的工作区
+		sorted_workspaces = sorted(
+			self.workspaces.values(),
+			key=lambda w: len(w.folder_path),
+			reverse=True
+		)
+		
+		# 返回第一个包含该文件的工作区
+		for workspace in sorted_workspaces:
+			if workspace.contains_file(doc_uri):
+				return workspace
+		
+		return None
+	
+	def get_all_workspaces(self) -> Dict[str, Workspace]:
+		"""获取所有工作区"""
+		return self.workspaces
+
+# 全局工作区管理器实例
 workspace_manager = WorkspaceManager()
