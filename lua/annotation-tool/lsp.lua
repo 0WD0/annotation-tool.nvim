@@ -242,96 +242,88 @@ local function find_project_root(start_path)
 	return nil
 end
 
+-- 存储当前的工作区文件夹
+local workspace_folders = {}
+
+-- 添加工作区文件夹
+local function add_workspace_folder(path)
+	local uri = vim.uri_from_fname(path)
+	if not workspace_folders[uri] then
+		workspace_folders[uri] = {
+			uri = uri,
+			name = vim.fn.fnamemodify(path, ":t")
+		}
+		vim.notify("Added workspace: " .. path)
+	end
+end
+
+-- 移除工作区文件夹
+local function remove_workspace_folder(path)
+	local uri = vim.uri_from_fname(path)
+	if workspace_folders[uri] then
+		workspace_folders[uri] = nil
+		vim.notify("Removed workspace: " .. path)
+	end
+end
+
+-- 扫描并添加工作区文件夹
+local function scan_workspace_folders()
+	-- 检查当前工作目录
+	local cwd = vim.loop.cwd()
+	local current_path = cwd
+	while current_path do
+		if find_project_root(current_path) then
+			add_workspace_folder(current_path)
+		end
+		-- 检查父目录
+		local parent = vim.fn.fnamemodify(current_path, ":h")
+		if parent == current_path then
+			break
+		end
+		current_path = parent
+	end
+
+	-- 检查当前打开的文件
+	local current_file = vim.api.nvim_buf_get_name(0)
+	if current_file and current_file ~= "" then
+		current_path = vim.fn.fnamemodify(current_file, ":p:h")
+		while current_path do
+			if find_project_root(current_path) then
+				add_workspace_folder(current_path)
+			end
+			-- 检查父目录
+			local parent = vim.fn.fnamemodify(current_path, ":h")
+			if parent == current_path then
+				break
+			end
+			current_path = parent
+		end
+	end
+end
+
 -- 获取工作区文件夹
 local function get_workspace_folders()
-	local folders = {}
-	local cwd = vim.loop.cwd()
-
-	-- 首先检查当前工作目录
-	local root = find_project_root(cwd)
-	if root then
-		table.insert(folders, {
-			uri = vim.uri_from_fname(root),
-			name = vim.fn.fnamemodify(root, ":t")
-		})
-	end
-
-	-- 然后检查当前打开的文件
-	local current_file_root = find_project_root()
-	if current_file_root and current_file_root ~= root then
-		table.insert(folders, {
-			uri = vim.uri_from_fname(current_file_root),
-			name = vim.fn.fnamemodify(current_file_root, ":t")
-		})
-	end
-
-	return folders
+	return workspace_folders
 end
 
--- TODO:
--- 手动 attach LSP 到当前 buffer 
--- 如果没有 .annotation 文件夹，在当前文件所在目录下自动建立
+-- 监听文件打开事件，自动扫描工作区
+vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
+	callback = function()
+		scan_workspace_folders()
+	end
+})
+
 function M.attach()
-	local bufnr = vim.api.nvim_get_current_buf()
-	local filetype = vim.bo[bufnr].filetype
-
-	if not vim.tbl_contains({ "markdown", "text", "annot" }, filetype) then
-		vim.notify("LSP only supports markdown, text and annot files", vim.log.levels.WARN)
-		return
-	end
-
-	local clients = vim.lsp.get_clients({
-		bufnr = bufnr,
-		name = "annotation_ls"
-	})
-
-	if #clients > 0 then
-		vim.notify("LSP already attached", vim.log.levels.INFO)
-		return
-	end
-
-	-- 获取 Python 解释器和项目根目录
-	local python_path, plugin_root = get_python_path()
-	if not python_path then
-		vim.notify("No Python interpreter found", vim.log.levels.ERROR)
-		return
-	end
-
-	-- 查找项目根目录
-	local root_dir = find_project_root()
-	if not root_dir then
-		vim.notify("No .annotation directory found in parent directories", vim.log.levels.WARN)
-		return
-	end
-
-	-- 构建 Python 命令
-	local python_cmd = {
-		python_path,
-		"-m",
-		"annotation_lsp"
-	}
-
-	-- 启动 LSP 客户端
-	local client_id = vim.lsp.start_client({
-		name = "annotation_ls",
-		cmd = python_cmd,
-		root_dir = root_dir,
-		workspace_folders = get_workspace_folders(),
-		on_attach = on_attach,
-		capabilities = vim.lsp.protocol.make_client_capabilities()
-	})
-
+	local client_id = M.get_client();
 	if not client_id then
-		vim.notify("Failed to start LSP client", vim.log.levels.ERROR)
+		vim.notify("LSP has not set up", vim.log.levels.ERROR)
 		return
 	end
-
-	-- 将 LSP 客户端附加到当前 buffer
-	vim.lsp.buf_attach_client(bufnr, client_id)
-	vim.notify("LSP attached successfully", vim.log.levels.INFO)
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.lsp.buf_attach_client(bufnr,client_id)
 end
 
--- 初始化 LSP
+-- 初始化 LSP 配置
 function M.setup(opts)
 	opts = opts or {}
 	local lspconfig = require('lspconfig')
@@ -357,40 +349,27 @@ function M.setup(opts)
 			default_config = {
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
-				root_dir = function(fname)
-					local root = find_project_root(vim.fn.fnamemodify(fname, ":h"))
-					vim.notify("current root dir: "..root)
-					if not root then
-						vim.notify("No .annotation directory found in parent directories", vim.log.levels.WARN)
-						return nil
-					end
-					return root
-				end,
+				on_attach = on_attach,
+				workspace_folders = get_workspace_folders(),
+				capabilities = vim.tbl_deep_extend("force",
+					vim.lsp.protocol.make_client_capabilities(),
+					{
+						workspace = {
+							workspaceFolders = {
+								supported = true,
+								changeNotifications = true
+							}
+						}
+					}
+				),
 				single_file_support = false, -- 禁用单文件模式，必须有 .annotation 目录
 				settings = {}
 			},
 		}
 	end
 
-	-- 设置 LSP
-	lspconfig.annotation_ls.setup({
-		cmd = python_cmd,
-		on_attach = on_attach,
-		capabilities = vim.lsp.protocol.make_client_capabilities(),
-		settings = vim.tbl_deep_extend("force", {
-			annotation = {
-				saveDir = vim.fn.expand('~/.local/share/nvim/annotation-notes'),
-			}
-		}, opts.settings or {}),
-		-- 监听工作区文件夹变更
-		handlers = {
-			["workspace/workspaceFolders"] = function()
-				local result = get_workspace_folders()
-				vim.notify(vim.inspect(result))
-				return result
-			end
-		}
-	})
+	-- setup LSP
+	lspconfig.annotation_ls.setup({})
 end
 
 return M

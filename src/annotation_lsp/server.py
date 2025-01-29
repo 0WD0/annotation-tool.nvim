@@ -14,6 +14,15 @@ class AnnotationServer(LanguageServer):
 	def __init__(self):
 		super().__init__("annotation-lsp", "v0.1.0")
 		logger.set_server(self)
+		# 声明支持工作区文件夹功能
+		self.capabilities = {
+			'workspace': {
+				'workspaceFolders': {
+					'supported': True,
+					'changeNotifications': True
+				}
+			}
+		}
 
 server = AnnotationServer()
 
@@ -55,13 +64,16 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 @server.feature("workspace/didChangeWorkspaceFolders")
 def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
 	"""处理工作区变化事件"""
-	if params.event.added:
-		for folder in params.event.added:
-			workspace_manager.add_workspace(folder.uri)
-	
-	if params.event.removed:
-		for folder in params.event.removed:
-			workspace_manager.remove_workspace(folder.uri)
+	try:
+		if params.event.added:
+			for folder in params.event.added:
+				workspace_manager.add_workspace(folder.uri)
+		
+		if params.event.removed:
+			for folder in params.event.removed:
+				workspace_manager.remove_workspace(folder.uri)
+	except Exception as e:
+		error(f"Error handling workspace folders change: {str(e)}")
 
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
 def did_open(params: types.DidOpenTextDocumentParams):
