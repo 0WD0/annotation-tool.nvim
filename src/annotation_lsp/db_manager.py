@@ -201,24 +201,32 @@ class DatabaseManager:
 				return False
 				
 			file_id = result[0]
+
+			cursor.execute('''
+				SELECT annotation_id
+				FROM annotations
+				WHERE file_id = ? AND annotation_id >= ?
+				ORDER BY annotation_id DESC
+			''', (file_id, from_id))
+			
+			annotation_ids = cursor.fetchall()
 			
 			# 更新标注ID
 			if increment > 0:
-				# 从最大ID开始更新，避免唯一约束冲突
-				conn.execute('''
-					UPDATE annotations 
-					SET annotation_id = annotation_id + ?
-					WHERE file_id = ? AND annotation_id >= ?
-					ORDER BY annotation_id DESC
-				''', (increment, file_id, from_id))
+				# 从大到小更新每个标注 ID
+				for (annotation_id,) in annotation_ids:
+					cursor.execute('''
+						UPDATE annotations
+						SET annotation_id = annotation_id + ?
+						WHERE file_id = ? AND annotation_id = ?
+					''', (increment, file_id, annotation_id))
 			else:
-				# 从最小ID开始更新，避免唯一约束冲突
-				conn.execute('''
-					UPDATE annotations 
-					SET annotation_id = annotation_id + ?
-					WHERE file_id = ? AND annotation_id >= ?
-					ORDER BY annotation_id ASC
-				''', (increment, file_id, from_id))
+				for (annotation_id,) in reversed(annotation_ids):
+					cursor.execute('''
+						UPDATE annotations
+						SET annotation_id = annotation_id + ?
+						WHERE file_id = ? AND annotation_id = ?
+					''', (increment, file_id, annotation_id))
 			
 			conn.commit()
 			return True
