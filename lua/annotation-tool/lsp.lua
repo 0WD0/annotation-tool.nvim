@@ -226,14 +226,8 @@ end
 
 -- 查找包含 .annotation 目录的项目根目录
 local function find_project_root(start_path)
-	local current_dir = start_path or vim.fn.expand('%:p:h')
-	local root = vim.fs.find('.annotation', {
-		path = current_dir,
-		upward = true,
-		type = 'directory'
-	})[1]
-	
-	return root and vim.fs.dirname(root) or nil
+	local current_dir = start_path or 0
+	return vim.fs.root(current_dir, '.annotation')
 end
 
 -- 存储当前的工作区文件夹
@@ -361,7 +355,7 @@ function M.setup(opts)
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
-				root_dir = function() return vim.uv.os_homedir() end,
+				root_dir = find_project_root,
 				workspace_folders = get_workspace_folders,
 				capabilities = vim.tbl_deep_extend("force",
 					vim.lsp.protocol.make_client_capabilities(),
