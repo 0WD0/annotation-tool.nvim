@@ -361,6 +361,13 @@ function M.setup(opts)
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
+				root_dir = function(fname)
+					local root = find_project_root(vim.fn.fnamemodify(fname, ":h"))
+					if root then
+						add_workspace_folder(root)
+					end
+					return root or vim.fn.fnamemodify(fname, ":h")
+				end,
 				workspace_folders = get_workspace_folders,
 				capabilities = vim.tbl_deep_extend("force",
 					vim.lsp.protocol.make_client_capabilities(),
@@ -373,13 +380,14 @@ function M.setup(opts)
 						}
 					}
 				),
-				single_file_support = false, -- 禁用单文件模式，必须有 .annotation 目录
+				single_file_support = false,
 				settings = {}
 			},
 		}
 	end
 
 	-- setup LSP
+	vim.notify("Setting up anotation_ls")
 	lspconfig.annotation_ls.setup({})
 end
 
