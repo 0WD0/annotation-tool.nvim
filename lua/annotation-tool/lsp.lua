@@ -303,20 +303,6 @@ local function get_workspace_folders()
 	return folders
 end
 
--- 监听文件打开事件，自动扫描工作区
-vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
-	callback = function()
-		scan_workspace_folders()
-	end
-})
-
--- 监听文件关闭事件，清理工作区
-vim.api.nvim_create_autocmd({"BufDelete"}, {
-	callback = function()
-		cleanup_workspace_folders()
-	end
-})
-
 function M.attach()
 	local client_id = M.get_client();
 	if not client_id then
@@ -377,6 +363,21 @@ function M.setup(opts)
 	-- setup LSP
 	vim.notify("Setting up annotation_ls")
 	scan_workspace_folders()  -- 启动前扫描工作区
+
+	-- 监听文件打开事件，自动扫描工作区
+	vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
+		callback = function()
+			scan_workspace_folders()
+		end
+	})
+
+	-- 监听文件关闭事件，清理工作区
+	vim.api.nvim_create_autocmd({"BufDelete"}, {
+		callback = function()
+			cleanup_workspace_folders()
+		end
+	})
+
 	lspconfig.annotation_ls.setup({})
 end
 
