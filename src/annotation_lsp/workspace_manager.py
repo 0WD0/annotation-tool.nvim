@@ -57,7 +57,7 @@ class WorkspaceManager:
 		try:
 			workspace = Workspace(folder_uri)
 			self.workspaces[folder_uri] = workspace
-			info(f"Added workspace: {folder_uri}")
+			info(f"Added workspace: {folder_uri}; Current workspace number: {len(self.workspaces)}")
 		except Exception as e:
 			error(f"Failed to add workspace {folder_uri}: {str(e)}")
 	
