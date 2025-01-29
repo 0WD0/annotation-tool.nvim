@@ -1,8 +1,0 @@
-Metadata-Version: 2.2
-Name: annotation_lsp
-Version: 0.1.0
-Summary: Language Server Protocol implementation for annotation tool
-Requires-Python: >=3.7
-Requires-Dist: pygls>=1.0.0
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0; extra == "dev"
