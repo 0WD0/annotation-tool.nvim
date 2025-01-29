@@ -227,19 +227,13 @@ end
 -- 查找包含 .annotation 目录的项目根目录
 local function find_project_root(start_path)
 	local current_dir = start_path or vim.fn.expand('%:p:h')
-
-	-- 从当前目录向上查找 .annotation 目录
-	local root_dir = current_dir
-	local prev_dir = nil
-	while root_dir ~= prev_dir do
-		if vim.fn.isdirectory(root_dir .. '/.annotation') == 1 then
-			return root_dir
-		end
-		prev_dir = root_dir
-		root_dir = vim.fn.fnamemodify(root_dir, ':h')
-	end
-
-	return nil
+	local root = vim.fs.find('.annotation', {
+		path = current_dir,
+		upward = true,
+		type = 'directory'
+	})[1]
+	
+	return root and vim.fs.dirname(root) or nil
 end
 
 -- 存储当前的工作区文件夹
@@ -266,37 +260,41 @@ local function remove_workspace_folder(path)
 	end
 end
 
--- 扫描并添加工作区文件夹
-local function scan_workspace_folders()
-	-- 检查当前工作目录
-	local cwd = vim.loop.cwd()
-	local current_path = cwd
-	while current_path do
-		if find_project_root(current_path) then
-			add_workspace_folder(current_path)
+-- 清理不再使用的工作区文件夹
+local function cleanup_workspace_folders()
+	local used_folders = {}
+
+	-- 收集所有当前使用的工作区
+	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+		local bufname = vim.api.nvim_buf_get_name(bufnr)
+		local filetype = vim.bo[bufnr].filetype
+		if bufname ~= "" and (filetype == 'markdown' or filetype == 'text' or filetype == 'annot') then
+			local root = find_project_root(vim.fn.fnamemodify(bufname, ":p:h"))
+			if root then
+				used_folders[root] = true
+			end
 		end
-		-- 检查父目录
-		local parent = vim.fn.fnamemodify(current_path, ":h")
-		if parent == current_path then
-			break
-		end
-		current_path = parent
 	end
 
-	-- 检查当前打开的文件
-	local current_file = vim.api.nvim_buf_get_name(0)
-	if current_file and current_file ~= "" then
-		current_path = vim.fn.fnamemodify(current_file, ":p:h")
-		while current_path do
-			if find_project_root(current_path) then
-				add_workspace_folder(current_path)
+	-- 移除不再使用的工作区
+	for folder, _ in pairs(workspace_folders) do
+		if not used_folders[folder] then
+			remove_workspace_folder(folder)
+		end
+	end
+end
+
+-- 扫描并添加工作区文件夹
+local function scan_workspace_folders()
+	-- 检查所有打开的 buffer
+	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+		local bufname = vim.api.nvim_buf_get_name(bufnr)
+		local filetype = vim.bo[bufnr].filetype
+		if bufname ~= "" and (filetype == 'markdown' or filetype == 'text' or filetype == 'annot') then
+			local bufdir = vim.fn.fnamemodify(bufname, ":p:h")
+			if find_project_root(bufdir) then
+				add_workspace_folder(bufdir)
 			end
-			-- 检查父目录
-			local parent = vim.fn.fnamemodify(current_path, ":h")
-			if parent == current_path then
-				break
-			end
-			current_path = parent
 		end
 	end
 end
@@ -314,6 +312,13 @@ end
 vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
 	callback = function()
 		scan_workspace_folders()
+	end
+})
+
+-- 监听文件关闭事件，清理工作区
+vim.api.nvim_create_autocmd({"BufDelete"}, {
+	callback = function()
+		cleanup_workspace_folders()
 	end
 })
 
@@ -354,7 +359,7 @@ function M.setup(opts)
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
-				workspace_folders = get_workspace_folders(),
+				workspace_folders = get_workspace_folders,
 				capabilities = vim.tbl_deep_extend("force",
 					vim.lsp.protocol.make_client_capabilities(),
 					{
