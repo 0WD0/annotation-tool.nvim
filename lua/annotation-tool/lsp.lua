@@ -303,7 +303,11 @@ end
 
 -- 获取工作区文件夹
 local function get_workspace_folders()
-	return workspace_folders
+	local folders = {}
+	for _, folder in pairs(workspace_folders) do
+		table.insert(folders, folder)
+	end
+	return folders
 end
 
 -- 监听文件打开事件，自动扫描工作区
