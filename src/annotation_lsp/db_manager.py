@@ -130,8 +130,9 @@ class DatabaseManager:
 			cursor = conn.execute('SELECT id FROM files WHERE path = ?', (relative_path,))
 			file_id = cursor.fetchone()[0]
 			
-			# 创建标注记录
-			note_file = f"{relative_path}.{annotation_id}.md"
+			# 生成笔记文件名
+			now = datetime.now()
+			note_file = f"note_{now.strftime('%Y%m%d_%H%M%S')}.md"
 			conn.execute(
 				'INSERT INTO annotations (file_id, annotation_id, note_file) VALUES (?, ?, ?)',
 				(file_id, annotation_id, note_file)
