@@ -41,20 +41,37 @@ class Workspace:
 			return False
 
 	def get_workspace_for_file(self, file_uri: str) -> Optional['Workspace']:
-		"""获取文件所属的最深层工作区"""
+		"""获取文件所属的最深工作区"""
 		if not self.contains_file(file_uri):
 			return None
 
 		# 在子工作区中查找
 		deepest_workspace = None
+		min_depth = 2147483647  # 初始设为最大值
+		
 		for child in self.children:
 			workspace = child.get_workspace_for_file(file_uri)
 			if workspace:
-				if not deepest_workspace or workspace.root_path.is_relative_to(deepest_workspace.root_path):
-					deepest_workspace = workspace
+				try:
+					relative = Path(urlparse(file_uri).path).relative_to(workspace.root_path)
+					depth = len(relative.parts)
+					if depth < min_depth:
+						deepest_workspace = workspace
+						min_depth = depth
+				except ValueError:
+					continue
 
 		# 如果没有找到更深的工作区，返回当前工作区
-		return deepest_workspace or self
+		if not deepest_workspace:
+			try:
+				relative = Path(urlparse(file_uri).path).relative_to(self.root_path)
+				depth = len(relative.parts)
+				if depth < min_depth:
+					deepest_workspace = self
+			except ValueError:
+				pass
+
+		return deepest_workspace
 
 	def get_subtree_workspaces(self: 'Workspace') -> List['Workspace']:
 		"""获取此节点及其所有子节点"""
@@ -224,16 +241,16 @@ class WorkspaceManager:
 			
 			# 遍历所有工作区，找到最深的包含该文件的工作区
 			deepest_workspace = None
-			max_depth = -1
+			min_depth = 2147483647
 			
 			for workspace in self._all_workspaces.values():
 				try:
 					relative = file_path.relative_to(workspace.root_path)
 					info(f"Get workspace: relative path {relative}")
 					depth = len(relative.parts)
-					if depth > max_depth:
+					if depth < min_depth:
 						deepest_workspace = workspace
-						max_depth = depth
+						min_depth = depth
 				except ValueError:
 					continue
 			
