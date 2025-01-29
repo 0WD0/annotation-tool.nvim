@@ -305,6 +305,7 @@ local function get_workspace_folders()
 	for _, folder in pairs(workspace_folders) do
 		table.insert(folders, folder)
 	end
+	vim.notify(vim.inspect(folders))
 	return folders
 end
 
@@ -328,6 +329,7 @@ function M.attach()
 		vim.notify("LSP has not set up", vim.log.levels.ERROR)
 		return
 	end
+	vim.notify("Attaching")
 	local bufnr = vim.api.nvim_get_current_buf()
 	vim.lsp.buf_attach_client(bufnr,client_id)
 end
