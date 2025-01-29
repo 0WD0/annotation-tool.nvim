@@ -359,6 +359,7 @@ function M.setup(opts)
 				filetypes = { 'markdown', 'text', 'annot' },
 				root_dir = function(fname)
 					local root = find_project_root(vim.fn.fnamemodify(fname, ":h"))
+					vim.notify("current root dir: "..root)
 					if not root then
 						vim.notify("No .annotation directory found in parent directories", vim.log.levels.WARN)
 						return nil
