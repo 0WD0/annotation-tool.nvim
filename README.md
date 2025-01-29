@@ -9,7 +9,8 @@
 - 自动备份数据库
 - 批注区间可以嵌套
 - 多项目多文件支持
-- [ ] 支持项目移动
+-  支持项目移动
+- [ ] 支持项目嵌套
 - [ ] 支持在右侧窗口实时预览当前批注
 - [ ] 光标下的批注区间高亮
 - [ ] 自动同步批注文件frontmatter，支持双向跳转
@@ -136,8 +137,8 @@ CREATE TABLE annotations (
     file_id INTEGER,          -- 关联的文件ID
     annotation_id INTEGER,    -- 标注在文件中的序号（基于左括号顺序）
     note_file TEXT,           -- 关联的笔记文件名
-    created_at TIMESTAMP,     -- 创建时间
-    FOREIGN KEY (file_id) REFERENCES files(id)  -- 外键约束
+    FOREIGN KEY (file_id) REFERENCES files(id)  -- 和 files 表中的id关联
+    UNIQUE (file_id, annotation_id)
 )
 ```
 
