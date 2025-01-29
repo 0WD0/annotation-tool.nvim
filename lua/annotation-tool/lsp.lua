@@ -268,7 +268,9 @@ local function get_workspace_folders()
 	return folders
 end
 
--- 手动 attach LSP 到当前 buffer
+-- TODO:
+-- 手动 attach LSP 到当前 buffer 
+-- 如果没有 .annotation 文件夹，在当前文件所在目录下自动建立
 function M.attach()
 	local bufnr = vim.api.nvim_get_current_buf()
 	local filetype = vim.bo[bufnr].filetype
@@ -382,7 +384,9 @@ function M.setup(opts)
 		-- 监听工作区文件夹变更
 		handlers = {
 			["workspace/workspaceFolders"] = function()
-				return get_workspace_folders()
+				local result = get_workspace_folders()
+				vim.notify(vim.inspect(result))
+				return result
 			end
 		}
 	})
