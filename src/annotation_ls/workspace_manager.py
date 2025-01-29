@@ -229,6 +229,7 @@ class WorkspaceManager:
 			for workspace in self._all_workspaces.values():
 				try:
 					relative = file_path.relative_to(workspace.root_path)
+					info(f"Get workspace: relative path {relative}")
 					depth = len(relative.parts)
 					if depth > max_depth:
 						deepest_workspace = workspace
