@@ -7,46 +7,57 @@ from urllib.parse import urlparse, unquote
 from .logger import *
 
 class NoteManager:
-	def __init__(self):
-		self.project_root = None
-		self.notes_dir = None
+	def __init__(self, project_root: Optional[Path] = None):
+		self.project_root: Optional[Path] = None
+		self.notes_dir: Optional[Path] = None
+		if project_root:
+			self.init_project(project_root)
 		
-	def init_project(self, project_root: str):
+	def init_project(self, project_root: Path):
 		"""初始化项目目录"""
-		self.project_root = Path(project_root)
+		self.project_root = project_root
 		self.notes_dir = self.project_root / '.annotation' / 'notes'
 		self.notes_dir.mkdir(parents=True, exist_ok=True)
 	
-	def _uri_to_relative_path(self, uri: str) -> str:
+	def _uri_to_path(self, uri: str) -> Path:
+		"""将 URI 转换为 Path 对象"""
+		parsed = urlparse(uri)
+		path = unquote(parsed.path)
+		if os.name == 'nt' and path.startswith('/'):
+			path = path[1:]
+		return Path(path)
+	
+	def _uri_to_relative_path(self, uri: str) -> Path:
 		"""将 URI 转换为相对于项目根目录的路径"""
 		if not self.project_root:
 			raise Exception("Project root not set")
 			
-		parsed = urlparse(uri)
-		path = Path(unquote(parsed.path))
-		if os.name == 'nt' and str(path).startswith('/'):
-			path = Path(str(path)[1:])
-			
+		path = self._uri_to_path(uri)
 		try:
-			return str(path.relative_to(self.project_root))
+			return path.relative_to(self.project_root)
 		except ValueError:
-			return str(path)
+			return path
 	
 	def uri_to_path(self, uri: str) -> str:
 		"""Convert a URI to a file path"""
-		parsed = urlparse(uri)
-		# Remove the leading '/' for Windows paths
-		path = unquote(parsed.path)
-		if os.name == 'nt' and path.startswith('/'):
-			path = path[1:]
-		return path
+		return str(self._uri_to_path(uri))
 
 	def uri_to_relative_path(self, uri: str) -> str:
 		"""Convert a URI to a path relative to project root"""
-		return self._uri_to_relative_path(uri)
+		return str(self._uri_to_relative_path(uri))
 	
 	def create_annotation_note(self, file_uri: str, annotation_id: int, text: str, note_file: str) -> Optional[str]:
-		"""为标注创建批注文件"""
+		"""为标注创建批注文件
+		
+		Args:
+			file_uri: 文件的 URI
+			annotation_id: 标注 ID
+			text: 标注的文本内容
+			note_file: 笔记文件的相对路径（相对于 notes 目录）
+			
+		Returns:
+			笔记文件的绝对路径（字符串形式），如果创建失败则返回 None
+		"""
 		try:
 			if not self.notes_dir:
 				raise Exception("Notes directory not set")
@@ -71,13 +82,18 @@ class NoteManager:
 	
 	def get_notes_dir(self) -> Optional[Path]:
 		"""获取笔记目录"""
-		if not self.notes_dir:
-			return None
 		return self.notes_dir
 	
 	
 	def delete_note(self, note_file: str) -> bool:
-		"""删除批注文件"""
+		"""删除批注文件
+		
+		Args:
+			note_file: 笔记文件的相对路径（相对于 notes 目录）
+			
+		Returns:
+			删除是否成功
+		"""
 		try:
 			if not self.notes_dir:
 				raise Exception("Notes directory not set")
@@ -129,21 +145,26 @@ class NoteManager:
 		with note_path.open('w', encoding='utf-8') as f:
 			f.writelines(lines)
 	
-	
+
 	def get_note_content(self, note_file: str) -> Optional[str]:
-		"""获取批注文件的内容"""
+		"""读取笔记文件内容
+		
+		Args:
+			note_file: 笔记文件的相对路径（相对于 notes 目录）
+			
+		Returns:
+			笔记文件的内容，如果读取失败则返回 None
+		"""
 		try:
 			if not self.notes_dir:
 				raise Exception("Notes directory not set")
-			
+				
 			note_path = self.notes_dir / note_file
 			if not note_path.exists():
 				raise Exception("Note file does not exist")
-			
-			with note_path.open('r', encoding='utf-8') as f:
-				content = f.read()
 				
-			return content
+			with note_path.open('r', encoding='utf-8') as f:
+				return f.read()
 				
 		except Exception as e:
 			error(f"Failed to read note file: {str(e)}")

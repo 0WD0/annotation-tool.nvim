@@ -12,35 +12,34 @@ from .logger import *
 
 class AnnotationServer(LanguageServer):
 	def __init__(self):
-		super().__init__("annotation-lsp", "v0.1.0")
+		super().__init__("annotation-ls", "v1.0")
 		logger.set_server(self)
-		# 声明支持工作区文件夹功能
-		self.capabilities = {
-			'workspace': {
-				'workspaceFolders': {
-					'supported': True,
-					'changeNotifications': True
-				}
-			}
-		}
 
 server = AnnotationServer()
 
 @server.feature(types.INITIALIZE)
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""初始化 LSP 服务器"""
-	server.show_message("Initializing annotation LSP server...")
+	info("Initializing annotation LSP server...")
 	
 	# 初始化配置
 	init_options = params.initialization_options if hasattr(params, 'initialization_options') else None
 	initialize_config(init_options)
 
 	# 初始化工作区
-	if params.workspace_folders:
-		for folder in params.workspace_folders:
-			workspace_manager.add_workspace(folder.uri)
-	elif params.root_uri:
-		workspace_manager.add_workspace(params.root_uri)
+	root_uri = params.root_uri
+	if root_uri:
+		info(f"Building workspace tree from root: {root_uri}")
+		workspace_manager.build_workspace_tree(root_uri)
+
+	# 添加工作区文件夹
+	# if params.workspace_folders:
+	# 	for folder in params.workspace_folders:
+	# 		info(f"Adding workspace folder: {folder.uri}")
+	# 		if not workspace_manager.root:
+	# 			workspace_manager.build_workspace_tree(folder.uri)
+	# 		else:
+	# 			workspace_manager.add_workspace(folder.uri)
 
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
@@ -55,8 +54,9 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"listAnnotations",
 				"deleteAnnotation",
 				"getAnnotationNote"
+				# "queryAnnotations"
 			]
-		),
+		)
 	)
 	
 	return types.InitializeResult(capabilities=capabilities)
@@ -323,3 +323,40 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	except Exception as e:
 		error(f"Error getting annotation note: {str(e)}")
 		return {"success": False, "error": str(e)}
+
+# @server.command("queryAnnotations")
+# def query_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
+# 	"""处理查询标注的命令"""
+# 	try:
+# 		query_params = params[0]
+# 		current_workspace = workspace_manager.get_workspace(query_params['textDocument']['uri'])
+# 		if not current_workspace:
+# 			return {"annotations": []}
+#
+# 		# 根据查询范围获取工作区列表
+# 		workspaces_to_query = []
+# 		query_scope = query_params.get('scope', 'current')  # current, subtree, ancestors, all
+# 		
+# 		if query_scope == 'current':
+# 			workspaces_to_query = [current_workspace]
+# 		elif query_scope == 'subtree':
+# 			workspaces_to_query = current_workspace.get_subtree_workspaces()
+# 		elif query_scope == 'ancestors':
+# 			workspaces_to_query = current_workspace.get_ancestor_workspaces()
+# 		elif query_scope == 'all':
+# 			workspaces_to_query = workspace_manager.root.get_subtree_workspaces()
+#
+# 		# 在所有相关工作区中查询
+# 		all_annotations = []
+# 		for workspace in workspaces_to_query:
+# 			annotations = workspace.db_manager.query_annotations(
+# 				query_params.get('query', ''),
+# 				query_params.get('file_pattern', '*')
+# 			)
+# 			all_annotations.extend(annotations)
+#
+# 		return {"annotations": all_annotations}
+#
+# 	except Exception as e:
+# 		error(f"Error querying annotations: {str(e)}")
+# 		return {"success": False, "error": str(e)}

@@ -32,7 +32,7 @@ local function ensure_venv()
 	-- 检查是否已安装依赖
 	if vim.fn.executable(venv_pip) == 1 then
 		-- 检查 annotation-tool 是否已安装
-		local check_cmd = string.format("%s -c 'import annotation_lsp' 2>/dev/null", venv_python)
+		local check_cmd = string.format("%s -c 'import annotation_ls' 2>/dev/null", venv_python)
 		local check_result = vim.fn.system(check_cmd)
 		if vim.v.shell_error ~= 0 then
 			-- 依赖未安装，进行安装
@@ -226,81 +226,28 @@ end
 
 -- 查找包含 .annotation 目录的项目根目录
 local function find_project_root(start_path)
-	local current_dir = start_path or 0
+	local current_dir = start_path or vim.fn.expand('%:p:h')
 	return vim.fs.root(current_dir, '.annotation')
 end
 
--- 存储当前的工作区文件夹
-local workspace_folders = {}
+-- 查找最顶层的项目根目录
+local function find_root_project(start_path)
+	local current = start_path or vim.fn.expand('%:p:h')
+	local root = nil
 
--- 添加工作区文件夹
-local function add_workspace_folder(path)
-	local uri = vim.uri_from_fname(path)
-	if not workspace_folders[uri] then
-		workspace_folders[uri] = {
-			uri = uri,
-			name = vim.fn.fnamemodify(path, ":t")
-		}
-		vim.notify("Added workspace: " .. path)
-	end
-end
-
--- 移除工作区文件夹
-local function remove_workspace_folder(path)
-	local uri = vim.uri_from_fname(path)
-	if workspace_folders[uri] then
-		workspace_folders[uri] = nil
-		vim.notify("Removed workspace: " .. path)
-	end
-end
-
--- 清理不再使用的工作区文件夹
-local function cleanup_workspace_folders()
-	local used_folders = {}
-
-	-- 收集所有当前使用的工作区
-	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-		local bufname = vim.api.nvim_buf_get_name(bufnr)
-		local filetype = vim.bo[bufnr].filetype
-		if bufname ~= "" and (filetype == 'markdown' or filetype == 'text' or filetype == 'annot') then
-			local root = find_project_root(vim.fn.fnamemodify(bufname, ":p:h"))
-			if root then
-				used_folders[root] = true
-			end
+	-- 向上查找包含 .annotation 的目录，找到最后一个
+	while current do
+		if vim.fn.isdirectory(current .. '/.annotation') == 1 then
+			root = current
 		end
-	end
-
-	-- 移除不再使用的工作区
-	for folder, _ in pairs(workspace_folders) do
-		if not used_folders[folder] then
-			remove_workspace_folder(folder)
+		local parent = vim.fn.fnamemodify(current, ':h')
+		if parent == current then
+			break
 		end
+		current = parent
 	end
-end
 
--- 扫描并添加工作区文件夹
-local function scan_workspace_folders()
-	-- 检查所有打开的 buffer
-	for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-		local bufname = vim.api.nvim_buf_get_name(bufnr)
-		local filetype = vim.bo[bufnr].filetype
-		if bufname ~= "" and (filetype == 'markdown' or filetype == 'text' or filetype == 'annot') then
-			local bufdir = vim.fn.fnamemodify(bufname, ":p:h")
-			if find_project_root(bufdir) then
-				add_workspace_folder(bufdir)
-			end
-		end
-	end
-end
-
--- 获取工作区文件夹
-local function get_workspace_folders()
-	local folders = {}
-	for _, folder in pairs(workspace_folders) do
-		table.insert(folders, folder)
-	end
-	vim.notify(vim.inspect(folders))
-	return folders
+	return root
 end
 
 function M.attach()
@@ -331,7 +278,7 @@ function M.setup(opts)
 	local python_cmd = {
 		python_path,
 		"-m",
-		"annotation_lsp"
+		"annotation_ls"
 	}
 
 	-- 注册自定义 LSP
@@ -341,19 +288,10 @@ function M.setup(opts)
 				cmd = python_cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
-				root_dir = find_project_root,
-				workspace_folders = get_workspace_folders,
-				capabilities = vim.tbl_deep_extend("force",
-					vim.lsp.protocol.make_client_capabilities(),
-					{
-						workspace = {
-							workspaceFolders = {
-								supported = true,
-								changeNotifications = true
-							}
-						}
-					}
-				),
+				root_dir = function(fname)
+					-- 使用最顶层的项目目录作为 root_dir
+					return find_root_project(vim.fn.fnamemodify(fname, ':p:h'))
+				end,
 				single_file_support = false,
 				settings = {}
 			},
@@ -362,22 +300,6 @@ function M.setup(opts)
 
 	-- setup LSP
 	vim.notify("Setting up annotation_ls")
-	scan_workspace_folders()  -- 启动前扫描工作区
-
-	-- 监听文件打开事件，自动扫描工作区
-	vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
-		callback = function()
-			scan_workspace_folders()
-		end
-	})
-
-	-- 监听文件关闭事件，清理工作区
-	vim.api.nvim_create_autocmd({"BufDelete"}, {
-		callback = function()
-			cleanup_workspace_folders()
-		end
-	})
-
 	lspconfig.annotation_ls.setup({})
 end
 

@@ -15,15 +15,17 @@ class DatabaseError(Exception):
 	pass
 
 class DatabaseManager:
-	def __init__(self):
+	def __init__(self, project_root: Optional[Path] = None):
 		self.connections = {}  # 项目路径 -> sqlite3.Connection
 		self.current_db = None
 		self.project_root = None
 		self.max_connections = 5  # 最大保持的连接数
+		if project_root:
+			self.init_db(project_root)
 		
-	def init_db(self, project_root: str):
+	def init_db(self, project_root: Path):
 		"""初始化或连接到项目的数据库"""
-		self.project_root = Path(project_root)
+		self.project_root = project_root
 		db_path = self.project_root / '.annotation' / 'db' / 'annotations.db'
 		
 		# 如果已经有连接且是当前数据库，直接返回
