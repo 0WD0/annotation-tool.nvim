@@ -123,6 +123,7 @@ class WorkspaceManager:
 			
 			# 添加所有工作区
 			for path in project_paths:
+				info(f"Build project tree: Adding {path}")
 				self.add_workspace(path.as_uri())
 			
 			return self.root
