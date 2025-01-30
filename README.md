@@ -12,8 +12,8 @@
 - 支持项目移动
 - 支持项目嵌套
 - 光标下的批注区间高亮
-- [ ] 支持在右侧窗口实时预览当前批注
-- [ ] 自动同步批注文件frontmatter，支持双向跳转
+- 支持在右侧窗口预览和切换批注文件
+- 自动同步批注文件frontmatter，支持双向跳转
 - [ ] 支持文件重命名和移动后的自动同步
 - [ ] 支持通过文件路径、原文内容或批注内容进行模糊搜索
 
@@ -29,6 +29,7 @@
 
 - pygls >= 1.1.1：LSP 服务器实现
 - lsprotocol >= 2023.0.1：LSP 协议定义
+- frontmatter >= 1.1.0：Markdown frontmatter 处理
 
 如果你想使用自己的 Python 环境，可以在配置中指定：
 
@@ -72,12 +73,16 @@ return {
 - [ ] `<Leader>aa`: 切换annotation mode（启用/禁用批注功能）
 - [ ] `<Leader>nf`: 搜索批注（使用telescope）
 
+在预览窗口：
+- `[a`: 跳转到上一个批注文件
+- `]a`: 跳转到下一个批注文件
+
 ### 批注格式
 
 批注使用日语半角括号（｢｣）来标记区间。在annotation mode下，这些括号会被隐藏以保持文本的可读性。
 你也可以自己选择左右括号的标识。
 
-nvim 和 lsp 端的括号设置还未同步。
+nvim 和 lsp 端的括号配置还未同步。
 
 ### 项目结构
 
@@ -100,7 +105,7 @@ annotation-tool 会在`.annotation`目录填充以下文件内容：
 
 ````markdown
 ---
-file: /relative/path/to/source/file
+file: /relative/path/to/project/root/of/source/file
 id: 1
 ---
 

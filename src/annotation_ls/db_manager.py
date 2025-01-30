@@ -205,7 +205,7 @@ class DatabaseManager:
 			file_id = result[0]
 
 			cursor.execute('''
-				SELECT annotation_id note_file
+				SELECT annotation_id, note_file
 				FROM annotations
 				WHERE file_id = ? AND annotation_id >= ?
 				ORDER BY annotation_id DESC
@@ -217,7 +217,7 @@ class DatabaseManager:
 			if increment < 0:
 				annotation_ids.reverse()
 
-			for (annotation_id, note_file) in annotation_ids:
+			for annotation_id, note_file in annotation_ids:
 				info(f"Updating annotation {annotation_id} for {note_file}")
 				cursor.execute('''
 					UPDATE annotations
