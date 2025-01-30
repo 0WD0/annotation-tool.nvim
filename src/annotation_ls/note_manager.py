@@ -195,7 +195,7 @@ class NoteManager:
 					
 		return results
 
-	def get_annotation_id_from_note_uri(self, note_uri: str) -> Optional[str]:
+	def get_annotation_id_from_note_uri(self, note_uri: str) -> Optional[int]:
 		"""从笔记文件路径获取批注 ID
 		Args:
 			note_uri: 笔记文件的 URI
@@ -212,7 +212,10 @@ class NoteManager:
 			
 			# 读取笔记内容获取 annotation id
 			post = frontmatter.load(str(note_path))
-			return str(post.metadata.get("id"))
+			result = post.metadata.get("id")
+			if result == None:
+				raise Exception("Annotation id not found")
+			return int(str(result))
 		except (ValueError, Exception) as e:
 			error(f"Failed to get annotation id: {str(e)}")
 			return None
