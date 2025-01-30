@@ -8,7 +8,7 @@ local preview_state = {
 }
 
 -- 关闭预览窗口
-local function close_preview(force)
+function M.close_preview(force)
 	if preview_state.buf and vim.api.nvim_buf_is_valid(preview_state.buf) then
 		-- 如果不是强制关闭且 buffer 被修改了，保存它
 		if not force and vim.bo[preview_state.buf].modified then
@@ -36,7 +36,7 @@ function M.is_previewing(note_file)
 end
 
 -- 设置预览窗口
-local function setup_preview_window(file_path)
+function M.setup_preview_window(file_path, client)
 	-- 在右侧打开文件
 	vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
 
@@ -73,10 +73,24 @@ local function setup_preview_window(file_path)
 		once = true
 	})
 
+	-- 设置快捷键
+	vim.api.nvim_buf_set_keymap(preview_state.buf, 'n', '[a', '', {
+		callback = function() M.goto_annotation_source(client, -1) end,
+		noremap = true,
+		silent = true,
+		desc = "Go to previous annotation"
+	})
+	vim.api.nvim_buf_set_keymap(preview_state.buf, 'n', ']a', '', {
+		callback = function() M.goto_annotation_source(client, 1) end,
+		noremap = true,
+		silent = true,
+		desc = "Go to next annotation"
+	})
+
 	return preview_state.buf
 end
 
-local function goto_annotation_source(client, offset)
+function M.goto_annotation_source(client, offset)
 	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
 		vim.notify("No preview window open", vim.log.levels.WARN)
 		return
@@ -102,7 +116,7 @@ local function goto_annotation_source(client, offset)
 		end
 
 		-- 如果预览窗口已存在，先关闭它
-		close_preview(false)
+		M.close_preview(false)
 
 		-- 获取或创建源文件窗口
 		local source_win = nil
@@ -122,11 +136,11 @@ local function goto_annotation_source(client, offset)
 
 		-- 设置预览窗口
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		setup_preview_window(file_path)
+		M.setup_preview_window(file_path, client)
 	end)
 end
 
-function M.setup(client)
+function M.goto_annotation_note(client)
 	local params = core.make_position_params()
 	vim.notify("Getting annotation note...", vim.log.levels.INFO)
 
@@ -146,33 +160,16 @@ function M.setup(client)
 		end
 
 		-- 如果预览窗口已存在，先关闭它
-		close_preview(false)
+		M.close_preview(false)
 
-		-- 设置预览窗口
+		-- 设置新的预览窗口
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		local buf = setup_preview_window(file_path)
+		local buf = M.setup_preview_window(file_path, client)
 		if not buf then
 			vim.notify("Failed to open preview window", vim.log.levels.ERROR)
 			return
 		end
-
-		-- 设置快捷键
-		vim.api.nvim_buf_set_keymap(buf, 'n', '[a', '', {
-			callback = function() goto_annotation_source(client, -1) end,
-			noremap = true,
-			silent = true,
-			desc = "Go to previous annotation"
-		})
-		vim.api.nvim_buf_set_keymap(buf, 'n', ']a', '', {
-			callback = function() goto_annotation_source(client, 1) end,
-			noremap = true,
-			silent = true,
-			desc = "Go to next annotation"
-		})
 	end)
 end
-
--- 导出关闭预览的函数
-M.close_preview = close_preview
 
 return M

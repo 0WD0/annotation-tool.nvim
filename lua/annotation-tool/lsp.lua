@@ -262,7 +262,7 @@ function M.preview_annotation()
 	if not client then
 		return
 	end
-	preview.setup(client)
+	preview.goto_annotation_note(client)
 end
 
 -- 查找最顶层的项目根目录
