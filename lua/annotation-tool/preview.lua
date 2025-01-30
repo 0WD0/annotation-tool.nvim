@@ -84,12 +84,12 @@ local function goto_annotation_source(client, offset)
 
 	client.request('workspace/executeCommand', {
 		command = "getAnnotationSource",
-		arguments = {
+		arguments = { {
 			textDocument = {
 				uri = vim.uri_from_bufnr(preview_state.buf)
 			},
 			offset = offset
-		}
+		} }
 	}, function(err, result)
 		if err then
 			vim.notify("Error getting annotation source: " .. err.message, vim.log.levels.ERROR)
