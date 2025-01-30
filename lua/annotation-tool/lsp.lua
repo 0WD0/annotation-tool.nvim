@@ -1,6 +1,16 @@
 local M = {}
 local core = require('annotation-tool.core')
 
+--- copy from nvim source code
+local ms= require('vim.lsp.protocol').Methods
+local function request(method, params, handler)
+	vim.validate({
+		method = { method, 's' },
+		handler = { handler, 'f', true },
+	})
+	return vim.lsp.buf_request(0, method, params, handler)
+end
+
 -- 确保虚拟环境存在并安装依赖
 local function ensure_venv()
 	-- 获取插件根目录
@@ -131,7 +141,7 @@ local function on_attach(client, bufnr)
 		callback = function()
 			vim.lsp.buf.clear_references()
 			local params = core.make_position_params()
-			vim.lsp.buf.request(0, 'textDocument/documentHighlight', params)
+			request(ms.textDocument_documentHighlight, params)
 		end
 	})
 
@@ -140,15 +150,6 @@ local function on_attach(client, bufnr)
 	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
 end
 
---- copy from nvim source code
-local function request(method, params, handler)
-	vim.validate({
-		method = { method, 's' },
-		handler = { handler, 'f', true },
-	})
-	return vim.lsp.buf_request(0, method, params, handler)
-end
-local ms= require('vim.lsp.protocol').Methods
 --- Displays hover information about the symbol under the cursor in a floating 
 --- window. Calling the function twice will jump into the floating window.
 function M.hover_annotation()
