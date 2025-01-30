@@ -121,7 +121,9 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 设置高亮组
-	vim.api.nvim_set_hl(0, 'AnnotationHighlight', { bg = '#FFD600' })
+	vim.api.nvim_set_hl(0, 'LspReferenceText', { bg = '#FFD600' })
+	vim.api.nvim_set_hl(0, 'LspReferenceRead', { bg = '#FFD600' })
+	vim.api.nvim_set_hl(0, 'LspReferenceWrite', { bg = '#FFD600' })
 
 	-- 自动高亮
 	vim.api.nvim_create_autocmd('CursorMoved', {
@@ -316,7 +318,7 @@ function M.setup(opts)
 				vim.lsp.util.buf_highlight_references(
 					ctx.bufnr,
 					result,
-					'AnnotationHighlight'
+					'utf-8'
 				)
 			end
 		}
