@@ -319,23 +319,26 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		params = params[0]
 		# 获取文档和位置
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
-		position = types.Position(**params['position'])
+		position = types.Position(
+			line=params['position']['line'],
+			character=params['position']['character']
+		)
 		doc = ls.workspace.get_document(doc.uri)
 		
 		# 获取当前位置的批注
 		annotation_id = get_annotation_at_position(doc, position)
 		if not annotation_id:
-			return None
+			raise Exception("Failed to get annotation_id")
 			
 		# 获取工作区
 		workspace = workspace_manager.get_workspace(doc.uri)
 		if not workspace:
-			return None
+			raise Exception(f"No workspace found for {doc.uri}")
 			
 		# 获取笔记文件路径
 		note_file = workspace.db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
-			return None
+			raise Exception("Annotation note file not found")
 			
 		return {
 			"note_file": note_file,
