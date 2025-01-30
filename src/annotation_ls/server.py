@@ -307,7 +307,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		# 删除笔记文件
 		note_manager.delete_note(note_file)
 		
-		return {"success": True}
+		return {"note_file": note_file}
 	except Exception as e:
 		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}

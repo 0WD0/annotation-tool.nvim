@@ -8,22 +8,31 @@ local preview_state = {
 }
 
 -- 关闭预览窗口
-local function close_preview()
+local function close_preview(force)
 	if preview_state.buf and vim.api.nvim_buf_is_valid(preview_state.buf) then
-		-- 如果 buffer 被修改了，保存它
-		if vim.bo[preview_state.buf].modified then
+		-- 如果不是强制关闭且 buffer 被修改了，保存它
+		if not force and vim.bo[preview_state.buf].modified then
 			vim.api.nvim_buf_call(preview_state.buf, function()
 				vim.cmd('write')
 			end)
 		end
-		-- 关闭 buffer
-		vim.api.nvim_buf_delete(preview_state.buf, { force = false })
+		-- 关闭 buffer，force 为 true 时强制关闭
+		vim.api.nvim_buf_delete(preview_state.buf, { force = force })
 	end
 	if preview_state.win and vim.api.nvim_win_is_valid(preview_state.win) then
 		vim.api.nvim_win_close(preview_state.win, true)
 	end
 	preview_state.win = nil
 	preview_state.buf = nil
+end
+
+-- 检查当前预览的是否是指定的文件
+function M.is_previewing(note_file)
+	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
+		return false
+	end
+	local buf_name = vim.api.nvim_buf_get_name(preview_state.buf)
+	return buf_name:match("/.annotation/notes/" .. note_file .. "$") ~= nil
 end
 
 function M.setup(client)
@@ -52,7 +61,7 @@ function M.setup(client)
 		local cur_win = vim.api.nvim_get_current_win()
 
 		-- 如果预览窗口已存在，先关闭它
-		close_preview()
+		close_preview(false)
 
 		-- 在右侧打开文件
 		vim.cmd('vsplit ' .. vim.fn.fnameescape(full_path))
@@ -94,5 +103,8 @@ function M.setup(client)
 		})
 	end)
 end
+
+-- 导出关闭预览的函数
+M.close_preview = close_preview
 
 return M

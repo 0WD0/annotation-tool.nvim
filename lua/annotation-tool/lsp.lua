@@ -248,6 +248,10 @@ function M.delete_annotation()
 		if err then
 			vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
 		else
+			-- 如果预览的就是这个文件，强制关闭预览窗口
+			if preview.is_previewing(result.note_file) then
+				preview.close_preview(true)
+			end
 			vim.notify('Annotation deleted successfully', vim.log.levels.INFO)
 		end
 	end)
