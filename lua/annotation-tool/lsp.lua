@@ -123,7 +123,7 @@ local function on_attach(client, bufnr)
 		silent = true
 	})
 
-	vim.keymap.set('n', '<Leader>np', preview.setup, {
+	vim.keymap.set('n', '<Leader>np', M.preview_annotation, {
 		buffer = bufnr,
 		desc = "Preview current annotation",
 		noremap = true,
@@ -251,6 +251,14 @@ function M.delete_annotation()
 			vim.notify('Annotation deleted successfully', vim.log.levels.INFO)
 		end
 	end)
+end
+
+function M.preview_annotation()
+	local client = M.get_client()
+	if not client then
+		return
+	end
+	preview.setup(client)
 end
 
 -- 查找最顶层的项目根目录

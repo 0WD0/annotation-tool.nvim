@@ -2,16 +2,13 @@ local core = require('annotation-tool.core')
 local M = {}
 
 -- 在右侧打开批注文件
-function M.setup()
-	if not vim.b.annotation_mode then
-		vim.notify("Please enable annotation mode first", vim.log.levels.WARN)
-		return
-	end
-
+function M.setup(client)
 	local params = core.make_position_params()
 
+	vim.notify("Getting annotation note...", vim.log.levels.INFO)
+
 	-- 使用 LSP 命令获取批注文件
-	vim.lsp.buf.execute_command({
+	client.request('workspace/executeCommand', {
 		command = "getAnnotationNote",
 		arguments = { params }
 	}, function(err, result)
