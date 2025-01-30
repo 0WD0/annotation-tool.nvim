@@ -147,58 +147,14 @@ class WorkspaceManager:
 			error(f"Failed to find subprojects in {root_path}: {str(e)}")
 			return result
 
-	def build_workspace_tree(self, root_uri: str) -> Optional[Workspace]:
-		"""构建完整的工作区树
+	def add_workspace(self, workspace_uri: str) -> Optional[Workspace]:
+		"""添加新工作区，如果是新的根项目则会构建完整的项目树
 		
 		Args:
-			root_uri: 根工作区的 URI
+			workspace_uri: 工作区的 URI
 			
 		Returns:
-			根工作区，如果创建失败则返回 None
-		"""
-		try:
-			root_path = Path(urlparse(root_uri).path)
-			
-			# 查找所有子项目
-			project_paths = self._find_subprojects(root_path)
-			if not project_paths:
-				return None
-			
-			# 按路径长度排序，确保父项目在子项目之前处理
-			project_paths.sort(key=lambda p: len(str(p)))
-			
-			# 找到这些路径所属的根项目
-			root = self._find_root_project_for_path(root_path)
-			if root:
-				info(f"Found existing root {root.uri} for {root_uri}")
-				
-				# 将新发现的项目添加到现有树中
-				for path in project_paths:
-					if path.as_uri() not in self._all_workspaces:
-						info(f"Adding workspace {path} to existing tree")
-						self.add_workspace(path.as_uri())
-				
-				return root
-			else:
-				info(f"Creating new project tree for {root_uri}")
-				
-				# 创建新的项目树
-				for path in project_paths:
-					info(f"Adding workspace {path} to new tree")
-					self.add_workspace(path.as_uri())
-				
-				# 返回新创建的根项目
-				return self._find_root_project_for_path(root_path)
-			
-		except Exception as e:
-			error(f"Failed to build workspace tree for {root_uri}: {str(e)}")
-			return None
-
-	def add_workspace(self, workspace_uri: str) -> Optional[Workspace]:
-		"""添加新工作区
-		
-		如果工作区已存在，返回现有工作区
-		如果工作区所属的项目树不存在，创建新的项目树
+			添加的工作区，如果失败则返回 None
 		"""
 		try:
 			# 如果已存在，直接返回
@@ -207,21 +163,47 @@ class WorkspaceManager:
 			
 			# 创建新工作区
 			workspace_path = Path(urlparse(workspace_uri).path)
-			workspace = Workspace(workspace_path)
-			self._all_workspaces[workspace_uri] = workspace
 			
-			# 找到所属的根项目
+			# 查找所有子项目
+			project_paths = self._find_subprojects(workspace_path)
+			if not project_paths:
+				return None
+			
+			# 按路径长度排序，确保父项目在子项目之前处理
+			project_paths.sort(key=lambda p: len(str(p)))
+			
+			# 找到这些路径所属的根项目
 			root = self._find_root_project_for_path(workspace_path)
 			if root:
-				# 找到了根项目，将新工作区插入到项目树中
-				info(f"Found root {root.uri} for workspace {workspace_uri}")
-				self._insert_workspace(workspace)
+				info(f"Found root {Path(root.uri)} for workspace {Path(workspace_uri)}")
+				
+				# 将新发现的项目添加到现有树中
+				for path in project_paths:
+					if path.as_uri() not in self._all_workspaces:
+						info(f"Adding workspace {path} to existing tree")
+						# 创建工作区
+						workspace = Workspace(path)
+						self._all_workspaces[path.as_uri()] = workspace
+						# 插入到项目树中
+						self._insert_workspace(workspace)
+				
+				return self._all_workspaces[workspace_uri]
 			else:
 				# 没找到根项目，创建新的项目树
-				info(f"Creating new root for workspace {workspace_uri}")
-				self._roots.append(workspace)
-			
-			return workspace
+				info(f"Creating new project tree for {Path(workspace_uri)}")
+				
+				# 创建所有工作区
+				for path in project_paths:
+					info(f"Adding workspace {path} to new tree")
+					workspace = Workspace(path)
+					self._all_workspaces[path.as_uri()] = workspace
+					# 第一个路径作为根项目
+					if path == project_paths[0]:
+						self._roots.append(workspace)
+					else:
+						self._insert_workspace(workspace)
+				
+				return self._all_workspaces[workspace_uri]
 			
 		except Exception as e:
 			error(f"Failed to add workspace {workspace_uri}: {str(e)}")
@@ -245,7 +227,7 @@ class WorkspaceManager:
 					self._all_workspaces.pop(child.uri, None)
 				return True
 			
-			# 否则只移除这个工作区
+			# 否则只移除这个工作区 TODO: 改成移除子树
 			info(f"Removing workspace {workspace_uri}")
 			if workspace.parent:
 				workspace.parent.remove_child(workspace)

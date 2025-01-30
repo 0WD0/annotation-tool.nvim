@@ -30,16 +30,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	root_uri = params.root_uri
 	if root_uri:
 		info(f"Building workspace tree from root: {root_uri}")
-		workspace_manager.build_workspace_tree(root_uri)
-
-	# 添加工作区文件夹
-	# if params.workspace_folders:
-	# 	for folder in params.workspace_folders:
-	# 		info(f"Adding workspace folder: {folder.uri}")
-	# 		if not workspace_manager.root:
-	# 			workspace_manager.build_workspace_tree(folder.uri)
-	# 		else:
-	# 			workspace_manager.add_workspace(folder.uri)
+		workspace_manager.add_workspace(root_uri)
 
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
@@ -53,7 +44,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"createAnnotation",
 				"listAnnotations",
 				"deleteAnnotation",
-				"getAnnotationNote"
+				# "getAnnotationNote",
 				# "queryAnnotations"
 			]
 		)
@@ -291,38 +282,38 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
 
-@server.command("getAnnotationNote")
-def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
-	"""获取当前位置的批注文件"""
-	try:
-		# 获取文档和位置
-		doc_uri = params["textDocument"]["uri"]
-		position = types.Position(**params["position"])
-		doc = ls.workspace.get_document(doc_uri)
-		
-		# 获取当前位置的批注
-		annotation_id = get_annotation_at_position(doc, position)
-		if not annotation_id:
-			return None
-			
-		# 获取工作区
-		workspace = workspace_manager.get_workspace(doc_uri)
-		if not workspace:
-			return None
-			
-		# 获取笔记文件路径
-		note_file = workspace.db_manager.get_annotation_note_file(doc_uri, annotation_id)
-		if not note_file:
-			return None
-			
-		return {
-			"note_file": note_file,
-			"annotation_id": annotation_id
-		}
-			
-	except Exception as e:
-		error(f"Error getting annotation note: {str(e)}")
-		return {"success": False, "error": str(e)}
+# @server.command("getAnnotationNote")
+# def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
+# 	"""获取当前位置的批注文件"""
+# 	try:
+# 		# 获取文档和位置
+# 		doc_uri = params["textDocument"]["uri"]
+# 		position = types.Position(**params["position"])
+# 		doc = ls.workspace.get_document(doc_uri)
+# 		
+# 		# 获取当前位置的批注
+# 		annotation_id = get_annotation_at_position(doc, position)
+# 		if not annotation_id:
+# 			return None
+# 			
+# 		# 获取工作区
+# 		workspace = workspace_manager.get_workspace(doc_uri)
+# 		if not workspace:
+# 			return None
+# 			
+# 		# 获取笔记文件路径
+# 		note_file = workspace.db_manager.get_annotation_note_file(doc_uri, annotation_id)
+# 		if not note_file:
+# 			return None
+# 			
+# 		return {
+# 			"note_file": note_file,
+# 			"annotation_id": annotation_id
+# 		}
+# 			
+# 	except Exception as e:
+# 		error(f"Error getting annotation note: {str(e)}")
+# 		return {"success": False, "error": str(e)}
 
 # @server.command("queryAnnotations")
 # def query_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
