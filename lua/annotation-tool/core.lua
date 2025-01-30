@@ -123,4 +123,26 @@ function M.show_conceal_rules()
 	vim.cmd('syn list AnnotationBracket')
 end
 
+-- 将 UTF-8 位置转换为字节位置
+function M.convert_range_to_bytes(bufnr, range)
+	bufnr = bufnr or 0
+	local lines = vim.api.nvim_buf_get_lines(bufnr, range.start.line, range['end'].line + 1, false)
+
+	-- 转换开始位置
+	local start_byte = vim.str_byteindex(lines[1], range.start.character + 1)
+
+	-- 转换结束位置
+	local end_byte
+	if range.start.line == range['end'].line then
+		end_byte = vim.str_byteindex(lines[1], range['end'].character + 1)
+	else
+		end_byte = vim.str_byteindex(lines[#lines], range['end'].character + 1)
+	end
+
+	return {
+		start = { line = range.start.line, character = start_byte },
+		['end'] = { line = range['end'].line, character = end_byte }
+	}
+end
+
 return M

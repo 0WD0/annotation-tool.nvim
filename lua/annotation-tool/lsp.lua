@@ -317,9 +317,15 @@ function M.setup(opts)
 					return
 				end
 
+				local converted_result = {}
+				for _, highlight in ipairs(result) do
+					local byte_range = core.convert_range_to_bytes(0, highlight.range)
+					table.insert(converted_result, { range = byte_range })
+				end
+
 				vim.lsp.util.buf_highlight_references(
 					ctx.bufnr,
-					result,
+					converted_result,
 					'utf-8'
 				)
 			end
