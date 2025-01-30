@@ -1,6 +1,20 @@
 local core = require('annotation-tool.core')
-local Split = require("nui.split")
 local M = {}
+
+-- 保存预览窗口的信息
+local preview_state = {
+	win = nil,  -- 窗口 ID
+	buf = nil,  -- Buffer ID
+}
+
+-- 关闭预览窗口
+local function close_preview()
+	if preview_state.win and vim.api.nvim_win_is_valid(preview_state.win) then
+		vim.api.nvim_win_close(preview_state.win, true)
+	end
+	preview_state.win = nil
+	preview_state.buf = nil
+end
 
 function M.setup(client)
 	local params = core.make_position_params()
@@ -24,65 +38,50 @@ function M.setup(client)
 		-- 构建完整的文件路径
 		local full_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
 
-		-- 使用 nui.split 创建分割窗口
-		local split = Split({
-			relative = "editor",
-			position = "right",
-			size = math.floor(vim.o.columns * 0.4),
-			buf_options = {
-				filetype = "markdown",
-				modifiable = true,
-			},
-			win_options = {
-				number = true,
-				relativenumber = false,
-				wrap = true,
-				winfixwidth = true,
-			},
-		})
+		-- 保存当前窗口 ID
+		local cur_win = vim.api.nvim_get_current_win()
 
-		-- 挂载窗口
-		split:mount()
+		-- 如果预览窗口已存在，先关闭它
+		close_preview()
 
-		-- 读取并设置文件内容
-		local lines = vim.fn.readfile(full_path)
-		if not lines then
-			vim.notify("Failed to read note file: " .. full_path, vim.log.levels.ERROR)
-			split:unmount()
-			return
-		end
-		vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, lines)
+		-- 在右侧打开文件
+		vim.cmd('vsplit ' .. vim.fn.fnameescape(full_path))
 
-		-- 设置保存时的行为
-		vim.api.nvim_buf_set_option(split.bufnr, 'buftype', 'acwrite')
-		vim.api.nvim_create_autocmd('BufWriteCmd', {
-			buffer = split.bufnr,
-			callback = function()
-				-- 获取内容
-				local content = vim.api.nvim_buf_get_lines(split.bufnr, 0, -1, false)
-				-- 写入文件
-				local success = vim.fn.writefile(content, full_path) == 0
-				if success then
-					vim.notify("Note saved", vim.log.levels.INFO)
-					vim.api.nvim_buf_set_option(split.bufnr, 'modified', false)
-				else
-					vim.notify("Failed to save note", vim.log.levels.ERROR)
-				end
-				return success
-			end
-		})
+		-- 保存新的预览窗口信息
+		preview_state.win = vim.api.nvim_get_current_win()
+		preview_state.buf = vim.api.nvim_get_current_buf()
+
+		-- 设置窗口大小
+		vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.4))
+
+		-- 设置窗口选项
+		vim.wo[preview_state.win].number = true
+		vim.wo[preview_state.win].relativenumber = false
+		vim.wo[preview_state.win].wrap = true
+		vim.wo[preview_state.win].winfixwidth = true
+
+		-- 设置 buffer 选项
+		vim.bo[preview_state.buf].filetype = 'markdown'
 
 		-- 跳转到笔记部分
-		vim.api.nvim_buf_call(split.bufnr, function()
-			vim.cmd([[
-				normal! G
-				?^## Notes
-				normal! 2j
-			]])
-		end)
+		vim.cmd([[
+			normal! G
+			?^## Notes
+			normal! 2j
+		]])
 
 		-- 返回到原始窗口
-		vim.cmd('wincmd p')
+		vim.api.nvim_set_current_win(cur_win)
+
+		-- 当预览窗口关闭时，清除状态
+		vim.api.nvim_create_autocmd('WinClosed', {
+			pattern = tostring(preview_state.win),
+			callback = function()
+				preview_state.win = nil
+				preview_state.buf = nil
+			end,
+			once = true
+		})
 	end)
 end
 
