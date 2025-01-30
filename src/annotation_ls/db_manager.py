@@ -218,6 +218,7 @@ class DatabaseManager:
 				annotation_ids.reverse()
 
 			for (annotation_id, note_file) in annotation_ids:
+				info(f"Updating annotation {annotation_id} for {note_file}")
 				cursor.execute('''
 					UPDATE annotations
 					SET annotation_id = annotation_id + ?
