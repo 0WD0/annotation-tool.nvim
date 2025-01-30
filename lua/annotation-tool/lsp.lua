@@ -139,6 +139,11 @@ local function on_attach(client, bufnr)
 	vim.api.nvim_create_autocmd('CursorMoved', {
 		buffer = bufnr,
 		callback = function()
+			local mode = vim.api.nvim_get_mode().mode
+			if mode ~= 'n' then
+				return
+			end
+
 			vim.lsp.buf.clear_references()
 			local params = core.make_position_params()
 			request(ms.textDocument_documentHighlight, params)
