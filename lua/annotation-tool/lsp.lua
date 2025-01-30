@@ -1,5 +1,6 @@
 local M = {}
 local core = require('annotation-tool.core')
+local preview = require('annotation-tool.preview')
 
 --- copy from nvim source code
 local ms= require('vim.lsp.protocol').Methods
@@ -118,6 +119,13 @@ local function on_attach(client, bufnr)
 	vim.keymap.set('n', '<Leader>nd', M.delete_annotation, {
 		buffer = bufnr,
 		desc = "Delete annotation at position",
+		noremap = true,
+		silent = true
+	})
+
+	vim.keymap.set('n', '<Leader>np', preview.setup, {
+		buffer = bufnr,
+		desc = "Preview current annotation",
 		noremap = true,
 		silent = true
 	})
