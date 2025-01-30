@@ -400,7 +400,7 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		# 获取目标笔记文件
 		note_file = workspace.db_manager.get_annotation_note_file(source_path, target_id)
 		if not note_file:
-			return None
+			raise Exception("Failed to get annotation note file")
 
 		return {
 			"workspace_path": workspace.root_path,

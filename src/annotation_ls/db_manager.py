@@ -104,7 +104,7 @@ class DatabaseManager:
 				FROM annotations a
 				JOIN files f ON a.file_id = f.id
 				WHERE f.path = ? AND a.annotation_id = ?
-			''', (relative_path, annotation_id))
+			''', (relative_path,))
 			
 			result = cursor.fetchone()
 			return result[0] if result else None

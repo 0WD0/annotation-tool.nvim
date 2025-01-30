@@ -96,6 +96,11 @@ local function goto_annotation_source(client, offset)
 			return
 		end
 
+		if not result then
+			vim.notify("No annotation source found", vim.log.levels.WARN)
+			return
+		end
+
 		-- 如果预览窗口已存在，先关闭它
 		close_preview(false)
 
