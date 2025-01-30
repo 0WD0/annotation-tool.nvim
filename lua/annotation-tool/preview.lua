@@ -1,10 +1,9 @@
 local core = require('annotation-tool.core')
+local Split = require("nui.split")
 local M = {}
 
--- 在右侧打开批注文件
 function M.setup(client)
 	local params = core.make_position_params()
-
 	vim.notify("Getting annotation note...", vim.log.levels.INFO)
 
 	-- 使用 LSP 命令获取批注文件
@@ -13,136 +12,78 @@ function M.setup(client)
 		arguments = { params }
 	}, function(err, result)
 		if err then
-			vim.notify("Failed to get annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
+			vim.notify("Error getting annotation note: " .. err.message, vim.log.levels.ERROR)
 			return
 		end
 
-		if result and result.note_file then
-			-- 在右侧分割窗口中打开笔记文件
-			local width = math.floor(vim.o.columns * 0.4)
-			local Split = require("nui.split")
-			local split = Split({
-				relative = "editor",
-				position = "right",
-				size = width,
-				buf_options = {
-					filetype = "markdown",
-					modifiable = true,
-				},
-				win_options = {
-					number = true,
-					relativenumber = false,
-					wrap = true,
-					winfixwidth = true,
-				},
-			})
-
-			-- 挂载窗口
-			split:mount()
-
-			-- 读取文件内容
-			local lines = vim.fn.readfile(result.note_file)
-			vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, lines)
-
-			-- 跳转到笔记部分
-			vim.api.nvim_buf_call(split.bufnr, function()
-				vim.cmd([[
-					normal! G
-					?^## Notes
-					normal! 2j
-				]])
-			end)
-
-			-- 返回到原始窗口
-			vim.cmd('wincmd p')
-		else
-			vim.notify("No annotation found at cursor position", vim.log.levels.INFO)
+		if not result then
+			vim.notify("No annotation note found", vim.log.levels.WARN)
+			return
 		end
-	end)
-end
 
+		-- 构建完整的文件路径
+		local full_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
 
---[[
-local Popup = require("nui.popup")
-local event = require("nui.utils.autocmd").event
-
---- 创建一个可编辑的预览窗口
----@param opts table 窗口选项
----   - filename: string 文件名，用于设置 filetype
----   - content: string 初始内容
----   - on_submit: function 保存时的回调函数，参数为修改后的内容
----   - on_close: function 关闭时的回调函数
-function M.create_preview_window(opts)
-	local popup = Popup({
-		enter = true,
-		focusable = true,
-		border = {
-			style = "rounded",
-			text = {
-				top = " " .. opts.filename .. " ",
-				top_align = "center",
+		-- 使用 nui.split 创建分割窗口
+		local split = Split({
+			relative = "editor",
+			position = "right",
+			size = math.floor(vim.o.columns * 0.4),
+			buf_options = {
+				filetype = "markdown",
+				modifiable = true,
 			},
-		},
-		position = "50%",
-		size = {
-			width = "80%",
-			height = "60%",
-		},
-		buf_options = {
-			modifiable = true,
-			readonly = false,
-		},
-		win_options = {
-			wrap = true,
-			cursorline = true,
-			winblend = 10,
-			winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
-		},
-	})
+			win_options = {
+				number = true,
+				relativenumber = false,
+				wrap = true,
+				winfixwidth = true,
+			},
+		})
 
-	-- 挂载窗口
-	popup:mount()
+		-- 挂载窗口
+		split:mount()
 
-	-- 设置内容
-	vim.api.nvim_buf_set_lines(popup.bufnr, 0, -1, false, vim.split(opts.content, "\n"))
-
-	-- 如果有文件类型，设置文件类型
-	if opts.filename:match("%.(%w+)$") then
-		vim.api.nvim_buf_set_option(popup.bufnr, "filetype", opts.filename:match("%.(%w+)$"))
-	end
-
-	-- 设置按键映射
-	popup:map("n", "<ESC>", function()
-		if opts.on_close then
-			opts.on_close()
+		-- 读取并设置文件内容
+		local lines = vim.fn.readfile(full_path)
+		if not lines then
+			vim.notify("Failed to read note file: " .. full_path, vim.log.levels.ERROR)
+			split:unmount()
+			return
 		end
-		popup:unmount()
-	end, { noremap = true })
+		vim.api.nvim_buf_set_lines(split.bufnr, 0, -1, false, lines)
 
-	popup:map("n", "q", function()
-		if opts.on_close then
-			opts.on_close()
-		end
-		popup:unmount()
-	end, { noremap = true })
+		-- 设置保存时的行为
+		vim.api.nvim_buf_set_option(split.bufnr, 'buftype', 'acwrite')
+		vim.api.nvim_create_autocmd('BufWriteCmd', {
+			buffer = split.bufnr,
+			callback = function()
+				-- 获取内容
+				local content = vim.api.nvim_buf_get_lines(split.bufnr, 0, -1, false)
+				-- 写入文件
+				local success = vim.fn.writefile(content, full_path) == 0
+				if success then
+					vim.notify("Note saved", vim.log.levels.INFO)
+					vim.api.nvim_buf_set_option(split.bufnr, 'modified', false)
+				else
+					vim.notify("Failed to save note", vim.log.levels.ERROR)
+				end
+				return success
+			end
+		})
 
-	popup:map("n", "<C-s>", function()
-		local content = table.concat(vim.api.nvim_buf_get_lines(popup.bufnr, 0, -1, false), "\n")
-		if opts.on_submit then
-			opts.on_submit(content)
-		end
-	end, { noremap = true })
+		-- 跳转到笔记部分
+		vim.api.nvim_buf_call(split.bufnr, function()
+			vim.cmd([[
+				normal! G
+				?^## Notes
+				normal! 2j
+			]])
+		end)
 
-	-- 设置自动命令
-	popup:on(event.BufLeave, function()
-		if opts.on_close then
-			opts.on_close()
-		end
-		popup:unmount()
+		-- 返回到原始窗口
+		vim.cmd('wincmd p')
 	end)
-
-	return popup
 end
---]]
 
 return M

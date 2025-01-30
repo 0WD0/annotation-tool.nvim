@@ -323,12 +323,11 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			line=params['position']['line'],
 			character=params['position']['character']
 		)
-		doc = ls.workspace.get_document(doc.uri)
 		
 		# 获取当前位置的批注
 		annotation_id = get_annotation_at_position(doc, position)
 		if not annotation_id:
-			raise Exception("Failed to get annotation_id")
+			raise Exception("No annotation found at current position")
 			
 		# 获取工作区
 		workspace = workspace_manager.get_workspace(doc.uri)
@@ -342,12 +341,13 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			
 		return {
 			"note_file": note_file,
+			"workspace_path": workspace.root_path,  
 			"annotation_id": annotation_id
 		}
 			
 	except Exception as e:
 		error(f"Error getting annotation note: {str(e)}")
-		return {"success": False, "error": str(e)}
+		return None
 
 # @server.command("queryAnnotations")
 # def query_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
