@@ -4,8 +4,9 @@ import os
 from pathlib import Path
 from typing import Optional, List, Dict
 from urllib.parse import urlparse, unquote
-from .logger import *
 import frontmatter
+
+from .logger import *
 
 class NoteManager:
 	def __init__(self, project_root: Optional[Path] = None):
@@ -108,26 +109,6 @@ class NoteManager:
 		except Exception as e:
 			error(f"Failed to delete note file: {str(e)}")
 			return False
-	
-	def update_note_source(self, note_file: str, file_path: str):
-		"""更新批注文件中记录的源文件路径"""
-		note_path = Path(note_file)
-		if not note_path.exists():
-			return
-		note_path = str(note_path)
-		post = frontmatter.load(note_path)
-		post.metadata['file'] = file_path
-		frontmatter.dump(post, note_path)
-	
-	def update_note_aid(self, note_file: str, annotation_id: int):
-		"""更新批注文件中记录的id"""
-		note_path = Path(note_file)
-		if not note_path.exists():
-			return
-		note_path = str(note_path)
-		post = frontmatter.load(note_path)
-		post.metadata['id'] = annotation_id
-		frontmatter.dump(post, note_path)
 	
 	def get_note_frontmatter(self, note_file: str) -> Optional[Dict]:
 		try:

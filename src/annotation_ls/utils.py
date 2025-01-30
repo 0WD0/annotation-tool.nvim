@@ -2,6 +2,8 @@ from typing import Dict, List, Optional, Tuple
 from pygls.workspace.text_document import TextDocument
 from lsprotocol import types
 from bisect import bisect_left
+from pathlib import Path
+import frontmatter
 from .config import config
 from .logger import *
 
@@ -124,3 +126,21 @@ def extract_notes_content(content: str) -> str:
 			return "\n".join(lines[i+1:]).strip()
 	
 	return ""
+	
+def update_note_source(note_file: Path, file_path: str):
+	"""更新批注文件中记录的源文件路径"""
+	if not note_file.exists():
+		return
+	note_path = str(note_file)
+	post = frontmatter.load(note_path)
+	post.metadata['file'] = file_path
+	frontmatter.dump(post, note_path)
+
+def update_note_aid(note_file: Path, annotation_id: int):
+	"""更新批注文件中记录的id"""
+	if not note_file.exists():
+		return
+	note_path = str(note_file)
+	post = frontmatter.load(note_path)
+	post.metadata['id'] = annotation_id
+	frontmatter.dump(post, note_path)

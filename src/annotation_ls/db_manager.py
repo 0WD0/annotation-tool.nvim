@@ -205,7 +205,7 @@ class DatabaseManager:
 			file_id = result[0]
 
 			cursor.execute('''
-				SELECT annotation_id
+				SELECT annotation_id note_file
 				FROM annotations
 				WHERE file_id = ? AND annotation_id >= ?
 				ORDER BY annotation_id DESC
@@ -214,21 +214,18 @@ class DatabaseManager:
 			annotation_ids = cursor.fetchall()
 			
 			# 更新标注ID
-			if increment > 0:
-				# 从大到小更新每个标注 ID
-				for (annotation_id,) in annotation_ids:
-					cursor.execute('''
-						UPDATE annotations
-						SET annotation_id = annotation_id + ?
-						WHERE file_id = ? AND annotation_id = ?
-					''', (increment, file_id, annotation_id))
-			else:
-				for (annotation_id,) in reversed(annotation_ids):
-					cursor.execute('''
-						UPDATE annotations
-						SET annotation_id = annotation_id + ?
-						WHERE file_id = ? AND annotation_id = ?
-					''', (increment, file_id, annotation_id))
+			if increment < 0:
+				annotation_ids.reverse()
+
+			for (annotation_id, note_file) in annotation_ids:
+				cursor.execute('''
+					UPDATE annotations
+					SET annotation_id = annotation_id + ?
+					WHERE file_id = ? AND annotation_id = ?
+				''', (increment, file_id, annotation_id))
+				if not self.project_root:
+					raise Exception("Project root not set")
+				update_note_aid(Path(self.project_root) / '.annotation' / 'notes' / note_file, annotation_id + increment)
 			
 			conn.commit()
 			return True
