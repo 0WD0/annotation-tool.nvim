@@ -309,6 +309,7 @@ function M.setup(opts)
 	-- setup LSP
 	vim.notify("Setting up annotation_ls")
 	lspconfig.annotation_ls.setup({
+		offset_encoding = "utf-8",
 		handlers = {
 			['textDocument/documentHighlight'] = function(err, result, ctx, config)
 				if err or not result then
