@@ -9,6 +9,16 @@ local preview_state = {
 
 -- 关闭预览窗口
 local function close_preview()
+	if preview_state.buf and vim.api.nvim_buf_is_valid(preview_state.buf) then
+		-- 如果 buffer 被修改了，保存它
+		if vim.bo[preview_state.buf].modified then
+			vim.api.nvim_buf_call(preview_state.buf, function()
+				vim.cmd('write')
+			end)
+		end
+		-- 关闭 buffer
+		vim.api.nvim_buf_delete(preview_state.buf, { force = false })
+	end
 	if preview_state.win and vim.api.nvim_win_is_valid(preview_state.win) then
 		vim.api.nvim_win_close(preview_state.win, true)
 	end
