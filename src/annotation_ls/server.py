@@ -394,7 +394,7 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 
 		n = len(annotations)
 		# 计算目标索引
-		target_id = (n + (current_id + offset) % n) % n
+		target_id = (n + (current_id - 1 + offset) % n) % n + 1
 		target_annotation = annotations[target_id]
 
 		# 获取目标笔记文件
