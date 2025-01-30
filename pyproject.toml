@@ -21,4 +21,4 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/annotation_lsp"]
+packages = ["src/annotation_ls"]
