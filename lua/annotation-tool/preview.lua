@@ -143,22 +143,6 @@ function M.setup(client)
 		-- 如果预览窗口已存在，先关闭它
 		close_preview(false)
 
-		-- 获取或创建源文件窗口
-		local source_win = nil
-		local wins = vim.api.nvim_list_wins()
-		if #wins > 0 then
-			source_win = wins[1]
-		else
-			-- 如果没有窗口，创建一个新窗口
-			vim.cmd('vsplit')
-			source_win = vim.api.nvim_get_current_win()
-		end
-
-		-- 在源文件窗口中打开文件并跳转到批注位置
-		vim.api.nvim_set_current_win(source_win)
-		vim.cmd('edit ' .. result.source_path)
-		vim.api.nvim_win_set_cursor(source_win, {result.position.line + 1, result.position.character})
-
 		-- 设置预览窗口
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
 		local buf = setup_preview_window(file_path)
