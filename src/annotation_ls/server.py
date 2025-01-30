@@ -131,7 +131,7 @@ def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams
 		# 获取光标位置的标注
 		annotation_id = get_annotation_at_position(doc, position)
 		if annotation_id == None:
-			raise Exception("Failed to get annotation_id")
+			return None
 
 		annotations = find_annotation_Ranges(doc)
 		if annotations == None:
