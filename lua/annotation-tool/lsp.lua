@@ -120,6 +120,18 @@ local function on_attach(client, bufnr)
 		silent = true
 	})
 
+	-- 设置高亮组
+	vim.api.nvim_set_hl(0, 'AnnotationHighlight', { bg = '#FFD600' })
+
+	-- 自动高亮
+	vim.api.nvim_create_autocmd('CursorMoved', {
+		buffer = bufnr,
+		callback = function()
+			vim.lsp.buf.clear_references()
+			vim.lsp.buf.document_highlight()
+		end
+	})
+
 	-- 启用标注模式
 	core.enable_annotation_mode()
 	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
@@ -224,12 +236,6 @@ function M.delete_annotation()
 	end)
 end
 
--- 查找包含 .annotation 目录的项目根目录
-local function find_project_root(start_path)
-	local current_dir = start_path or vim.fn.expand('%:p:h')
-	return vim.fs.root(current_dir, '.annotation')
-end
-
 -- 查找最顶层的项目根目录
 local function find_root_project(start_path)
 	local current = start_path or vim.fn.expand('%:p:h')
@@ -300,7 +306,21 @@ function M.setup(opts)
 
 	-- setup LSP
 	vim.notify("Setting up annotation_ls")
-	lspconfig.annotation_ls.setup({})
+	lspconfig.annotation_ls.setup({
+		handlers = {
+			['textDocument/documentHighlight'] = function(err, result, ctx, config)
+				if err or not result then
+					return
+				end
+
+				vim.lsp.util.buf_highlight_references(
+					ctx.bufnr,
+					result,
+					'AnnotationHighlight'
+				)
+			end
+		}
+	})
 end
 
 return M

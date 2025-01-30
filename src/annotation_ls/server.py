@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 
 from pygls.server import LanguageServer
 from lsprotocol import types
@@ -47,7 +47,8 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				# "getAnnotationNote",
 				# "queryAnnotations"
 			]
-		)
+		),
+		document_highlight_provider=True
 	)
 	
 	return types.InitializeResult(capabilities=capabilities)
@@ -91,13 +92,15 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		if not workspace:
 			error(f"No workspace found for {doc.uri}")
 			return None
+		db_manager = workspace.db_manager
+		note_manager = workspace.note_manager
 		
 		# 获取笔记文件
-		note_file = workspace.db_manager.get_annotation_note_file(doc.uri, annotation_id)
+		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
 			return None
 		
-		note_content = workspace.note_manager.get_note_content(note_file)
+		note_content = note_manager.get_note_content(note_file)
 		if not note_content:
 			error("Failed to get note file contents")
 			return types.Hover(contents=[])
@@ -116,6 +119,33 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 		)
 	except Exception as e:
 		error(f"Error in hover: {str(e)}")
+		return None
+
+@server.feature(types.TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT)
+def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams) -> Optional[List[types.DocumentHighlight]]:
+	"""处理文档高亮请求，返回需要高亮的区域"""
+	try:
+		doc = ls.workspace.get_document(params.text_document.uri)
+		position = params.position
+		
+		# 获取光标位置的标注
+		annotation_id = get_annotation_at_position(doc, position)
+		if annotation_id == None:
+			raise Exception("Failed to get annotation_id")
+
+		annotations = find_annotation_Ranges(doc)
+		if annotations == None:
+			raise Exception("Failed to get annotation ranges")
+
+		current_annotation_range = annotations[annotation_id-1]
+			
+		# 返回标注范围的高亮
+		return [types.DocumentHighlight(
+			range=current_annotation_range
+		)]
+		
+	except Exception as e:
+		error(f"Error highlighting document: {str(e)}")
 		return None
 
 @server.command("createAnnotation")
@@ -240,7 +270,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 
 		annotations = find_annotation_Ranges(doc)
 		if annotations == None:
-			raise Exception("Delete annotation: Failed to get annotations")
+			raise Exception("Failed to get annotation ranges")
 
 		current_annotation_range = annotations[annotation_id-1]
 
@@ -323,7 +353,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 # 		current_workspace = workspace_manager.get_workspace(query_params['textDocument']['uri'])
 # 		if not current_workspace:
 # 			return {"annotations": []}
-#
+
 # 		# 根据查询范围获取工作区列表
 # 		workspaces_to_query = []
 # 		query_scope = query_params.get('scope', 'current')  # current, subtree, ancestors, all
@@ -336,7 +366,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 # 			workspaces_to_query = current_workspace.get_ancestor_workspaces()
 # 		elif query_scope == 'all':
 # 			workspaces_to_query = workspace_manager.root.get_subtree_workspaces()
-#
+
 # 		# 在所有相关工作区中查询
 # 		all_annotations = []
 # 		for workspace in workspaces_to_query:
@@ -345,9 +375,9 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 # 				query_params.get('file_pattern', '*')
 # 			)
 # 			all_annotations.extend(annotations)
-#
+
 # 		return {"annotations": all_annotations}
-#
+
 # 	except Exception as e:
 # 		error(f"Error querying annotations: {str(e)}")
 # 		return {"success": False, "error": str(e)}
