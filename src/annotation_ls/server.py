@@ -44,7 +44,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"createAnnotation",
 				"listAnnotations",
 				"deleteAnnotation",
-				# "getAnnotationNote",
+				"getAnnotationNote",
 				# "queryAnnotations"
 			]
 		),
@@ -316,10 +316,11 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""获取当前位置的批注文件"""
 	try:
+		params = params[0]
 		# 获取文档和位置
-		doc_uri = params["textDocument"]["uri"]
-		position = types.Position(**params["position"])
-		doc = ls.workspace.get_document(doc_uri)
+		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		position = types.Position(**params['position'])
+		doc = ls.workspace.get_document(doc.uri)
 		
 		# 获取当前位置的批注
 		annotation_id = get_annotation_at_position(doc, position)
@@ -327,12 +328,12 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			return None
 			
 		# 获取工作区
-		workspace = workspace_manager.get_workspace(doc_uri)
+		workspace = workspace_manager.get_workspace(doc.uri)
 		if not workspace:
 			return None
 			
 		# 获取笔记文件路径
-		note_file = workspace.db_manager.get_annotation_note_file(doc_uri, annotation_id)
+		note_file = workspace.db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
 			return None
 			
