@@ -91,11 +91,11 @@ def get_annotation_at_position(doc: TextDocument, position: types.Position) -> O
 
 	for i,annotation in enumerate(annotation_L):
 		start_line, start_char, end_line, end_char = annotation
-		info(f"Annotation_L {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
+		# info(f"Annotation_L {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
 
 	for i,annotation in enumerate(annotation_R):
 		start_line, start_char, end_line, end_char = annotation
-		info(f"Annotation_R {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
+		# info(f"Annotation_R {i}: L{start_line}C{start_char}-L{end_line}C{end_char}")
 
 	pos_line = position.line
 	pos_char = position.character
