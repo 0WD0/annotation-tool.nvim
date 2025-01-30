@@ -359,8 +359,13 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""
 	try:
 		params = params[0]
+
+		info(f"params = {params}")
+
 		note = ls.workspace.get_document(params["textDocument"]["uri"])
 		offset = params.get("offset", 1)  # 默认获取下一个
+
+		info(f"Getting annotation source with offset {offset}")
 
 		# 从笔记文件路径解析出原始文件路径和批注 ID
 		workspace = workspace_manager.get_workspace(note.uri)
