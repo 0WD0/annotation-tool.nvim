@@ -45,6 +45,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"listAnnotations",
 				"deleteAnnotation",
 				"getAnnotationNote",
+				"getAnnotationSource",
 				# "queryAnnotations"
 			]
 		),
@@ -231,8 +232,8 @@ def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			raise Exception(f"No workspace found for {doc.uri}")
 
 		# 获取文件的所有标注
-		annotations = workspace.db_manager.get_file_annotations(doc.uri)
-		return {"annotations": annotations}
+		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
+		return {"note_files": note_files}
 
 	except Exception as e:
 		error(f"Failed to list annotations: {str(e)}")
@@ -347,6 +348,65 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			
 	except Exception as e:
 		error(f"Error getting annotation note: {str(e)}")
+		return None
+
+@server.command("getAnnotationSource")
+def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
+	"""从笔记跳转到源文件的批注位置
+	params:
+		- textDocument: 当前笔记文件
+		- offset: 偏移量，1 表示下一个批注，-1 表示上一个批注，0 表示当前批注
+	"""
+	try:
+		params = params[0]
+		note = ls.workspace.get_document(params["textDocument"]["uri"])
+		offset = params.get("offset", 1)  # 默认获取下一个
+
+		# 从笔记文件路径解析出原始文件路径和批注 ID
+		workspace = workspace_manager.get_workspace(note.uri)
+		if not workspace:
+			return None
+
+		# 从笔记文件名获取批注 ID
+		current_id = workspace.note_manager.get_annotation_id_from_note_uri(note.uri)
+		if not current_id:
+			return None
+
+		# 获取源文件路径
+		source_path = workspace.note_manager.get_source_path_from_note_uri(note.uri)
+		if not source_path:
+			return None
+
+		# 获取所有批注并按位置排序
+		note_files = workspace.db_manager.get_note_files_from_source_uri(source_path)
+		if not note_files:
+			return None
+
+		source = ls.workspace.get_document(source_path)
+		annotations = find_annotation_Ranges(source)
+		if annotations == None:
+			raise Exception("Failed to get annotation ranges")
+
+		n = len(annotations)
+		# 计算目标索引
+		target_id = (n + (current_id + offset) % n) % n
+		target_annotation = annotations[target_id]
+
+		# 获取目标笔记文件
+		note_file = workspace.db_manager.get_annotation_note_file(source_path, target_id)
+		if not note_file:
+			return None
+
+		return {
+			"workspace_path": workspace.root_path,
+			"source_path": source_path,
+			"note_file": note_file,
+			"annotation_id": target_id,
+			"position": target_annotation.start
+		}
+
+	except Exception as e:
+		error(f"Error getting annotation source: {str(e)}")
 		return None
 
 # @server.command("queryAnnotations")

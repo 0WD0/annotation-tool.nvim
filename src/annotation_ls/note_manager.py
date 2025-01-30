@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, List, Dict
 from urllib.parse import urlparse, unquote
 from .logger import *
+import frontmatter
 
 class NoteManager:
 	def __init__(self, project_root: Optional[Path] = None):
@@ -84,7 +85,6 @@ class NoteManager:
 		"""获取笔记目录"""
 		return self.notes_dir
 	
-	
 	def delete_note(self, note_file: str) -> bool:
 		"""删除批注文件
 		
@@ -114,47 +114,22 @@ class NoteManager:
 		note_path = Path(note_file)
 		if not note_path.exists():
 			return
-			
-		with note_path.open('r', encoding='utf-8') as f:
-			lines = f.readlines()
-			
-		# 更新文件路径
-		for i, line in enumerate(lines):
-			if line.startswith('file:'):
-				lines[i] = f'file: {file_path}\n'
-				break
-				
-		with note_path.open('w', encoding='utf-8') as f:
-			f.writelines(lines)
+		note_path = str(note_path)
+		post = frontmatter.load(note_path)
+		post.metadata['file'] = file_path
+		frontmatter.dump(post, note_path)
 	
 	def update_note_aid(self, note_file: str, annotation_id: int):
 		"""更新批注文件中记录的id"""
 		note_path = Path(note_file)
 		if not note_path.exists():
 			return
-			
-		with note_path.open('r', encoding='utf-8') as f:
-			lines = f.readlines()
-			
-		# 更新文件路径
-		for i, line in enumerate(lines):
-			if line.startswith('id:'):
-				lines[i] = f'id: {annotation_id}\n'
-				break
-				
-		with note_path.open('w', encoding='utf-8') as f:
-			f.writelines(lines)
+		note_path = str(note_path)
+		post = frontmatter.load(note_path)
+		post.metadata['id'] = annotation_id
+		frontmatter.dump(post, note_path)
 	
-
-	def get_note_content(self, note_file: str) -> Optional[str]:
-		"""读取笔记文件内容
-		
-		Args:
-			note_file: 笔记文件的相对路径（相对于 notes 目录）
-			
-		Returns:
-			笔记文件的内容，如果读取失败则返回 None
-		"""
+	def get_note_frontmatter(self, note_file: str) -> Optional[Dict]:
 		try:
 			if not self.notes_dir:
 				raise Exception("Notes directory not set")
@@ -163,12 +138,29 @@ class NoteManager:
 			if not note_path.exists():
 				raise Exception("Note file does not exist")
 				
-			with note_path.open('r', encoding='utf-8') as f:
-				return f.read()
+			post = frontmatter.load(str(note_path))
+			return post.metadata
 				
 		except Exception as e:
 			error(f"Failed to read note file: {str(e)}")
 			return None
+
+	def get_note_content(self, note_file: str) -> Optional[str]:
+		try:
+			if not self.notes_dir:
+				raise Exception("Notes directory not set")
+				
+			note_path = self.notes_dir / note_file
+			if not note_path.exists():
+				raise Exception("Note file does not exist")
+				
+			post = frontmatter.load(str(note_path))
+			return post.content
+				
+		except Exception as e:
+			error(f"Failed to read note file: {str(e)}")
+			return None
+	
 	def search_notes(self, query: str, search_type: str = 'all') -> List[Dict]:
 		"""搜索批注文件
 		search_type可以是：'file_path', 'content', 'note', 'all'
@@ -179,42 +171,81 @@ class NoteManager:
 		
 		results = []
 		for note_file in notes_dir.glob('*.md'):
-			with note_file.open('r', encoding='utf-8') as f:
-				content = f.read()
+			post = frontmatter.load(str(note_file))
+			file_path = str(post.metadata.get("file"))
+
+			note_content = post.content
+			
+			# 根据搜索类型进行匹配
+			matched = False
+			if search_type in ('file_path', 'all') and query.lower() in file_path.lower():
+				matched = True
+			elif search_type in ('content', 'all') and query.lower() in note_content.lower():
+				matched = True
+			elif search_type in ('note', 'all') and query.lower() in note_content.lower():
+				matched = True
 				
-			# 解析front matter
-			file_path = None
-			for line in content.split('\n'):
-				if line.startswith('file:'):
-					file_path = line.split(':', 1)[1].strip()
-					break
-			if file_path == None:
-				return results
-					
-			# 分离原文和批注
-			parts = content.split('---', 2)
-			if len(parts) >= 3:
-				note_content = parts[2].strip()
-				original_text = ''
-				for line in note_content.split('\n'):
-					if line.startswith('>'):
-						original_text += line[1:].strip() + '\n'
-				
-				# 根据搜索类型进行匹配
-				matched = False
-				if search_type in ('file_path', 'all') and query.lower() in file_path.lower():
-					matched = True
-				elif search_type in ('content', 'all') and query.lower() in original_text.lower():
-					matched = True
-				elif search_type in ('note', 'all') and query.lower() in note_content.lower():
-					matched = True
-					
-				if matched:
-					results.append({
-						'file': file_path,
-						'note_file': str(note_file),
-						'original_text': original_text.strip(),
-						'note_content': note_content
-					})
+			if matched:
+				results.append({
+					'file': file_path,
+					'note_file': str(note_file),
+					'original_text': '',
+					'note_content': note_content
+				})
 					
 		return results
+
+	def get_annotation_id_from_note_uri(self, note_uri: str) -> Optional[str]:
+		"""从笔记文件路径获取批注 ID
+		Args:
+			note_uri: 笔记文件的 URI
+		Returns:
+			批注 ID，如果解析失败则返回 None
+		"""
+		try:
+			# 将 URI 转换为文件路径
+			note_path = Path(self._uri_to_path(note_uri))
+			if not self.notes_dir:
+				raise Exception("Notes directory not set")
+			# 检查路径是否在笔记目录下
+			note_path.relative_to(self.notes_dir)
+			
+			# 读取笔记内容获取 annotation id
+			post = frontmatter.load(str(note_path))
+			return str(post.metadata.get("id"))
+		except (ValueError, Exception) as e:
+			error(f"Failed to get annotation id: {str(e)}")
+			return None
+
+	def get_source_path_from_note_uri(self, note_uri: str) -> Optional[str]:
+		"""从笔记文件获取源文件路径
+		Args:
+			note_uri: 笔记文件的 URI
+		Returns:
+			源文件的绝对路径（字符串），如果解析失败则返回 None
+		"""
+		try:
+			# 将 URI 转换为文件路径
+			note_path = Path(self._uri_to_path(note_uri))
+			if not self.notes_dir:
+				raise Exception("Notes directory not set")
+			# 检查路径是否在笔记目录下
+			note_path.relative_to(self.notes_dir)
+			
+			# 读取笔记内容
+			post = frontmatter.load(str(note_path))
+			source_path = post.metadata.get("file")
+			if not source_path:
+				return None
+
+			# 确保返回绝对路径
+			source_path = Path(str(source_path))
+			if not source_path.is_absolute():
+				if not self.project_root:
+					raise Exception("Project root not set")
+				source_path = self.project_root / source_path
+			return str(source_path)
+		except (ValueError, Exception) as e:
+			error(f"Failed to get source path: {str(e)}")
+			return None
+

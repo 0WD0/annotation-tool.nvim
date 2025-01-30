@@ -147,14 +147,14 @@ class DatabaseManager:
 			error(f"Failed to create annotation: {str(e)}")
 			raise DatabaseError(str(e))
 	
-	def get_file_annotations(self, file_uri: str) -> List[Dict]:
+	def get_note_files_from_source_uri(self, source_uri: str) -> List[Dict]:
 		"""获取文件的所有标注"""
 		try:
 			conn = self._get_conn()
-			relative_path = self._uri_to_relative_path(file_uri)
+			relative_path = self._uri_to_relative_path(source_uri)
 			
 			cursor = conn.execute('''
-				SELECT a.annotation_id, a.note_file
+				SELECT a.note_file
 				FROM annotations a
 				JOIN files f ON a.file_id = f.id
 				WHERE f.path = ?
@@ -162,7 +162,7 @@ class DatabaseManager:
 			''', (relative_path,))
 			
 			return [
-				{"id": row[0], "note_file": row[1]}
+				{"note_file": row[0]}
 				for row in cursor.fetchall()
 			]
 			

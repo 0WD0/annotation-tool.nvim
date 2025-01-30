@@ -223,7 +223,7 @@ function M.list_annotations()
 		if err then
 			vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
 		else
-			vim.notify('Found ' .. #result.annotations .. ' annotations', vim.log.levels.INFO)
+			vim.notify('Found ' .. #result.note_files .. ' annotations', vim.log.levels.INFO)
 			-- TODO: 在 quickfix 窗口中显示标注列表
 		end
 	end)
