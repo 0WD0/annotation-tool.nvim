@@ -140,7 +140,19 @@ function M.goto_annotation_source(client, offset)
 	end)
 end
 
-function M.goto_annotation_note(client)
+function M.goto_annotation_note(client,result)
+	-- 如果预览窗口已存在，先关闭它
+	M.close_preview(false)
+	-- 设置新的预览窗口
+	local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
+	local buf = M.setup_preview_window(file_path, client)
+	if not buf then
+		vim.notify("Failed to open preview window", vim.log.levels.ERROR)
+		return
+	end
+end
+
+function M.goto_current_annotation_note(client)
 	local params = core.make_position_params()
 	vim.notify("Getting annotation note...", vim.log.levels.INFO)
 
@@ -158,17 +170,7 @@ function M.goto_annotation_note(client)
 			vim.notify("No annotation note found", vim.log.levels.WARN)
 			return
 		end
-
-		-- 如果预览窗口已存在，先关闭它
-		M.close_preview(false)
-
-		-- 设置新的预览窗口
-		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		local buf = M.setup_preview_window(file_path, client)
-		if not buf then
-			vim.notify("Failed to open preview window", vim.log.levels.ERROR)
-			return
-		end
+		M.goto_annotation_note(client,result)
 	end)
 end
 

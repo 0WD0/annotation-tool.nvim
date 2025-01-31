@@ -12,7 +12,7 @@ M.create_annotation = lsp.create_annotation
 M.list_annotations = lsp.list_annotations
 M.delete_annotation = lsp.delete_annotation
 M.find_annotations = telescope.find
-M.setup_preview = preview.goto_annotation_note
+M.setup_preview = preview.goto_current_annotation_note
 M.enable_annotation_mode = core.enable_annotation_mode
 M.disable_annotation_mode = core.disable_annotation_mode
 M.toggle_annotation_mode = core.toggle_annotation_mode
@@ -48,7 +48,7 @@ function M.setup(opts)
 
 	-- 设置预览窗口
 	if opts.preview == true then
-		preview.goto_annotation_note()
+		preview.goto_current_annotation_note()
 	end
 end
 

@@ -200,9 +200,7 @@ function M.create_annotation()
 			return
 		end
 		if result and result.success then
-			-- local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-			-- preview.setup_preview_window(file_path, client)
-			M.preview_annotation()
+			preview.goto_annotation_note(client,result)
 			vim.notify("Annotation created successfully", vim.log.levels.INFO)
 		end
 	end)
@@ -265,7 +263,7 @@ function M.preview_annotation()
 	if not client then
 		return
 	end
-	preview.goto_annotation_note(client)
+	preview.goto_current_annotation_note(client)
 end
 
 -- 查找最顶层的项目根目录
