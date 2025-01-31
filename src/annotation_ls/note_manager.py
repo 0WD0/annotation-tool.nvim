@@ -69,12 +69,12 @@ class NoteManager:
 			note_path.parent.mkdir(parents=True, exist_ok=True)
 			
 			with note_path.open('w', encoding='utf-8') as f:
-				f.write(f'---\nfile: {relative_path}\nid: {annotation_id}\n---\n\n')
-				f.write(f'## Selected Text\n\n')
+				f.write(f'---\nfile: {relative_path}\nid: {annotation_id}\n---\n')
+				f.write(f'## Selected Text\n')
 				f.write('```\n')
 				f.write(text)
-				f.write('\n```\n\n')
-				f.write('## Notes\n\n')
+				f.write('\n```\n')
+				f.write('## Notes\n')
 			
 			return str(note_path)
 			
