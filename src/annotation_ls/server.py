@@ -214,7 +214,7 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		if not note_path:
 			raise Exception("Failed to create note file")
 
-		return {"success": True, "note_file": note_path, "workspace_path": workspace.root_path}
+		return {"success": True, "note_file": note_file, "workspace_path": workspace.root_path}
 
 	except Exception as e:
 		error(f"Failed to create annotation: {str(e)}")
