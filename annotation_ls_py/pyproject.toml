@@ -26,7 +26,7 @@ dependencies = [
 "Bug Tracker" = "https://github.com/username/annotation-tool/issues"
 
 [project.scripts]
-annotation-ls = "annotation_ls_py.cli:main"
+annotation_ls = "annotation_ls_py.cli:main"
 
 [project.optional-dependencies]
 dev = [

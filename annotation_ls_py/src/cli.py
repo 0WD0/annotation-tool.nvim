@@ -1,8 +1,8 @@
 import argparse
 import sys
 from typing import List, Optional
-from . import server as py_server
-from . import __version__
+from annotation_ls_py import server as py_server
+from annotation_ls_py import __version__
 
 def main(argv: Optional[List[str]] = None) -> int:
 	parser = argparse.ArgumentParser(

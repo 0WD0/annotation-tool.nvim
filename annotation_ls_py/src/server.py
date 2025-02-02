@@ -12,7 +12,7 @@ from .logger import *
 
 class AnnotationServer(LanguageServer):
 	def __init__(self):
-		super().__init__("annotation-ls", "v1.0")
+		super().__init__("annotation_ls", "v0.1.0")
 		logger.set_server(self)
 
 server = AnnotationServer()
