@@ -329,7 +329,7 @@ function M.setup(opts)
 	else
 		cmd = {
 			cmd_path,
-			plugin_root .. "/annotation_ls_js/out/cli.js",
+			plugin_root .. "/out/cli.js",
 			"--connection",
 			connection
 		}

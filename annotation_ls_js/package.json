@@ -9,7 +9,7 @@
   },
   "main": "out/server.js",
   "bin": {
-    "annotation-ls": "out/cli.js"
+    "annotation_ls": "out/cli.js"
   },
   "dependencies": {
     "commander": "^11.0.0",
