@@ -13,75 +13,80 @@ local function request(method, params, handler)
 end
 
 -- 确保虚拟环境存在并安装依赖
-local function ensure_venv()
+local function ensure_deps(version)
 	-- 获取插件根目录
 	local current_file = debug.getinfo(1, "S").source:sub(2)
 	local plugin_root = vim.fn.fnamemodify(current_file, ":h:h:h")
-	local venv_path = plugin_root .. "/.venv"
-	local venv_python = venv_path .. "/bin/python"
-	local venv_pip = venv_path .. "/bin/pip"
 
-	-- 检查虚拟环境是否存在
-	if vim.fn.isdirectory(venv_path) == 0 then
-		-- 创建虚拟环境
-		local python = vim.fn.exepath('python3') or vim.fn.exepath('python')
-		if not python then
-			vim.notify("Python not found", vim.log.levels.ERROR)
-			return nil
-		end
+	if version == 'python' then
+		-- 获取 Python 实现目录
+		local python_root = plugin_root .. "/annotation_ls_py"
+		local venv_path = python_root .. "/.venv"
+		local venv_python = venv_path .. "/bin/python"
+		local venv_pip = venv_path .. "/bin/pip"
 
-		vim.notify("Creating virtual environment...", vim.log.levels.INFO)
-		local venv_cmd = string.format("%s -m venv %s", python, venv_path)
-		local venv_result = vim.fn.system(venv_cmd)
-
-		if vim.v.shell_error ~= 0 then
-			vim.notify("Failed to create virtual environment: " .. venv_result, vim.log.levels.ERROR)
-			return nil
-		end
-	end
-
-	-- 检查是否已安装依赖
-	if vim.fn.executable(venv_pip) == 1 then
-		-- 检查 annotation-tool 是否已安装
-		local check_cmd = string.format("%s -c 'import annotation_ls' 2>/dev/null", venv_python)
-		local check_result = vim.fn.system(check_cmd)
-		if vim.v.shell_error ~= 0 then
-			-- 依赖未安装，进行安装
-			vim.notify("Installing dependencies...", vim.log.levels.INFO)
-			local install_cmd = string.format("%s install -e %s", venv_pip, plugin_root)
-			local install_result = vim.fn.system(install_cmd)
-
-			if vim.v.shell_error ~= 0 then
-				vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
+		-- 检查虚拟环境是否存在
+		if vim.fn.isdirectory(venv_path) == 0 then
+			-- 创建虚拟环境
+			local python = vim.fn.exepath('python3') or vim.fn.exepath('python')
+			if not python then
+				vim.notify("Python not found", vim.log.levels.ERROR)
 				return nil
 			end
 
-			vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+			vim.notify("Creating virtual environment...", vim.log.levels.INFO)
+			local venv_cmd = string.format("%s -m venv %s", python, venv_path)
+			local venv_result = vim.fn.system(venv_cmd)
+
+			if vim.v.shell_error ~= 0 then
+				vim.notify("Failed to create virtual environment: " .. venv_result, vim.log.levels.ERROR)
+				return nil
+			end
 		end
-	else
-		vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
-		return nil
-	end
 
-	return venv_python, plugin_root
-end
+		-- 检查是否已安装依赖
+		if vim.fn.executable(venv_pip) == 1 then
+			-- 检查 annotation-tool 是否已安装
+			local check_cmd = string.format("%s -c 'import annotation_ls_py' 2>/dev/null", venv_python)
+			local check_result = vim.fn.system(check_cmd)
+			if vim.v.shell_error ~= 0 then
+				-- 依赖未安装，进行安装
+				vim.notify("Installing dependencies...", vim.log.levels.INFO)
+				local install_cmd = string.format("%s install -e %s", venv_pip, python_root)
+				local install_result = vim.fn.system(install_cmd)
 
--- 获取 Python 解释器路径
-local function get_python_path()
-	-- 确保虚拟环境和依赖存在
-	local venv_python, plugin_root = ensure_venv()
-	if venv_python then
+				if vim.v.shell_error ~= 0 then
+					vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
+					return nil
+				end
+
+				vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+			end
+		else
+			vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
+			return nil
+		end
+
 		return venv_python, plugin_root
-	end
+	else
+		-- 获取 Node.js 实现目录
+		local node_root = plugin_root .. "/annotation_ls_js"
+		local server_path = node_root .. "/out/cli.js"
 
-	-- 如果虚拟环境创建失败，尝试使用系统 Python（不推荐）
-	vim.notify("Falling back to system Python (not recommended)", vim.log.levels.WARN)
-	local system_python = vim.fn.exepath('python3') or vim.fn.exepath('python')
-	if system_python then
-		return system_python, plugin_root
-	end
+		-- 检查编译后的文件是否存在
+		if vim.fn.filereadable(server_path) == 0 then
+			-- 编译 TypeScript
+			local compile_cmd = string.format("cd %s && npm install && npm run compile", node_root)
+			local compile_result = vim.fn.system(compile_cmd)
 
-	return nil, nil
+			if vim.v.shell_error ~= 0 then
+				vim.notify("Failed to compile TypeScript: " .. compile_result, vim.log.levels.ERROR)
+				return nil
+			end
+		end
+
+		return vim.fn.exepath('node'), node_root
+	end
 end
 
 -- 获取 LSP 客户端
@@ -302,39 +307,42 @@ function M.setup(opts)
 	opts = opts or {}
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
-
-	-- 获取实现类型和连接类型
-	local implementation = opts.implementation or 'python'
+	local version = opts.version or 'python'
 	local connection = opts.connection or 'stdio'
+	local host = opts.host or '127.0.0.1'
+	local port = opts.port or 2087
 
-	-- 获取 Python 解释器和项目根目录
-	local python_path, plugin_root = get_python_path()
-	if not python_path then
-		vim.notify("No Python interpreter found", vim.log.levels.ERROR)
+	-- 获取命令路径
+	local cmd_path, plugin_root = ensure_deps(version)
+	if not cmd_path then
+		vim.notify(string.format("Failed to setup LSP client for version %s", version), vim.log.levels.ERROR)
 		return
 	end
 
 	-- 构建命令
-	local cmd = {
-		python_path,
-		"-m",
-		"annotation_ls.cli",
-		"--connection",
-		connection
-	}
-
-	if implementation == 'node' then
-		table.insert(cmd, '--implementation')
-		table.insert(cmd, 'node')
+	local cmd
+	if version == 'python' then
+		cmd = {
+			cmd_path,
+			"-m",
+			"annotation_ls_py.cli",
+			"--connection",
+			connection
+		}
+	else
+		cmd = {
+			cmd_path,
+			plugin_root .. "/out/cli.js",
+			"--connection",
+			connection
+		}
 	end
 
-	-- 如果使用 TCP 连接，添加主机和端口参数
+	-- 如果是 TCP 连接，添加 host 和 port 参数
 	if connection == 'tcp' then
-		local host = opts.host or '127.0.0.1'
-		local port = opts.port or 2087
-		table.insert(cmd, '--host')
+		table.insert(cmd, "--host")
 		table.insert(cmd, host)
-		table.insert(cmd, '--port')
+		table.insert(cmd, "--port")
 		table.insert(cmd, tostring(port))
 	end
 

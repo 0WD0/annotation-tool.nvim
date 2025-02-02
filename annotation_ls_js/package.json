@@ -1,0 +1,32 @@
+{
+  "name": "annotation-tool-js",
+  "description": "Language Server for Annotation Tool (Node.js Implementation)",
+  "version": "0.1.0",
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": "*"
+  },
+  "main": "out/server.js",
+  "bin": {
+    "annotation-ls": "out/cli.js"
+  },
+  "dependencies": {
+    "commander": "^11.0.0",
+    "vscode-languageserver": "^8.1.0",
+    "vscode-languageserver-textdocument": "^1.0.8",
+    "vscode-uri": "^3.0.7",
+    "sqlite3": "^5.1.7",
+    "yaml": "^2.3.4"
+  },
+  "scripts": {
+    "compile": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rm -rf out"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.5",
+    "@types/sqlite3": "^3.1.11",
+    "typescript": "^5.3.3"
+  }
+}

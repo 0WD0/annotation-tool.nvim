@@ -1,0 +1,50 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "annotation-tool-py"
+version = "0.1.0"
+description = "Language server for annotation tool (Python implementation)"
+authors = [
+    {name = "Wang Yuantao", email = "wd.1105848296@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "pygls>=1.1.1",
+    "lsprotocol>=2023.0.1"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/username/annotation-tool"
+"Bug Tracker" = "https://github.com/username/annotation-tool/issues"
+
+[project.scripts]
+annotation-ls = "annotation_ls_py.cli:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/annotation_ls"]
+
+[tool.hatch.build]
+include = [
+  "src/annotation_ls/**/*.py",
+  "src/annotation_ls_js/**/*.ts",
+  "package.json",
+  "tsconfig.json"
+]
+
+[tool.hatch.build.force-include]
+"src/annotation_ls_js" = "annotation_ls_js"
+"package.json" = "package.json"
+"tsconfig.json" = "tsconfig.json"
