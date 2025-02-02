@@ -9,7 +9,6 @@ description = "Language server for annotation tool (Python implementation)"
 authors = [
     {name = "Wang Yuantao", email = "wd.1105848296@gmail.com"}
 ]
-readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
