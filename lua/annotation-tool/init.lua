@@ -39,7 +39,7 @@ function M.setup(opts)
 				})
 
 				if #clients == 0 then
-						vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
+					vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
 					lsp.attach()
 				end
 			end,

@@ -450,3 +450,16 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 # 	except Exception as e:
 # 		error(f"Error querying annotations: {str(e)}")
 # 		return {"success": False, "error": str(e)}
+
+def start_server(transport: str = 'stdio', host: str = '127.0.0.1', port: int = 2087):
+	"""启动 LSP 服务器
+
+	Args:
+		transport: 传输方式，'stdio' 或 'tcp'
+		host: TCP 服务器主机地址
+		port: TCP 服务器端口号
+	"""
+	if transport == 'tcp':
+		server.start_tcp(host, port)
+	else:
+		server.start_io()

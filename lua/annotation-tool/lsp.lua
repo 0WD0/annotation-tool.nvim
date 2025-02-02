@@ -303,6 +303,10 @@ function M.setup(opts)
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
 
+	-- 获取实现类型和连接类型
+	local implementation = opts.implementation or 'python'
+	local connection = opts.connection or 'stdio'
+
 	-- 获取 Python 解释器和项目根目录
 	local python_path, plugin_root = get_python_path()
 	if not python_path then
@@ -310,18 +314,35 @@ function M.setup(opts)
 		return
 	end
 
-	-- 构建 Python 命令
-	local python_cmd = {
+	-- 构建命令
+	local cmd = {
 		python_path,
 		"-m",
-		"annotation_ls"
+		"annotation_ls.cli",
+		"--connection",
+		connection
 	}
+
+	if implementation == 'node' then
+		table.insert(cmd, '--implementation')
+		table.insert(cmd, 'node')
+	end
+
+	-- 如果使用 TCP 连接，添加主机和端口参数
+	if connection == 'tcp' then
+		local host = opts.host or '127.0.0.1'
+		local port = opts.port or 2087
+		table.insert(cmd, '--host')
+		table.insert(cmd, host)
+		table.insert(cmd, '--port')
+		table.insert(cmd, tostring(port))
+	end
 
 	-- 注册自定义 LSP
 	if not configs.annotation_ls then
 		configs.annotation_ls = {
 			default_config = {
-				cmd = python_cmd,
+				cmd = cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
 				root_dir = function(fname)
