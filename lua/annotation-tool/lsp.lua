@@ -33,11 +33,9 @@ local function ensure_deps(version)
 				vim.notify("Python not found", vim.log.levels.ERROR)
 				return nil
 			end
-
 			vim.notify("Creating virtual environment...", vim.log.levels.INFO)
 			local venv_cmd = string.format("%s -m venv %s", python, venv_path)
 			local venv_result = vim.fn.system(venv_cmd)
-
 			if vim.v.shell_error ~= 0 then
 				vim.notify("Failed to create virtual environment: " .. venv_result, vim.log.levels.ERROR)
 				return nil
@@ -47,20 +45,17 @@ local function ensure_deps(version)
 		-- 检查是否已安装依赖
 		if vim.fn.executable(venv_pip) == 1 then
 			-- 检查 annotation-tool 是否已安装
-			local check_cmd = string.format("%s -c 'import annotation_ls_py' 2>/dev/null", venv_python)
+			local check_cmd = string.format("%s -c 'import annotation_ls_py.cli' 2>/dev/null", venv_python)
 			local check_result = vim.fn.system(check_cmd)
 			if vim.v.shell_error ~= 0 then
 				-- 依赖未安装，进行安装
 				vim.notify("Installing dependencies...", vim.log.levels.INFO)
 				local install_cmd = string.format("%s install -e %s", venv_pip, python_root)
 				local install_result = vim.fn.system(install_cmd)
-
 				if vim.v.shell_error ~= 0 then
 					vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
 					return nil
 				end
-
-				vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
 			end
 		else
 			vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
@@ -332,7 +327,7 @@ function M.setup(opts)
 	else
 		cmd = {
 			cmd_path,
-			plugin_root .. "/out/cli.js",
+			plugin_root .. "/annotation_ls_js/out/cli.js",
 			"--connection",
 			connection
 		}

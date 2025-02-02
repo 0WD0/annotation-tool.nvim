@@ -34,6 +34,5 @@ dev = [
     "mypy>=1.0"
 ]
 
-[tool.hatch.build]
-packages = ["annotation_ls_py"]
-directory = "src"
+[tool.hatch.build.targets.wheel]
+packages = ["src/annotation_ls_py"]
