@@ -17,7 +17,8 @@ classifiers = [
 ]
 dependencies = [
     "pygls>=1.1.1",
-    "lsprotocol>=2023.0.1"
+    "lsprotocol>=2023.0.1",
+    "python-frontmatter>=1.1.0"
 ]
 
 [project.urls]

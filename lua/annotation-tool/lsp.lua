@@ -56,6 +56,8 @@ local function ensure_deps(version)
 					vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
 					return nil
 				end
+
+				vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
 			end
 		else
 			vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
