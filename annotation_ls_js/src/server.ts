@@ -27,26 +27,27 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { createServer } from 'net';
 
-// 根据环境变量选择连接类型
+// 创建连接
 let connection: any;
-const connectionType = process.env.CONNECTION_TYPE;
-const host = process.env.HOST || '127.0.0.1';
-const port = parseInt(process.env.PORT || '2087', 10);
 
-if (connectionType === 'tcp') {
-    const { createConnection, ProposedFeatures } = require('vscode-languageserver/node');
-    const net = require('net');
+export function startServer() {
+    const connectionType = process.env.CONNECTION_TYPE || 'stdio';
     
-    const server = net.createServer((socket: any) => {
-        connection = createConnection(ProposedFeatures.all, socket, socket);
-        initializeConnection(connection);
-    });
-    
-    server.listen(port, host);
-} else {
-    const { createConnection, ProposedFeatures } = require('vscode-languageserver/node');
-    connection = createConnection(ProposedFeatures.all);
-    initializeConnection(connection);
+    if (connectionType === 'tcp') {
+        const host = process.env.HOST || '127.0.0.1';
+        const port = parseInt(process.env.PORT || '2087', 10);
+        
+        const server = createServer(socket => {
+            connection = createConnection(ProposedFeatures.all, socket, socket);
+            initializeConnection();
+        });
+        
+        server.listen(port, host);
+    } else {
+        // 使用标准输入输出
+        connection = createConnection(ProposedFeatures.all);
+        initializeConnection();
+    }
 }
 
 const documents = new TextDocuments(TextDocument);
@@ -56,7 +57,7 @@ let noteManager: NoteManager;
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 
-function initializeConnection(connection: any) {
+function initializeConnection() {
     connection.onInitialize((params: InitializeParams) => {
         const capabilities = params.capabilities;
 
@@ -274,9 +275,5 @@ ${selectedText}
     // 监听打开的文档
     documents.listen(connection);
 
-    connection.listen();
-}
-
-export function startServer() {
     connection.listen();
 }

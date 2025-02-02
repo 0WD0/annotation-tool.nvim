@@ -12,8 +12,8 @@ program
 const options = program.opts();
 
 // 设置环境变量
+process.env.CONNECTION_TYPE = options.connection;
 if (options.connection === 'tcp') {
-    process.env.CONNECTION_TYPE = 'tcp';
     process.env.HOST = options.host;
     process.env.PORT = options.port;
 }
