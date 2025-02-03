@@ -29,7 +29,7 @@
 
 - pygls >= 1.1.1：LSP 服务器实现
 - lsprotocol >= 2023.0.1：LSP 协议定义
-- frontmatter >= 1.1.0：Markdown frontmatter 处理
+- python-frontmatter >= 1.1.0：Markdown frontmatter 处理
 
 如果你想使用自己的 Python 环境，可以在配置中指定：
 
