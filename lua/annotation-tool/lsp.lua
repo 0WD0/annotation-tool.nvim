@@ -141,9 +141,15 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 设置高亮组
-	vim.api.nvim_set_hl(0, 'LspReferenceText', { bg = '#626880' })
-	vim.api.nvim_set_hl(0, 'LspReferenceRead', { bg = '#626880' })
-	vim.api.nvim_set_hl(0, 'LspReferenceWrite', { bg = '#626880' })
+	-- 可选的下划线样式:
+	-- underline: 单下划线
+	-- undercurl: 波浪线
+	-- underdouble: 双下划线
+	-- underdotted: 点状下划线
+	-- underdashed: 虚线下划线
+	vim.api.nvim_set_hl(0, 'LspReferenceText', { underdouble = true, sp = '#85c1dc' })  -- 使用波浪线
+	vim.api.nvim_set_hl(0, 'LspReferenceRead', { underdouble = true, sp = '#85c1dc' })
+	vim.api.nvim_set_hl(0, 'LspReferenceWrite', { underdouble = true, sp = '#85c1dc' })
 
 	-- 自动高亮
 	vim.api.nvim_create_autocmd('CursorMoved', {
