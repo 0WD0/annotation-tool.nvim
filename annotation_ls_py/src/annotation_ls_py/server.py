@@ -139,7 +139,6 @@ def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams
 			raise Exception("Failed to get annotation ranges")
 
 		current_annotation_range = annotations[annotation_id-1]
-		current_annotation_range.start.character-=1
 			
 		# 返回标注范围的高亮
 		return [types.DocumentHighlight(

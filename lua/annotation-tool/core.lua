@@ -134,9 +134,9 @@ function M.convert_range_to_bytes(bufnr, range)
 	-- 转换结束位置
 	local end_byte
 	if range.start.line == range['end'].line then
-		end_byte = vim.str_byteindex(lines[1], range['end'].character + 1)
+		end_byte = vim.str_byteindex(lines[1], range['end'].character)
 	else
-		end_byte = vim.str_byteindex(lines[#lines], range['end'].character + 1)
+		end_byte = vim.str_byteindex(lines[#lines], range['end'].character)
 	end
 
 	return {
