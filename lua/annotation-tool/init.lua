@@ -21,7 +21,6 @@ M.show_conceal_rules = core.show_conceal_rules
 function M.setup(opts)
 	opts = opts or {}
 
-	-- 设置日志
 	logger.setup({
 		debug = opts.debug or false,
 		level = opts.log_level,
@@ -33,34 +32,8 @@ function M.setup(opts)
 		logger.debug_obj("配置选项", opts)
 	end
 
-	-- 设置 LSP
 	lsp.setup(opts)
-
-	-- 设置命令
 	commands.setup()
-
-	-- 设置自动命令：当打开支持的文件类型时自动启用 LSP
-	if opts.auto_attach == true then
-		vim.api.nvim_create_autocmd("FileType", {
-			pattern = { "markdown", "text", "annot" },
-			callback = function(args)
-				local clients = vim.lsp.get_clients({
-					bufnr = args.buf,
-					name = "annotation_ls"
-				})
-
-				if #clients == 0 then
-					logger.info("自动连接 LSP 到缓冲区...")
-					lsp.attach()
-				end
-			end,
-		})
-	end
-
-	-- 设置预览窗口
-	if opts.preview == true then
-		preview.goto_current_annotation_note()
-	end
 end
 
 return M

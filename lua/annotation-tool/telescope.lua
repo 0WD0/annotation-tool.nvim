@@ -90,13 +90,13 @@ function M.find_annotations()
 				local range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } }
 
 				-- 尝试从文件名中提取行号和列号
-				local line_num, char_num = note_file:match("L(%d+)C(%d+)")
-				if line_num and char_num then
-					position.line = tonumber(line_num) - 1
-					position.character = tonumber(char_num) - 1
-					range.start = { line = position.line, character = position.character }
-					range["end"] = { line = position.line, character = position.character + 1 }
-				end
+				-- local line_num, char_num = note_file:match("L(%d+)C(%d+)")
+				-- if line_num and char_num then
+				-- 	position.line = tonumber(line_num) - 1
+				-- 	position.character = tonumber(char_num) - 1
+				-- 	range.start = { line = position.line, character = position.character }
+				-- 	range["end"] = { line = position.line, character = position.character + 1 }
+				-- end
 
 				for _, line in ipairs(file_content) do
 					if line:match("^## Content") then
@@ -155,9 +155,9 @@ function M.find_annotations()
 					table.insert(lines, "# 文件信息")
 					table.insert(lines, "")
 					table.insert(lines, "文件: " .. entry.value.file)
-					table.insert(lines, string.format("位置: 第 %d 行, 第 %d 列",
-						entry.value.position.line + 1,
-						entry.value.position.character + 1))
+					-- table.insert(lines, string.format("位置: 第 %d 行, 第 %d 列",
+					-- 	entry.value.position.line + 1,
+					-- 	entry.value.position.character + 1))
 
 					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 					vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")

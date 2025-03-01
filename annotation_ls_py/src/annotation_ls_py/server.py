@@ -131,11 +131,11 @@ def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams
 		
 		# 获取光标位置的标注
 		annotation_id = get_annotation_at_position(doc, position)
-		if annotation_id == None:
+		if annotation_id is None:
 			return None
 
 		annotations = find_annotation_Ranges(doc)
-		if annotations == None:
+		if annotations is None:
 			raise Exception("Failed to get annotation ranges")
 
 		current_annotation_range = annotations[annotation_id-1]
@@ -169,7 +169,7 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 
 		selected_text = get_text_in_range(doc,selection_range)
 		annotation_id = get_annotation_id_before_position(doc,selection_range.start)
-		if annotation_id == None:
+		if annotation_id is None:
 			error("Failed to get annotation_id before left bracket")
 			return {"success": False, "error": "1"}
 		annotation_id += 1
@@ -253,7 +253,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 			character=params['position']['character']
 		)
 		annotation_id = get_annotation_at_position(doc,position)
-		if annotation_id == None:
+		if annotation_id is None:
 			raise Exception("Failed to get annotation_id")
 		
 		# 获取工作区
@@ -273,7 +273,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 			raise Exception("Failed to delete annotation in database")
 
 		annotations = find_annotation_Ranges(doc)
-		if annotations == None:
+		if annotations is None:
 			raise Exception("Failed to get annotation ranges")
 
 		current_annotation_range = annotations[annotation_id-1]
@@ -375,13 +375,12 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		if not workspace:
 			return None
 
-		# 从笔记文件名获取批注 ID
-		current_id = workspace.note_manager.get_annotation_id_from_note_uri(note.uri)
+		current_id = workspace.note_manager.get_annotation_id_by_note_uri(note.uri)
 		if not current_id:
 			return None
 
 		# 获取源文件路径
-		source_path = workspace.note_manager.get_source_path_from_note_uri(note.uri)
+		source_path = workspace.note_manager.get_source_path_by_note_uri(note.uri)
 		if not source_path:
 			return None
 
@@ -392,7 +391,7 @@ def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 
 		source = ls.workspace.get_document(source_path)
 		annotations = find_annotation_Ranges(source)
-		if annotations == None:
+		if annotations is None:
 			raise Exception("Failed to get annotation ranges")
 
 		n = len(annotations)

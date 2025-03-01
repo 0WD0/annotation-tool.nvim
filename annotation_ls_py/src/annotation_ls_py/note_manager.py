@@ -70,7 +70,7 @@ class NoteManager:
 			
 			with note_path.open('w', encoding='utf-8') as f:
 				f.write(f'---\nfile: {relative_path}\nid: {annotation_id}\n---\n')
-				f.write(f'## Selected Text\n')
+				f.write('## Selected Text\n')
 				f.write('```\n')
 				f.write(text)
 				f.write('\n```\n')
@@ -176,13 +176,7 @@ class NoteManager:
 					
 		return results
 
-	def get_annotation_id_from_note_uri(self, note_uri: str) -> Optional[int]:
-		"""从笔记文件路径获取批注 ID
-		Args:
-			note_uri: 笔记文件的 URI
-		Returns:
-			批注 ID，如果解析失败则返回 None
-		"""
+	def get_annotation_id_by_note_uri(self, note_uri: str) -> Optional[int]:
 		try:
 			# 将 URI 转换为文件路径
 			note_path = Path(self._uri_to_path(note_uri))
@@ -194,20 +188,14 @@ class NoteManager:
 			# 读取笔记内容获取 annotation id
 			post = frontmatter.load(str(note_path))
 			result = post.metadata.get("id")
-			if result == None:
+			if result is None:
 				raise Exception("Annotation id not found")
 			return int(str(result))
 		except (ValueError, Exception) as e:
 			error(f"Failed to get annotation id: {str(e)}")
 			return None
 
-	def get_source_path_from_note_uri(self, note_uri: str) -> Optional[str]:
-		"""从笔记文件获取源文件路径
-		Args:
-			note_uri: 笔记文件的 URI
-		Returns:
-			源文件的绝对路径（字符串），如果解析失败则返回 None
-		"""
+	def get_source_path_by_note_uri(self, note_uri: str) -> Optional[str]:
 		try:
 			# 将 URI 转换为文件路径
 			note_path = Path(self._uri_to_path(note_uri))

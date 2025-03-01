@@ -8,37 +8,24 @@ local logger = require('annotation-tool.logger')
 -- 设置命令
 function M.setup()
 	logger.debug("Setting up annotation commands")
-	vim.api.nvim_create_user_command('AnnotationEnable', function()
-		core.enable_annotation_mode()
-	end, {})
+	local function create_command(name, fn)
+		vim.api.nvim_create_user_command(name, fn, {})
+	end
 
-	vim.api.nvim_create_user_command('AnnotationDisable', function()
-		core.disable_annotation_mode()
-	end, {})
+	local commands = {
+		{ "AnnotationEnable", core.enable_annotation_mode },
+		{ "AnnotationDisable", core.disable_annotation_mode },
+		{ "AnnotationToggle", core.toggle_annotation_mode },
+		{ "AnnotationCreate", lsp.create_annotation },
+		{ "AnnotationList", lsp.list_annotations },
+		{ "AnnotationDelete", lsp.delete_annotation },
+		{ "AnnotationFind", telescope.find_annotations },
+		{ "AnnotationSearch", telescope.search_annotations },
+	}
 
-	vim.api.nvim_create_user_command('AnnotationToggle', function()
-		core.toggle_annotation_mode()
-	end, {})
-
-	vim.api.nvim_create_user_command('AnnotationCreate', function()
-		lsp.create_annotation()
-	end, {})
-
-	vim.api.nvim_create_user_command('AnnotationList', function()
-		lsp.list_annotations()
-	end, {})
-
-	vim.api.nvim_create_user_command('AnnotationDelete', function()
-		lsp.delete_annotation()
-	end, {})
-
-	vim.api.nvim_create_user_command('AnnotationFind', function()
-		telescope.find_annotations()
-	end, {})
-
-	vim.api.nvim_create_user_command('AnnotationSearch', function()
-		telescope.search_annotations()
-	end, {})
+	for _, cmd in ipairs(commands) do
+		create_command(cmd[1], cmd[2])
+	end
 
 	logger.debug("Annotation commands setup complete")
 end

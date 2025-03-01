@@ -35,23 +35,25 @@ def find_annotation_ranges_raw(doc: TextDocument) -> Optional[List[Tuple[int, in
 			if char == left_bracket:
 				start_stack.append((line_num,i))
 			if char == right_bracket:
-				if start_stack == []: return None
+				if start_stack == []:
+					return None
 				left_pos = start_stack.pop()
 				right_pos = (line_num,i)
 				annotations.append(left_pos+right_pos)
-	if start_stack != []: return None
+	if start_stack != []:
+		return None
 	return annotations
 
 def find_annotation_ranges(doc: TextDocument) -> Optional[List[Tuple[int, int, int, int]]]:
 	"""找出所有标注区间及其ID（基于左括号出现顺序）"""
 	annotations = find_annotation_ranges_raw(doc)
-	if annotations == None: return None
+	if annotations is None: return None
 	return sorted(annotations)
 
 def find_annotation_Ranges(doc: TextDocument) -> Optional[List[types.Range]]:
 	"""用lsprotocol.Range来表示找到的批注区间（基于左括号出现顺序）"""
 	annotations=find_annotation_ranges(doc)
-	if annotations == None: return None
+	if annotations is None: return None
 	return [tuple_to_range(t) for t in annotations]
 
 def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
@@ -80,7 +82,8 @@ def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 def get_annotation_id_before_position(doc: TextDocument, position: types.Position) -> Optional[int]:
 	"""获取给定位置上一个批注区间的id"""
 	annotations = find_annotation_ranges(doc)
-	if annotations == None: return None
+	if annotations is None:
+		return None
 	pos_line = position.line
 	pos_char = position.character
 	return bisect_left(annotations,(pos_line, pos_char))
@@ -88,7 +91,8 @@ def get_annotation_id_before_position(doc: TextDocument, position: types.Positio
 def get_annotation_at_position(doc: TextDocument, position: types.Position) -> Optional[int]:
 	"""获取给定位置所在的批注区间"""
 	annotation_R = find_annotation_ranges_raw(doc)
-	if annotation_R == None: return None
+	if annotation_R is None:
+		return None
 	annotation_L = sorted(annotation_R)
 
 	for i,annotation in enumerate(annotation_L):

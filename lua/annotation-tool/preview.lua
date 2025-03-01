@@ -140,7 +140,7 @@ function M.goto_annotation_source(offset)
 
 		-- 在源文件窗口中打开文件并跳转到批注位置
 		vim.api.nvim_set_current_win(source_win)
-		vim.cmd('edit ' .. result.source_path)
+		-- vim.cmd('edit ' .. result.source_path)
 		-- 使用core模块的函数将LSP位置转换为光标位置
 		local cursor_pos = core.lsp_position_to_cursor_position(0, result.position)
 		vim.api.nvim_win_set_cursor(source_win, cursor_pos)

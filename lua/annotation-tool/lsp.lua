@@ -101,6 +101,17 @@ function M.get_client()
 	return clients[1]
 end
 
+function M.highlight()
+	local mode = vim.api.nvim_get_mode().mode
+	if mode ~= 'n' then
+		return
+	end
+
+	vim.lsp.buf.clear_references()
+	local params = core.make_position_params()
+	request(ms.textDocument_documentHighlight, params)
+end
+
 -- LSP 回调函数
 local function on_attach(client, bufnr)
 	-- 创建标注（可视模式）
@@ -176,14 +187,7 @@ local function on_attach(client, bufnr)
 	vim.api.nvim_create_autocmd('CursorMoved', {
 		buffer = bufnr,
 		callback = function()
-			local mode = vim.api.nvim_get_mode().mode
-			if mode ~= 'n' then
-				return
-			end
-
-			vim.lsp.buf.clear_references()
-			local params = core.make_position_params()
-			request(ms.textDocument_documentHighlight, params)
+			M.highlight()
 		end
 	})
 
