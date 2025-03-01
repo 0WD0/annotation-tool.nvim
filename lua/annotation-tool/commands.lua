@@ -2,6 +2,7 @@ local M = {}
 
 local core = require('annotation-tool.core')
 local lsp = require('annotation-tool.lsp')
+local telescope = require('annotation-tool.telescope')
 
 -- 设置命令
 function M.setup()
@@ -27,6 +28,10 @@ function M.setup()
 
 	vim.api.nvim_create_user_command('AnnotationDelete', function()
 		lsp.delete_annotation()
+	end, {})
+
+	vim.api.nvim_create_user_command('AnnotationFind', function()
+		telescope.find()
 	end, {})
 end
 

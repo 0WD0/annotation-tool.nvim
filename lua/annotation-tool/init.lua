@@ -3,7 +3,6 @@ local M = {}
 local lsp = require('annotation-tool.lsp')
 local core = require('annotation-tool.core')
 local commands = require('annotation-tool.commands')
-local telescope = require('annotation-tool.telescope')
 local preview = require('annotation-tool.preview')
 
 -- 暴露主要函数
@@ -11,7 +10,6 @@ M.enable = lsp.attach
 M.create_annotation = lsp.create_annotation
 M.list_annotations = lsp.list_annotations
 M.delete_annotation = lsp.delete_annotation
-M.find_annotations = telescope.find
 M.setup_preview = preview.goto_current_annotation_note
 M.enable_annotation_mode = core.enable_annotation_mode
 M.disable_annotation_mode = core.disable_annotation_mode
