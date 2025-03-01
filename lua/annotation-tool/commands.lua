@@ -40,10 +40,6 @@ function M.setup()
 		telescope.search_annotations()
 	end, {})
 
-	vim.api.nvim_create_user_command('AnnotationNote', function()
-		telescope.goto_current_annotation_note()
-	end, {})
-
 	logger.debug("Annotation commands setup complete")
 end
 

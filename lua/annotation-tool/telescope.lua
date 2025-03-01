@@ -266,7 +266,7 @@ function M.search_annotations()
 
 	-- 弹出输入框让用户输入搜索关键词
 	vim.ui.input(
-		{prompt = "输入搜索关键词: "}, 
+		{prompt = "输入搜索关键词: "},
 		function(query)
 			if not query or query == "" then
 				return
@@ -275,20 +275,13 @@ function M.search_annotations()
 			-- 实现搜索功能
 			deps.logger.info("正在搜索: " .. query)
 
+			-- TODO:
 			-- 这里可以实现搜索逻辑，类似于 server.py 中的 queryAnnotations 函数
 			-- 由于当前 LSP 服务器没有实现 queryAnnotations 命令，这里使用 listAnnotations 然后在客户端过滤
 
 			M.find_annotations()  -- 临时使用 find_annotations 代替
 		end
 	)
-end
-
--- 跳转到当前标注的笔记
-function M.goto_current_note()
-	if not check_annotation_mode() then return end
-
-	local deps = load_deps()
-	deps.preview.goto_current_annotation_note()
 end
 
 return M

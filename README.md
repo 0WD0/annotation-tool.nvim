@@ -119,11 +119,20 @@ use {
 |--------|------|------|
 | `<Leader>na` | Visual | 创建新批注（在选中文本后使用） |
 | `<Leader>nd` | Normal | 删除当前光标下的批注 |
-| `<Leader>nl` | Normal | 显示当前文件的批注个数 |
-| `<Leader>nf` | Normal | 搜索批注（使用 telescope）🚧 |
-| `<Leader>aa` | Normal | 切换 annotation mode（启用/禁用批注功能）🚧 |
+| `<Leader>nl` | Normal | 显示当前文件的批注列表 |
+| `<Leader>np` | Normal | 预览当前光标下的批注 |
+| `K` | Normal | 显示当前光标下批注的悬浮窗口 |
 
-#### 预览窗口操作
+### Telescope 集成
+
+如果安装了 [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)，可以使用以下快捷键：
+
+| 快捷键 | 模式 | 功能 |
+|--------|------|------|
+| `<Leader>nf` | Normal | 使用 Telescope 查找所有批注 |
+| `<Leader>ns` | Normal | 使用 Telescope 搜索批注内容 |
+
+### 预览窗口操作
 
 | 快捷键 | 功能 |
 |--------|------|

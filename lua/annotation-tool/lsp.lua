@@ -141,6 +141,26 @@ local function on_attach(client, bufnr)
 		silent = true
 	})
 
+	-- Telescope 相关快捷键
+	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
+	if ok then
+		-- 使用 Telescope 查找标注
+		vim.keymap.set('n', '<Leader>nf', telescope_module.find_annotations, {
+			buffer = bufnr,
+			desc = "Find annotations with Telescope",
+			noremap = true,
+			silent = true
+		})
+
+		-- 使用 Telescope 搜索标注内容
+		vim.keymap.set('n', '<Leader>ns', telescope_module.search_annotations, {
+			buffer = bufnr,
+			desc = "Search annotation contents",
+			noremap = true,
+			silent = true
+		})
+	end
+
 	-- 设置高亮组
 	-- 可选的下划线样式：
 	-- underline: 单下划线
