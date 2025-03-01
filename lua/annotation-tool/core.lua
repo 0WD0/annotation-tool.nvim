@@ -21,6 +21,21 @@ function M.get_current_position()
 	return result
 end
 
+-- 将LSP位置（字符位置）转换为Neovim光标位置（字节位置）
+function M.lsp_position_to_cursor_position(bufnr, position)
+	bufnr = bufnr or 0
+	local line = position.line
+	
+	-- 获取指定行的内容
+	local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
+	
+	-- 将字符位置转换为字节位置
+	local byte_index = vim.str_byteindex(line_content, position.character)
+	
+	-- Neovim的行号从1开始，而LSP的行号从0开始
+	return {line + 1, byte_index}
+end
+
 function M.make_position_params()
 	local params = {
 		textDocument = {
