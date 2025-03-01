@@ -73,6 +73,16 @@ function M.get_visual_selection()
 	return result
 end
 
+function M.make_selection_params()
+	local params = {
+		textDocument = {
+			uri = vim.uri_from_bufnr(0)
+		},
+		range = M.get_visual_selection()
+	}
+	return params
+end
+
 -- 启用标注模式
 function M.enable_annotation_mode(bufnr)
 	bufnr = bufnr or vim.api.nvim_get_current_buf()

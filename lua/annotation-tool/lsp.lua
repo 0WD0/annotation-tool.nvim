@@ -186,7 +186,7 @@ function M.create_annotation()
 		return
 	end
 
-	local params = core.make_position_params()
+	local params = core.make_selection_params()
 
 	client.request('workspace/executeCommand', {
 		command = "createAnnotation",
