@@ -31,7 +31,15 @@ function M.setup()
 	end, {})
 
 	vim.api.nvim_create_user_command('AnnotationFind', function()
-		telescope.find()
+		telescope.find_annotations()
+	end, {})
+	
+	vim.api.nvim_create_user_command('AnnotationSearch', function()
+		telescope.search_annotations()
+	end, {})
+	
+	vim.api.nvim_create_user_command('AnnotationNote', function()
+		telescope.goto_current_note()
 	end, {})
 end
 
