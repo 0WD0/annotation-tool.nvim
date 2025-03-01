@@ -6,19 +6,13 @@ import {
     TextDocumentSyncKind,
     InitializeResult,
     TextDocumentChangeEvent,
-    TextDocumentIdentifier,
     ExecuteCommandParams,
-    RemoteConsole,
     Connection,
-    DocumentHighlight,
     DocumentHighlightParams,
-    Hover,
     HoverParams,
-    CompletionItem,
     CompletionItemKind,
     CompletionParams,
     CompletionList,
-    CompletionTriggerKind
 } from 'vscode-languageserver/node';
 
 import {
@@ -26,9 +20,6 @@ import {
 } from 'vscode-languageserver-textdocument';
 
 import { URI } from 'vscode-uri';
-import * as path from 'path';
-import * as os from 'os';
-import * as fs from 'fs/promises';
 
 import { WorkspaceManager } from './workspace';
 import { DatabaseManager } from './database';

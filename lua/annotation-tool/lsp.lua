@@ -357,7 +357,7 @@ function M.setup(opts)
 		table.insert(cmd, "--port")
 		table.insert(cmd, tostring(port))
 	end
-	
+
 	-- 不再需要添加 --stdio 参数，因为 cli.js 不接受这个参数
 	-- 在 cli.js 中已经默认使用 stdio 作为传输方式
 

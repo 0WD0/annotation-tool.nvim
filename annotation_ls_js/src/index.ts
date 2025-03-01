@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import * as path from 'path';
 import * as net from 'net';
 import { createConnection, ProposedFeatures, StreamMessageReader, StreamMessageWriter } from 'vscode-languageserver/node';
 

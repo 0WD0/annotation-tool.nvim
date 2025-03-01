@@ -3,10 +3,10 @@
  */
 export class Config {
     // 默认左括号
-    static readonly DEFAULT_LEFT_BRACKET = '「';
+    static readonly DEFAULT_LEFT_BRACKET = '｢';
     
     // 默认右括号
-    static readonly DEFAULT_RIGHT_BRACKET = '」';
+    static readonly DEFAULT_RIGHT_BRACKET = '｣';
     
     // 左括号
     private _leftBracket: string;
