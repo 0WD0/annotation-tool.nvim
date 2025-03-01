@@ -93,7 +93,7 @@ end
 
 function M.goto_annotation_source(offset)
 	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
-		vim.notify("No preview window open", vim.log.levels.WARN)
+		logger.warn("No preview window open")
 		return
 	end
 
@@ -101,7 +101,7 @@ function M.goto_annotation_source(offset)
 	local lsp = require('annotation-tool.lsp')
 	local client = lsp.get_client()
 	if not client then
-		vim.notify("LSP client not available", vim.log.levels.ERROR)
+		logger.error("LSP client not available")
 		return
 	end
 
@@ -115,12 +115,12 @@ function M.goto_annotation_source(offset)
 		} }
 	}, function(err, result)
 		if err then
-			vim.notify("Error getting annotation source: " .. err.message, vim.log.levels.ERROR)
+			logger.error("Error getting annotation source: " .. err.message)
 			return
 		end
 
 		if not result then
-			vim.notify("No annotation source found", vim.log.levels.WARN)
+			logger.warn("No annotation source found")
 			return
 		end
 

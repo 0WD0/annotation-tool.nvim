@@ -31,14 +31,14 @@ local function ensure_deps(version)
 			-- 创建虚拟环境
 			local python = vim.fn.exepath('python3') or vim.fn.exepath('python')
 			if not python then
-				vim.notify("Python not found", vim.log.levels.ERROR)
+				logger.error("Python not found")
 				return nil
 			end
-			vim.notify("Creating virtual environment...", vim.log.levels.INFO)
+			logger.info("Creating virtual environment...")
 			local venv_cmd = string.format("%s -m venv %s", python, venv_path)
 			local venv_result = vim.fn.system(venv_cmd)
 			if vim.v.shell_error ~= 0 then
-				vim.notify("Failed to create virtual environment: " .. venv_result, vim.log.levels.ERROR)
+				logger.error("Failed to create virtual environment: " .. venv_result)
 				return nil
 			end
 		end
@@ -50,18 +50,18 @@ local function ensure_deps(version)
 			local check_result = vim.fn.system(check_cmd)
 			if vim.v.shell_error ~= 0 then
 				-- 依赖未安装，进行安装
-				vim.notify("Installing dependencies...", vim.log.levels.INFO)
+				logger.info("Installing dependencies...")
 				local install_cmd = string.format("%s install -e %s", venv_pip, python_root)
 				local install_result = vim.fn.system(install_cmd)
 				if vim.v.shell_error ~= 0 then
-					vim.notify("Failed to install dependencies: " .. install_result, vim.log.levels.ERROR)
+					logger.error("Failed to install dependencies: " .. install_result)
 					return nil
 				end
 
-				vim.notify("Dependencies installed successfully", vim.log.levels.INFO)
+				logger.info("Dependencies installed successfully")
 			end
 		else
-			vim.notify("Virtual environment is corrupted", vim.log.levels.ERROR)
+			logger.error("Virtual environment is corrupted")
 			return nil
 		end
 
@@ -78,7 +78,7 @@ local function ensure_deps(version)
 			local compile_result = vim.fn.system(compile_cmd)
 
 			if vim.v.shell_error ~= 0 then
-				vim.notify("Failed to compile TypeScript: " .. compile_result, vim.log.levels.ERROR)
+				logger.error("Failed to compile TypeScript: " .. compile_result)
 				return nil
 			end
 		end
@@ -94,7 +94,7 @@ function M.get_client()
 	})
 
 	if #clients == 0 then
-		vim.notify("LSP not attached", vim.log.levels.ERROR)
+		logger.error("LSP not attached")
 		return nil
 	end
 
@@ -169,7 +169,7 @@ local function on_attach(client, bufnr)
 
 	-- 启用标注模式
 	core.enable_annotation_mode()
-	vim.notify("Annotation LSP attached", vim.log.levels.INFO)
+	logger.info("Annotation LSP attached")
 end
 
 --- Displays hover information about the symbol under the cursor in a floating 
@@ -286,10 +286,10 @@ end
 function M.attach()
 	local client_id = M.get_client();
 	if not client_id then
-		vim.notify("LSP has not set up", vim.log.levels.ERROR)
+		logger.error("LSP has not set up")
 		return
 	end
-	vim.notify("Attaching")
+	logger.info("Attaching")
 	local bufnr = vim.api.nvim_get_current_buf()
 	vim.lsp.buf_attach_client(bufnr,client_id)
 end
@@ -307,7 +307,7 @@ function M.setup(opts)
 	-- 获取命令路径
 	local cmd_path, plugin_root = ensure_deps(version)
 	if not cmd_path then
-		vim.notify(string.format("Failed to setup LSP client for version %s", version), vim.log.levels.ERROR)
+		logger.error(string.format("Failed to setup LSP client for version %s", version))
 		return
 	end
 
@@ -356,7 +356,7 @@ function M.setup(opts)
 	end
 
 	-- setup LSP
-	vim.notify("Setting up annotation_ls")
+	logger.info("Setting up annotation_ls")
 	lspconfig.annotation_ls.setup({
 		handlers = {
 			['textDocument/documentHighlight'] = function(err, result, ctx, config)
