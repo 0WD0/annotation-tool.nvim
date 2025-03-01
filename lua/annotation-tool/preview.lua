@@ -36,7 +36,7 @@ function M.is_previewing(note_file)
 end
 
 -- 设置预览窗口
-function M.setup_preview_window(file_path, client)
+function M.setup_preview_window(file_path)
 	-- 在右侧打开文件
 	vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
 
@@ -75,13 +75,13 @@ function M.setup_preview_window(file_path, client)
 
 	-- 设置快捷键
 	vim.api.nvim_buf_set_keymap(preview_state.buf, 'n', '[a', '', {
-		callback = function() M.goto_annotation_source(client, -1) end,
+		callback = function() M.goto_annotation_source(-1) end,
 		noremap = true,
 		silent = true,
 		desc = "Go to previous annotation"
 	})
 	vim.api.nvim_buf_set_keymap(preview_state.buf, 'n', ']a', '', {
-		callback = function() M.goto_annotation_source(client, 1) end,
+		callback = function() M.goto_annotation_source(1) end,
 		noremap = true,
 		silent = true,
 		desc = "Go to next annotation"
@@ -90,9 +90,17 @@ function M.setup_preview_window(file_path, client)
 	return preview_state.buf
 end
 
-function M.goto_annotation_source(client, offset)
+function M.goto_annotation_source(offset)
 	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
 		vim.notify("No preview window open", vim.log.levels.WARN)
+		return
+	end
+
+	-- 延迟加载 lsp 模块，避免循环依赖
+	local lsp = require('annotation-tool.lsp')
+	local client = lsp.get_client()
+	if not client then
+		vim.notify("LSP client not available", vim.log.levels.ERROR)
 		return
 	end
 
@@ -136,25 +144,33 @@ function M.goto_annotation_source(client, offset)
 
 		-- 设置预览窗口
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		M.setup_preview_window(file_path, client)
+		M.setup_preview_window(file_path)
 	end)
 end
 
-function M.goto_annotation_note(client,result)
+function M.goto_annotation_note(result)
 	-- 如果预览窗口已存在，先关闭它
 	M.close_preview(false)
 	-- 设置新的预览窗口
 	local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-	local buf = M.setup_preview_window(file_path, client)
+	local buf = M.setup_preview_window(file_path)
 	if not buf then
 		vim.notify("Failed to open preview window", vim.log.levels.ERROR)
 		return
 	end
 end
 
-function M.goto_current_annotation_note(client)
+function M.goto_current_annotation_note()
 	local params = core.make_position_params()
 	vim.notify("Getting annotation note...", vim.log.levels.INFO)
+
+	-- 延迟加载 lsp 模块，避免循环依赖
+	local lsp = require('annotation-tool.lsp')
+	local client = lsp.get_client()
+	if not client then
+		vim.notify("LSP client not available", vim.log.levels.ERROR)
+		return
+	end
 
 	-- 使用 LSP 命令获取批注文件
 	client.request('workspace/executeCommand', {
@@ -170,7 +186,7 @@ function M.goto_current_annotation_note(client)
 			vim.notify("No annotation note found", vim.log.levels.WARN)
 			return
 		end
-		M.goto_annotation_note(client,result)
+		M.goto_annotation_note(result)
 	end)
 end
 

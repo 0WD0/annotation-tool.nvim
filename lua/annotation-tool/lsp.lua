@@ -141,7 +141,7 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 设置高亮组
-	-- 可选的下划线样式:
+	-- 可选的下划线样式：
 	-- underline: 单下划线
 	-- undercurl: 波浪线
 	-- underdouble: 双下划线
@@ -208,7 +208,7 @@ function M.create_annotation()
 			return
 		end
 		if result and result.success then
-			preview.goto_annotation_note(client,result)
+			preview.goto_annotation_note(result)
 			vim.notify("Annotation created successfully", vim.log.levels.INFO)
 		end
 	end)
@@ -271,7 +271,7 @@ function M.preview_annotation()
 	if not client then
 		return
 	end
-	preview.goto_current_annotation_note(client)
+	preview.goto_current_annotation_note()
 end
 
 -- 查找最顶层的项目根目录
