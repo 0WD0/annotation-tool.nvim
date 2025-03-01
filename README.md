@@ -1,64 +1,112 @@
 # Annotation Tool
 
-一个基于Neovim的文本批注工具，支持嵌套批注、实时预览和全文搜索。
+一个基于 Neovim 的文本批注工具，支持嵌套批注、实时预览和全文搜索。
+
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Neovim](https://img.shields.io/badge/Neovim-0.8.0+-green)
+![License](https://img.shields.io/badge/license-MIT-orange)
+
+## 目录
+
+- [特性](#特性)
+- [依赖](#依赖)
+- [安装](#安装)
+- [使用方法](#使用方法)
+  - [基本操作](#基本操作)
+  - [批注格式](#批注格式)
+- [配置选项](#配置选项)
+  - [调试模式](#调试模式)
+- [项目结构](#项目结构)
+  - [批注文件格式](#批注文件格式)
+- [数据库设计](#数据库设计)
+- [常见问题](#常见问题)
+- [贡献指南](#贡献指南)
+- [许可证](#许可证)
 
 ## 特性
 
+✅ **核心功能**
 - 支持在任意文本文件中添加批注
-- 悬停预览
-- 自动备份数据库
 - 批注区间可以嵌套
-- 多项目多文件支持
-- 支持项目移动
-- 支持项目嵌套
+- 自动同步批注文件 frontmatter，支持双向跳转
 - 光标下的批注区间高亮
-- 支持在右侧窗口预览和切换批注文件
-- 自动同步批注文件frontmatter，支持双向跳转
-- [ ] 支持文件重命名和移动后的自动同步
-- [ ] 支持通过文件路径、原文内容或批注内容进行模糊搜索
+
+✅ **用户体验**
+- 悬停预览
+- 在右侧窗口预览和切换批注文件
+- 内置调试模式，方便排查问题
+
+✅ **项目管理**
+- 多项目多文件支持
+- 支持项目移动和嵌套
+- 自动备份数据库
+
+🚧 **计划中的功能**
+- 支持文件重命名和移动后的自动同步
+- 支持通过文件路径、原文内容或批注内容进行模糊搜索
 
 ## 依赖
 
-- Neovim >= 0.8.0
-- Python >= 3.7
-- 以下 Neovim 插件：
-  - neovim/nvim-lspconfig
-  - nvim-telescope/telescope.nvim（可选，用于全局搜索功能）
+### 必需依赖
+
+- **Neovim** >= 0.8.0
+- **Python** >= 3.7
+- **nvim-lspconfig** - [neovim/nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
+
+### 可选依赖
+
+- **telescope.nvim** - [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) (用于全局搜索功能)
+
+### Python 依赖
 
 插件会自动创建和管理 Python 虚拟环境，你不需要手动安装任何 Python 包。虚拟环境会被创建在插件目录下的 `.venv` 目录中，包含以下主要依赖：
 
-- pygls >= 1.1.1：LSP 服务器实现
-- lsprotocol >= 2023.0.1：LSP 协议定义
-- python-frontmatter >= 1.1.0：Markdown frontmatter 处理
-
-如果你想使用自己的 Python 环境，可以在配置中指定：
-
-```lua
-require('annotation-tool').setup({
-    python_path = '/path/to/your/python'
-})
-```
+- **pygls** >= 1.1.1：LSP 服务器实现
+- **lsprotocol** >= 2023.0.1：LSP 协议定义
+- **python-frontmatter** >= 1.1.0：Markdown frontmatter 处理
 
 ## 安装
 
-在你的 Neovim 配置中添加插件（使用你喜欢的插件管理器）：
+### 使用 [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 ```lua
--- 使用 lazy.nvim
 return {
-    'annotation-tool',
-    dependencies = {
-        'neovim/nvim-lspconfig',
-        'nvim-telescope/telescope.nvim', -- 可选
-    },
-    opts = {
-        -- 可选配置
-        -- python_path = '/path/to/your/python'
-    }
+	'annotation-tool',
+	dependencies = {
+		'neovim/nvim-lspconfig',
+		'nvim-telescope/telescope.nvim', -- 可选
+	},
+	opts = {
+		-- 可选配置
+		-- python_path = '/path/to/your/python',
+		-- debug = true, -- 启用调试模式
+	}
 }
 ```
 
+### 使用 [packer.nvim](https://github.com/wbthomason/packer.nvim)
+
+```lua
+use {
+	'annotation-tool',
+	requires = {
+		'neovim/nvim-lspconfig',
+		'nvim-telescope/telescope.nvim', -- 可选
+	},
+	config = function()
+		require('annotation-tool').setup({
+			-- 可选配置
+			-- python_path = '/path/to/your/python',
+			-- debug = true, -- 启用调试模式
+		})
+	end
+}
+```
+
+### 首次启动
+
 首次启动时，插件会：
+
 1. 创建 Python 虚拟环境（在插件目录下的 `.venv` 目录）
 2. 安装必要的依赖
 3. 启动 LSP 服务器
@@ -67,28 +115,67 @@ return {
 
 ### 基本操作
 
-- `<Leader>na`: 创建新批注（在visual mode下选中文本后使用）
-- `<Leader>nd`: 删除当前光标下的批注（默认删除批注的笔记文件）
-- `<Leader>nl`: 显示当前文件的批注个数（使用数据库统计，不是括号对数）
-- [ ] `<Leader>aa`: 切换annotation mode（启用/禁用批注功能）
-- [ ] `<Leader>nf`: 搜索批注（使用telescope）
+| 快捷键 | 模式 | 功能 |
+|--------|------|------|
+| `<Leader>na` | Visual | 创建新批注（在选中文本后使用） |
+| `<Leader>nd` | Normal | 删除当前光标下的批注 |
+| `<Leader>nl` | Normal | 显示当前文件的批注个数 |
+| `<Leader>nf` | Normal | 搜索批注（使用 telescope）🚧 |
+| `<Leader>aa` | Normal | 切换 annotation mode（启用/禁用批注功能）🚧 |
 
-在预览窗口：
-- `[a`: 跳转到上一个批注文件
-- `]a`: 跳转到下一个批注文件
+#### 预览窗口操作
+
+| 快捷键 | 功能 |
+|--------|------|
+| `[a` | 跳转到上一个批注文件 |
+| `]a` | 跳转到下一个批注文件 |
 
 ### 批注格式
 
-批注使用日语半角括号（｢｣）来标记区间。在annotation mode下，这些括号会被隐藏以保持文本的可读性。
-你也可以自己选择左右括号的标识。
+批注使用日语半角括号（｢｣）来标记区间。在 annotation mode 下，这些括号会被隐藏以保持文本的可读性。你也可以自己选择左右括号的标识（见[配置选项](#配置选项)）。
 
-nvim 和 lsp 端的括号配置还未同步。
+> **注意**：目前 Neovim 和 LSP 端的括号配置还未同步。
 
-### 项目结构
+## 配置选项
 
-默认情况下，你需要手动创建一个 `.annotation` 目录，annotation-tool将以它所在的目录作为这个批注项目的根目录
+在 `setup` 函数中可以自定义以下选项：
 
-annotation-tool 会在`.annotation`目录填充以下文件内容：
+```lua
+require('annotation-tool').setup({
+	-- Python 解释器路径，默认使用系统 Python
+	python_path = '/path/to/your/python',
+	
+	-- 是否启用调试模式，默认为 false
+	debug = false,
+	
+	-- 左右括号标识，默认使用日语半角括号
+	-- left_mark = '｢',
+	-- right_mark = '｣',
+})
+```
+
+### 调试模式
+
+启用调试模式后，插件会输出更详细的日志信息，帮助你排查问题。日志信息包括：
+
+- LSP 服务器的初始化过程
+- 批注操作的详细信息（创建、删除、查询等）
+- 文件读写操作
+- 错误和警告信息
+
+启用调试模式的配置示例：
+
+```lua
+require('annotation-tool').setup({
+	debug = true
+})
+```
+
+## 项目结构
+
+默认情况下，你需要手动创建一个 `.annotation` 目录，annotation-tool 将以它所在的目录作为这个批注项目的根目录。
+
+annotation-tool 会在 `.annotation` 目录填充以下文件内容：
 
 ```
 .annotation/
@@ -96,7 +183,7 @@ annotation-tool 会在`.annotation`目录填充以下文件内容：
 │   ├── annotations.db
 │   └── backups/
 └── notes/
-    └── note_*.md
+	└── note_*.md
 ```
 
 ### 批注文件格式
@@ -108,11 +195,9 @@ annotation-tool 会在`.annotation`目录填充以下文件内容：
 file: /relative/path/to/project/root/of/source/file
 id: 1
 ---
-
 ```
 原文内容
 ```
-
 你的批注内容
 ````
 
@@ -126,9 +211,9 @@ id: 1
 
 ```sql
 CREATE TABLE files (
-    id INTEGER PRIMARY KEY,   -- 文件ID
-    path TEXT UNIQUE,         -- 文件路径（唯一）
-    last_modified TIMESTAMP   -- 最后修改时间
+	id INTEGER PRIMARY KEY,   -- 文件ID
+	path TEXT UNIQUE,		 -- 文件路径（唯一）
+	last_modified TIMESTAMP   -- 最后修改时间
 )
 ```
 
@@ -138,31 +223,31 @@ CREATE TABLE files (
 
 ```sql
 CREATE TABLE annotations (
-    id INTEGER PRIMARY KEY,   -- 标注在数据库中的唯一ID
-    file_id INTEGER,          -- 关联的文件ID
-    annotation_id INTEGER,    -- 标注在文件中的序号（基于左括号顺序）
-    note_file TEXT,           -- 关联的笔记文件名
-    FOREIGN KEY (file_id) REFERENCES files(id)  -- 和 files 表中的id关联
-    UNIQUE (file_id, annotation_id)
+	id INTEGER PRIMARY KEY,   -- 标注在数据库中的唯一ID
+	file_id INTEGER,		  -- 关联的文件ID
+	annotation_id INTEGER,	-- 标注在文件中的序号（基于左括号顺序）
+	note_file TEXT,		   -- 关联的笔记文件名
+	FOREIGN KEY (file_id) REFERENCES files(id)  -- 和 files 表中的id关联
+	UNIQUE (file_id, annotation_id)
 )
 ```
 
-## 配置选项
+## 常见问题
 
-在setup函数中可以自定义以下选项：
+### 批注文件备份
 
-```lua
-require('annotation-tool').setup({
-	-- 自定义选项将在后续版本中添加
-})
-```
+- 批注文件使用 `.md` 格式，可以使用所有 Markdown 的功能
+- 数据库会自动备份，默认保留最近 10 个备份
+- 建议定期备份 `.annotation` 目录
 
-## 注意事项
+### 性能考虑
 
-- 批注文件使用`.md`格式，可以使用所有Markdown的功能
-- 数据库会自动备份，默认保留最近10个备份
-- 建议定期备份`.annotation`目录
+- 对于大型项目，建议使用调试模式进行初始设置和排查问题，然后在日常使用时关闭调试模式以提高性能
 
-## License
+## 贡献指南
 
-MIT
+欢迎贡献代码、报告问题或提出新功能建议。请通过 GitHub Issues 和 Pull Requests 参与项目开发。
+
+## 许可证
+
+[MIT](LICENSE)
