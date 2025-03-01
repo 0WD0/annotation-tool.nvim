@@ -57,22 +57,24 @@ local function log(level, msg, ...)
 		formatted_msg = string.format(formatted_msg, ...)
 	end
 
-	-- 确定日志级别
-	local vim_level
+	-- 确定日志级别和颜色
+	local hl_group
 	if level == M.levels.DEBUG then
-		vim_level = vim.log.levels.DEBUG
+		hl_group = "Comment"
 	elseif level == M.levels.INFO then
-		vim_level = vim.log.levels.INFO
+		hl_group = "None"
 	elseif level == M.levels.WARN then
-		vim_level = vim.log.levels.WARN
+		hl_group = "WarningMsg"
 	elseif level == M.levels.ERROR then
-		vim_level = vim.log.levels.ERROR
+		hl_group = "ErrorMsg"
 	else
-		vim_level = vim.log.levels.INFO
+		hl_group = "None"
 	end
 
-	-- 输出日志
-	vim.notify(formatted_msg, vim_level, { silent = true })
+	-- 使用 vim.schedule 延迟消息显示，避免多条消息堆积
+	vim.schedule(function()
+		vim.api.nvim_echo({{formatted_msg, hl_group}}, false, {})
+	end)
 end
 
 -- 调试日志
