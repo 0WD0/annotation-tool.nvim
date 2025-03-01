@@ -233,7 +233,10 @@ def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 
 		# 获取文件的所有标注
 		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
-		return {"note_files": note_files}
+		return {
+			"workspace_path": workspace.root_path,
+			"note_files": note_files
+		}
 
 	except Exception as e:
 		error(f"Failed to list annotations: {str(e)}")

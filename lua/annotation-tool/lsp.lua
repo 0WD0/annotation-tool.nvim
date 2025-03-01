@@ -203,15 +203,15 @@ function M.create_annotation()
 		command = "createAnnotation",
 		arguments = { params }
 	}, function(err, result)
-		if err then
-			vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
-			return
-		end
-		if result and result.success then
-			preview.goto_annotation_note(result)
-			vim.notify("Annotation created successfully", vim.log.levels.INFO)
-		end
-	end)
+			if err then
+				vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
+				return
+			end
+			if result and result.success then
+				preview.goto_annotation_note(result)
+				vim.notify("Annotation created successfully", vim.log.levels.INFO)
+			end
+		end)
 end
 
 -- 列出标注
@@ -221,21 +221,22 @@ function M.list_annotations()
 		return
 	end
 
-	local params = {
-		textDocument = vim.lsp.util.make_text_document_params()
-	}
 
 	client.request('workspace/executeCommand', {
 		command = "listAnnotations",
-		arguments = { params }
+		arguments = { {
+			textDocument = vim.lsp.util.make_text_document_params()
+		} }
 	}, function(err, result)
-		if err then
-			vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
-		else
-			vim.notify('Found ' .. #result.note_files .. ' annotations', vim.log.levels.INFO)
-			-- TODO: 在 quickfix 窗口中显示标注列表
-		end
-	end)
+			if err then
+				vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
+			else
+				vim.notify('Found ' .. #result.note_files .. ' annotations', vim.log.levels.INFO)
+				-- 输出调试信息
+				vim.notify('Result: ' .. vim.inspect(result), vim.log.levels.INFO)
+				-- TODO: 在 quickfix 窗口中显示标注列表
+			end
+		end)
 end
 
 -- 删除标注
@@ -254,16 +255,16 @@ function M.delete_annotation()
 		command = "deleteAnnotation",
 		arguments = { params }
 	}, function(err, result)
-		if err then
-			vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
-		else
-			-- 如果预览的就是这个文件，强制关闭预览窗口
-			if preview.is_previewing(result.note_file) then
-				preview.close_preview(true)
+			if err then
+				vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
+			else
+				-- 如果预览的就是这个文件，强制关闭预览窗口
+				if preview.is_previewing(result.note_file) then
+					preview.close_preview(true)
+				end
+				vim.notify('Annotation deleted successfully', vim.log.levels.INFO)
 			end
-			vim.notify('Annotation deleted successfully', vim.log.levels.INFO)
-		end
-	end)
+		end)
 end
 
 function M.preview_annotation()
