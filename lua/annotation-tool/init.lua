@@ -27,7 +27,7 @@ function M.setup(opts)
 		level = opts.log_level,
 		prefix = opts.log_prefix or "[annotation-tool]"
 	})
-	
+
 	if logger.is_debug() then
 		logger.debug("插件初始化，调试模式已启用")
 		logger.debug_obj("配置选项", opts)
