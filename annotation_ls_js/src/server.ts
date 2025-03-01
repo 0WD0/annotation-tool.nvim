@@ -41,12 +41,26 @@ try {
         global.console.log('Using TCP connection');
         connection = global.tcpConnection;
     } else {
-        // 尝试使用命令行参数创建连接
+        // 检查命令行参数是否包含必要的通信参数
+        const hasStdio = process.argv.includes('--stdio');
+        const hasNodeIpc = process.argv.includes('--node-ipc');
+        const hasSocket = process.argv.some(arg => arg.startsWith('--socket='));
+        
+        if (!hasStdio && !hasNodeIpc && !hasSocket) {
+            global.console.log('No connection method specified, defaulting to stdio');
+            process.argv.push('--stdio');
+        }
+        
+        // 创建连接
         connection = createConnection(ProposedFeatures.all);
     }
 } catch (error) {
-    // 如果命令行参数不可用，使用stdio
-    global.console.log('Failed to create connection, falling back to stdio');
+    // 如果创建连接失败，记录错误并尝试使用stdio
+    global.console.error('Failed to create connection:', error);
+    if (!process.argv.includes('--stdio')) {
+        global.console.log('Falling back to stdio');
+        process.argv.push('--stdio');
+    }
     connection = createConnection(ProposedFeatures.all);
 }
 

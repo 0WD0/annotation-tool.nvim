@@ -13,13 +13,19 @@ const debug = process.env.DEBUG === 'true';
 // 根据传输方式启动服务器
 if (transport === 'stdio') {
     // 使用标准输入/输出
-    process.argv.push('--stdio');
+    // 确保在导入 server.ts 之前设置命令行参数
+    if (!process.argv.includes('--stdio')) {
+        // 直接添加到 process.argv 的第二个位置，避免与其他参数冲突
+        process.argv.splice(2, 0, '--stdio');
+    }
     
     // 导入server.ts中的内容
     import('./server');
 } else if (transport === 'node-ipc') {
     // 使用Node IPC
-    process.argv.push('--node-ipc');
+    if (!process.argv.includes('--node-ipc')) {
+        process.argv.splice(2, 0, '--node-ipc');
+    }
     
     // 导入server.ts中的内容
     import('./server');
