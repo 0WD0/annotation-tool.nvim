@@ -9,7 +9,16 @@ import {
     TextDocumentIdentifier,
     ExecuteCommandParams,
     RemoteConsole,
-    Connection
+    Connection,
+    DocumentHighlight,
+    DocumentHighlightParams,
+    Hover,
+    HoverParams,
+    CompletionItem,
+    CompletionItemKind,
+    CompletionParams,
+    CompletionList,
+    CompletionTriggerKind
 } from 'vscode-languageserver/node';
 
 import {
@@ -111,20 +120,26 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
         }
     }
 
+    // 返回服务器能力
     return {
         capabilities: {
             textDocumentSync: TextDocumentSyncKind.Incremental,
             // 告诉客户端服务器支持代码完成
             completionProvider: {
-                resolveProvider: true
+                resolveProvider: true,
+                triggerCharacters: ['@', '#', '$']
             },
             executeCommandProvider: {
                 commands: [
-                    'annotation.createNote',
-                    'annotation.openNote',
-                    'annotation.deleteNote'
+                    'createAnnotation',
+                    'listAnnotations',
+                    'deleteAnnotation',
+                    'getAnnotationNote',
+                    'getAnnotationSource'
                 ]
-            }
+            },
+            hoverProvider: true,
+            documentHighlightProvider: true // 添加文档高亮提供者
         }
     };
 });
@@ -210,6 +225,223 @@ async function processAnnotations(document: TextDocument): Promise<void> {
 }
 
 /**
+ * 处理悬停请求
+ */
+connection.onHover(async (params: HoverParams) => {
+    try {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            logger.error(`Document not found: ${params.textDocument.uri}`);
+            return null;
+        }
+
+        // 获取当前位置的标注
+        const text = document.getText();
+        const position = params.position;
+
+        // 查找所有标注范围
+        const annotations = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        if (!annotations || annotations.length === 0) {
+            logger.info('No annotations found in document');
+            return null;
+        }
+
+        // 检查当前位置是否在某个标注范围内
+        for (const annotation of annotations) {
+            const { start, end } = annotation;
+            
+            // 检查位置是否在范围内
+            if ((start.line < position.line || (start.line === position.line && start.character <= position.character)) &&
+                (end.line > position.line || (end.line === position.line && end.character >= position.character))) {
+                
+                // 返回需要高亮的范围
+                return {
+                    contents: `Annotation ${annotation.id}`
+                };
+            }
+        }
+
+        return null;
+    } catch (error) {
+        logger.error(`Error in hover: ${error}`);
+        return null;
+    }
+});
+
+/**
+ * 处理文档高亮请求
+ */
+connection.onDocumentHighlight(async (params: DocumentHighlightParams) => {
+    try {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            logger.error(`Document not found: ${params.textDocument.uri}`);
+            return null;
+        }
+
+        // 获取当前位置的标注
+        const text = document.getText();
+        const position = params.position;
+
+        // 查找所有标注范围
+        const annotations = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        if (!annotations || annotations.length === 0) {
+            logger.info('No annotations found in document');
+            return null;
+        }
+
+        // 检查当前位置是否在某个标注范围内
+        for (const annotation of annotations) {
+            const { start, end } = annotation;
+            
+            // 检查位置是否在范围内
+            if ((start.line < position.line || (start.line === position.line && start.character <= position.character)) &&
+                (end.line > position.line || (end.line === position.line && end.character >= position.character))) {
+                
+                // 返回需要高亮的范围
+                return [{
+                    range: {
+                        start: { line: start.line, character: start.character },
+                        end: { line: end.line, character: end.character }
+                    }
+                }];
+            }
+        }
+
+        return null;
+    } catch (error) {
+        logger.error(`Error in document highlight: ${error}`);
+        return null;
+    }
+});
+
+/**
+ * 处理代码完成请求
+ */
+connection.onCompletion(async (params: CompletionParams) => {
+    try {
+        const document = documents.get(params.textDocument.uri);
+        if (!document) {
+            logger.error(`Document not found: ${params.textDocument.uri}`);
+            return null;
+        }
+
+        // 获取当前位置的标注
+        const text = document.getText();
+        const position = params.position;
+
+        // 查找所有标注范围
+        const annotations = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        if (!annotations || annotations.length === 0) {
+            logger.info('No annotations found in document');
+            return null;
+        }
+
+        // 检查当前位置是否在某个标注范围内
+        for (const annotation of annotations) {
+            const { start, end } = annotation;
+            
+            // 检查位置是否在范围内
+            if ((start.line < position.line || (start.line === position.line && start.character <= position.character)) &&
+                (end.line > position.line || (end.line === position.line && end.character >= position.character))) {
+                
+                // 返回代码完成建议
+                return {
+                    isIncomplete: false,
+                    items: [
+                        {
+                            label: `Annotation ${annotation.id}`,
+                            kind: CompletionItemKind.Function,
+                            detail: 'Annotation',
+                            documentation: 'This is an annotation'
+                        }
+                    ]
+                } as CompletionList;
+            }
+        }
+
+        return null;
+    } catch (error) {
+        logger.error(`Error in completion: ${error}`);
+        return null;
+    }
+});
+
+/**
+ * 处理创建标注命令
+ */
+async function handleCreateAnnotation(params: any): Promise<any> {
+    try {
+        logger.info(`Creating annotation with params: ${JSON.stringify(params)}`);
+        
+        if (!dbManager || !noteManager) {
+            throw new Error('Database or note manager not initialized');
+        }
+        
+        const uri = params.textDocument.uri;
+        const selectionRange = params.range;
+        
+        // 获取文档文本
+        const document = documents.get(uri);
+        if (!document) {
+            throw new Error(`Document not found: ${uri}`);
+        }
+        
+        const text = document.getText();
+        
+        // 提取选中的文本
+        const selectedText = extractTextFromRange(text, selectionRange);
+        logger.info(`Selected text: ${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}`);
+        
+        // 获取选中位置前的标注 ID
+        const ranges = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        let annotationId = 1; // 默认从 1 开始
+        
+        // 类似于 Python 版本的 get_annotation_id_before_position
+        // 找到在选中位置之前的最后一个标注 ID
+        for (const range of ranges) {
+            if (
+                range.start.line < selectionRange.start.line || 
+                (range.start.line === selectionRange.start.line && range.start.character < selectionRange.start.character)
+            ) {
+                annotationId = Math.max(annotationId, range.id + 1);
+            }
+        }
+        
+        logger.info(`Using annotation ID: ${annotationId}`);
+        
+        // 在数据库中更新可能受影响的标注 ID
+        await dbManager.increaseAnnotationIds(uri, annotationId);
+        
+        // 创建笔记文件
+        const initialContent = `# Annotation ${annotationId}\n\n${selectedText}\n\n## Notes\n\n`;
+        logger.info(`Creating note with initial content length: ${initialContent.length}`);
+        
+        const noteFile = await noteManager.createAnnotationNote(annotationId, initialContent);
+        
+        // 保存标注信息
+        await dbManager.saveAnnotation(uri, annotationId, selectionRange, noteFile);
+        
+        // 在原文中插入括号
+        // 这部分在 Python 版本中是通过 LSP 的 apply_edit 实现的
+        // 但在 JS 版本中，我们可能需要另外的机制
+        // 这里先不实现，因为可能需要客户端配合
+        
+        return {
+            success: true,
+            annotationId: annotationId,
+            noteFile: noteFile
+        };
+    } catch (err) {
+        logger.error(`Error creating annotation: ${err}`);
+        return {
+            success: false,
+            error: `${err}`
+        };
+    }
+}
+
+/**
  * 执行命令
  */
 connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
@@ -220,14 +452,21 @@ connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
     
     try {
         switch (command) {
-            case 'annotation.createNote':
-                return await handleCreateNote(args[0], args[1]);
+            case 'createAnnotation':
+                logger.info(`CreateAnnotation args: ${JSON.stringify(args)}`);
+                return await handleCreateAnnotation(args[0]);
             
-            case 'annotation.openNote':
-                return await handleOpenNote(args[0], args[1]);
+            case 'listAnnotations':
+                return await handleListAnnotations(args[0].textDocument.uri);
             
-            case 'annotation.deleteNote':
-                return await handleDeleteNote(args[0], args[1]);
+            case 'deleteAnnotation':
+                return await handleDeleteNote(args[0].textDocument.uri, args[0].annotationId);
+            
+            case 'getAnnotationNote':
+                return await handleGetAnnotationNote(args[0].textDocument.uri, args[0].annotationId);
+            
+            case 'getAnnotationSource':
+                return await handleGetAnnotationSource(args[0].textDocument.uri, args[0].offset || 0);
             
             default:
                 logger.error(`Unknown command: ${command}`);
@@ -240,72 +479,9 @@ connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
 });
 
 /**
- * 处理创建笔记命令
- */
-async function handleCreateNote(uri: string, annotationId: number): Promise<string | null> {
-    try {
-        logger.info(`Creating note for annotation ${annotationId} in ${uri}`);
-        
-        if (!dbManager || !noteManager) {
-            throw new Error('Database or note manager not initialized');
-        }
-        
-        // 检查标注是否存在
-        const exists = await dbManager.annotationExists(uri, annotationId);
-        logger.info(`Annotation exists: ${exists}`);
-        
-        if (exists) {
-            // 获取现有笔记文件
-            const noteFile = await dbManager.getAnnotationNoteFile(uri, annotationId);
-            
-            if (noteFile) {
-                logger.info(`Found existing note file: ${noteFile}`);
-                return noteFile;
-            }
-        }
-        
-        // 获取文档文本
-        const document = documents.get(uri);
-        if (!document) {
-            throw new Error(`Document not found: ${uri}`);
-        }
-        
-        const text = document.getText();
-        const ranges = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
-        logger.info(`Found ${ranges.length} annotations in document`);
-        
-        // 查找对应的标注
-        const range = ranges.find(r => r.id === annotationId);
-        if (!range) {
-            throw new Error(`Annotation ${annotationId} not found in ${uri}`);
-        }
-        
-        // 提取标注文本
-        const annotationText = extractTextFromRange(text, range);
-        logger.info(`Extracted annotation text: ${annotationText.substring(0, 50)}${annotationText.length > 50 ? '...' : ''}`);
-        
-        // 创建笔记文件
-        const initialContent = `# Annotation ${annotationId}\n\n${annotationText}\n\n## Notes\n\n`;
-        logger.info(`Creating note with initial content length: ${initialContent.length}`);
-        
-        const noteFile = await noteManager.createAnnotationNote(annotationId, initialContent);
-        
-        // 保存标注信息
-        await dbManager.saveAnnotation(uri, annotationId, range, noteFile);
-        
-        logger.info(`Created note for annotation ${annotationId} in ${uri}: ${noteFile}`);
-        
-        return noteFile;
-    } catch (err) {
-        logger.error(`Error creating note: ${err}`);
-        return null;
-    }
-}
-
-/**
  * 处理打开笔记命令
  */
-async function handleOpenNote(uri: string, annotationId: number): Promise<string | null> {
+async function handleGetAnnotationNote(uri: string, annotationId: number): Promise<string | null> {
     try {
         if (!dbManager || !noteManager) {
             throw new Error('Database or note manager not initialized');
@@ -316,7 +492,7 @@ async function handleOpenNote(uri: string, annotationId: number): Promise<string
         
         if (!noteFile) {
             // 如果笔记不存在，创建一个新的
-            return await handleCreateNote(uri, annotationId);
+            return await handleCreateAnnotation({ textDocument: { uri }, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } });
         }
         
         // 获取笔记内容
@@ -325,6 +501,41 @@ async function handleOpenNote(uri: string, annotationId: number): Promise<string
         return content;
     } catch (err) {
         logger.error(`Error opening note: ${err}`);
+        return null;
+    }
+}
+
+/**
+ * 处理获取源代码命令
+ */
+async function handleGetAnnotationSource(uri: string, annotationId: number): Promise<string | null> {
+    try {
+        if (!dbManager) {
+            throw new Error('Database not initialized');
+        }
+        
+        // 获取标注信息
+        const annotations = await dbManager.getAnnotations(uri);
+        const annotation = annotations.find(a => a.id === annotationId);
+        
+        if (!annotation) {
+            throw new Error(`Annotation ${annotationId} not found in ${uri}`);
+        }
+        
+        // 获取文档文本
+        const document = documents.get(uri);
+        if (!document) {
+            throw new Error(`Document not found: ${uri}`);
+        }
+        
+        const text = document.getText();
+        
+        // 提取标注文本
+        const annotationText = extractTextFromRange(text, annotation.range);
+        
+        return annotationText;
+    } catch (err) {
+        logger.error(`Error getting annotation source: ${err}`);
         return null;
     }
 }
@@ -358,6 +569,25 @@ async function handleDeleteNote(uri: string, annotationId: number): Promise<bool
     } catch (err) {
         logger.error(`Error deleting note: ${err}`);
         return false;
+    }
+}
+
+/**
+ * 处理列出标注命令
+ */
+async function handleListAnnotations(uri: string): Promise<string[]> {
+    try {
+        if (!dbManager) {
+            throw new Error('Database not initialized');
+        }
+        
+        // 获取标注列表
+        const annotations = await dbManager.getAnnotations(uri);
+        
+        return annotations.map(annotation => `Annotation ${annotation.id}`);
+    } catch (err) {
+        logger.error(`Error listing annotations: ${err}`);
+        return [];
     }
 }
 

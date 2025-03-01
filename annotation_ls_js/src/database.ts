@@ -261,6 +261,37 @@ export class DatabaseManager {
     }
 
     /**
+     * 增加指定 ID 之后的所有标注 ID
+     * @param fileUri 文件URI
+     * @param fromId 起始ID
+     */
+    async increaseAnnotationIds(fileUri: string, fromId: number): Promise<boolean> {
+        try {
+            const db = await this.getDb();
+
+            return new Promise((resolve, reject) => {
+                db.run(
+                    `UPDATE annotations SET annotation_id = annotation_id + 1 
+                    WHERE file_uri = ? AND annotation_id >= ?
+                    ORDER BY annotation_id DESC`,
+                    [fileUri, fromId],
+                    function(err) {
+                        if (err) {
+                            console.error('Failed to increase annotation IDs:', err);
+                            resolve(false);
+                            return;
+                        }
+                        resolve(this.changes > 0);
+                    }
+                );
+            });
+        } catch (err) {
+            console.error('Error increasing annotation IDs:', err);
+            return false;
+        }
+    }
+
+    /**
      * 关闭数据库连接
      */
     async close(): Promise<void> {
