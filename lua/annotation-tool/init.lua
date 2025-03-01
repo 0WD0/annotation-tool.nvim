@@ -4,6 +4,7 @@ local lsp = require('annotation-tool.lsp')
 local core = require('annotation-tool.core')
 local commands = require('annotation-tool.commands')
 local preview = require('annotation-tool.preview')
+local logger = require('annotation-tool.logger')
 
 -- 暴露主要函数
 M.enable = lsp.attach
@@ -19,6 +20,18 @@ M.show_conceal_rules = core.show_conceal_rules
 -- 初始化插件
 function M.setup(opts)
 	opts = opts or {}
+
+	-- 设置日志
+	logger.setup({
+		debug = opts.debug or false,
+		level = opts.log_level,
+		prefix = opts.log_prefix or "[annotation-tool]"
+	})
+	
+	if logger.is_debug() then
+		logger.debug("插件初始化，调试模式已启用")
+		logger.debug_obj("配置选项", opts)
+	end
 
 	-- 设置 LSP
 	lsp.setup(opts)
@@ -37,7 +50,7 @@ function M.setup(opts)
 				})
 
 				if #clients == 0 then
-					vim.notify("Auto-attaching LSP to buffer...", vim.log.levels.INFO)
+					logger.info("自动连接 LSP 到缓冲区...")
 					lsp.attach()
 				end
 			end,

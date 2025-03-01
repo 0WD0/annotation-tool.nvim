@@ -1,4 +1,5 @@
 local M = {}
+local logger = require('annotation-tool.logger')
 
 -- 检查是否为 markdown 文件
 function M.is_markdown_file()
@@ -8,7 +9,7 @@ end
 function M.get_current_position()
 	local mode = vim.api.nvim_get_mode().mode
 	if mode ~= 'n' then
-		vim.notify("Please get_current_position in normal mode", vim.log.levels.WARN)
+		logger.warn("Please get_current_position in normal mode")
 		return nil
 	end
 	local pos = vim.fn.getcharpos('.')
@@ -35,7 +36,7 @@ function M.get_visual_selection()
 	-- 获取当前选区
 	local mode = vim.api.nvim_get_mode().mode
 	if mode ~= 'v' and mode ~= 'V' then
-		vim.notify("Please select text in visual mode or visual line mode first", vim.log.levels.WARN)
+		logger.warn("Please select text in visual mode or visual line mode first")
 		return nil
 	end
 
@@ -64,10 +65,10 @@ function M.get_visual_selection()
 	}
 
 	-- 调试输出
-	vim.notify(string.format(
+	logger.info(string.format(
 		"Selection: start=[line=%d, col=%d] end=[line=%d, col=%d]",
 		result.start.line, result.start.character, result['end'].line, result['end'].character
-	), vim.log.levels.INFO)
+	))
 
 	return result
 end
@@ -88,7 +89,7 @@ function M.enable_annotation_mode(bufnr)
 		syn match AnnotationBracket "｢\|｣"
 		syn conceal off
 	]])
-	vim.notify("Annotation mode enabled", vim.log.levels.INFO)
+	logger.info("Annotation mode enabled")
 end
 
 -- 禁用标注模式
@@ -103,7 +104,7 @@ function M.disable_annotation_mode(bufnr)
 	vim.b[bufnr].annotation_mode = false
 	vim.wo.conceallevel = 0
 	vim.cmd([[syntax clear AnnotationBracket]])
-	vim.notify("Annotation mode disabled", vim.log.levels.INFO)
+	logger.info("Annotation mode disabled")
 end
 
 -- 切换标注模式

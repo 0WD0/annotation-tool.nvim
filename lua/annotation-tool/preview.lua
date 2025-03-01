@@ -1,4 +1,5 @@
 local core = require('annotation-tool.core')
+local logger = require('annotation-tool.logger')
 local M = {}
 
 -- 保存预览窗口的信息
@@ -155,20 +156,20 @@ function M.goto_annotation_note(result)
 	local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
 	local buf = M.setup_preview_window(file_path)
 	if not buf then
-		vim.notify("Failed to open preview window", vim.log.levels.ERROR)
+		logger.error("Failed to open preview window")
 		return
 	end
 end
 
 function M.goto_current_annotation_note()
 	local params = core.make_position_params()
-	vim.notify("Getting annotation note...", vim.log.levels.INFO)
+	logger.info("Getting annotation note...")
 
 	-- 延迟加载 lsp 模块，避免循环依赖
 	local lsp = require('annotation-tool.lsp')
 	local client = lsp.get_client()
 	if not client then
-		vim.notify("LSP client not available", vim.log.levels.ERROR)
+		logger.error("LSP client not available")
 		return
 	end
 
@@ -178,12 +179,12 @@ function M.goto_current_annotation_note()
 		arguments = { params }
 	}, function(err, result)
 		if err then
-			vim.notify("Error getting annotation note: " .. err.message, vim.log.levels.ERROR)
+			logger.error("Error getting annotation note: " .. err.message)
 			return
 		end
 
 		if not result then
-			vim.notify("No annotation note found", vim.log.levels.WARN)
+			logger.warn("No annotation note found")
 			return
 		end
 		M.goto_annotation_note(result)

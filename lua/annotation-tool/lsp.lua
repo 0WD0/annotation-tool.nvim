@@ -1,6 +1,7 @@
 local M = {}
 local core = require('annotation-tool.core')
 local preview = require('annotation-tool.preview')
+local logger = require('annotation-tool.logger')
 
 --- copy from nvim source code
 local ms= require('vim.lsp.protocol').Methods
@@ -185,31 +186,19 @@ function M.create_annotation()
 		return
 	end
 
-	local range = core.get_visual_selection()
-	if not range then
-		return
-	end
+	local params = core.make_position_params()
 
-	-- 创建请求参数
-	local params = {
-		textDocument = {
-			uri = vim.uri_from_bufnr(0)
-		},
-		range = range
-	}
-
-	-- 发送请求到 LSP 服务器
 	client.request('workspace/executeCommand', {
 		command = "createAnnotation",
 		arguments = { params }
 	}, function(err, result)
 			if err then
-				vim.notify("Failed to create annotation: " .. vim.inspect(err), vim.log.levels.ERROR)
+				logger.error("Failed to create annotation: " .. vim.inspect(err))
 				return
 			end
 			if result and result.success then
 				preview.goto_annotation_note(result)
-				vim.notify("Annotation created successfully", vim.log.levels.INFO)
+				logger.info("Annotation created successfully")
 			end
 		end)
 end
@@ -229,11 +218,11 @@ function M.list_annotations()
 		} }
 	}, function(err, result)
 			if err then
-				vim.notify('Failed to list annotations: ' .. vim.inspect(err), vim.log.levels.ERROR)
+				logger.error('Failed to list annotations: ' .. vim.inspect(err))
 			else
-				vim.notify('Found ' .. #result.note_files .. ' annotations', vim.log.levels.INFO)
+				logger.info('Found ' .. #result.note_files .. ' annotations')
 				-- 输出调试信息
-				vim.notify('Result: ' .. vim.inspect(result), vim.log.levels.INFO)
+				logger.debug_obj('Result', result)
 				-- TODO: 在 quickfix 窗口中显示标注列表
 			end
 		end)
@@ -246,23 +235,22 @@ function M.delete_annotation()
 		return
 	end
 
-	-- local params = vim.lsp.util.make_position_params()
 	local params = core.make_position_params()
 
-	vim.notify('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character),vim.log.levels.INFO)
+	logger.debug('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character))
 
 	client.request('workspace/executeCommand', {
 		command = "deleteAnnotation",
 		arguments = { params }
 	}, function(err, result)
 			if err then
-				vim.notify('Failed to delete annotation: ' .. vim.inspect(err), vim.log.levels.ERROR)
+				logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 			else
 				-- 如果预览的就是这个文件，强制关闭预览窗口
 				if preview.is_previewing(result.note_file) then
 					preview.close_preview(true)
 				end
-				vim.notify('Annotation deleted successfully', vim.log.levels.INFO)
+				logger.info('Annotation deleted successfully')
 			end
 		end)
 end

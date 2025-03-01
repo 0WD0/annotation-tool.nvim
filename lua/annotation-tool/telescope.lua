@@ -5,18 +5,21 @@ local function load_deps()
 	local lsp = require('annotation-tool.lsp')
 	local core = require('annotation-tool.core')
 	local preview = require('annotation-tool.preview')
+	local logger = require('annotation-tool.logger')
 
 	return {
 		lsp = lsp,
 		core = core,
-		preview = preview
+		preview = preview,
+		logger = logger
 	}
 end
 
 -- 检查标注模式是否启用
 local function check_annotation_mode()
+	local deps = load_deps()
 	if not vim.b.annotation_mode then
-		vim.notify("请先启用标注模式（:AnnotationEnable）", vim.log.levels.WARN)
+		deps.logger.warn("请先启用标注模式（:AnnotationEnable）")
 		return false
 	end
 	return true
@@ -29,7 +32,7 @@ function M.find_annotations()
 	local deps = load_deps()
 	local client = deps.lsp.get_client()
 	if not client then
-		vim.notify("LSP 客户端未连接", vim.log.levels.ERROR)
+		deps.logger.error("LSP 客户端未连接")
 		return
 	end
 
@@ -48,20 +51,20 @@ function M.find_annotations()
 		} }
 	}, function(err, result)
 			if err then
-				vim.notify("获取标注列表失败: " .. vim.inspect(err), vim.log.levels.ERROR)
+				deps.logger.error("获取标注列表失败: " .. vim.inspect(err))
 				return
 			end
 
 			-- 输出调试信息
-			vim.notify("服务器返回结果: " .. vim.inspect(result), vim.log.levels.INFO)
+			deps.logger.debug_obj("服务器返回结果", result)
 
 			if not result or not result.note_files or #result.note_files == 0 then
-				vim.notify("未找到标注", vim.log.levels.INFO)
+				deps.logger.info("未找到标注")
 				return
 			end
 
 			-- 输出第一个标注的信息
-			vim.notify("第一个标注: " .. vim.inspect(result.note_files[1]), vim.log.levels.INFO)
+			deps.logger.debug_obj("第一个标注", result.note_files[1])
 
 			-- 从每个标注文件中提取信息
 			local annotations = {}
@@ -76,8 +79,8 @@ function M.find_annotations()
 				local file_content = vim.fn.readfile(file_path)
 
 				-- 输出调试信息
-				vim.notify("尝试读取文件: " .. file_path, vim.log.levels.INFO)
-				vim.notify("文件内容: " .. vim.inspect(file_content), vim.log.levels.INFO)
+				deps.logger.debug("尝试读取文件: " .. file_path)
+				deps.logger.debug_obj("文件内容", file_content)
 
 				-- 提取标注内容和笔记
 				local content = ""
@@ -193,7 +196,7 @@ function M.find_annotations()
 						local selection = action_state.get_selected_entry()
 
 						-- 输出调试信息
-						vim.notify("选中的标注: " .. vim.inspect(selection.value), vim.log.levels.INFO)
+						deps.logger.debug_obj("选中的标注", selection.value)
 
 						-- 打开文件并跳转到标注位置
 						vim.cmd('edit ' .. selection.value.file)
@@ -257,7 +260,7 @@ function M.search_annotations()
 	local deps = load_deps()
 	local client = deps.lsp.get_client()
 	if not client then
-		vim.notify("LSP 客户端未连接", vim.log.levels.ERROR)
+		deps.logger.error("LSP 客户端未连接")
 		return
 	end
 
@@ -270,7 +273,7 @@ function M.search_annotations()
 			end
 
 			-- 实现搜索功能
-			vim.notify("正在搜索: " .. query, vim.log.levels.INFO)
+			deps.logger.info("正在搜索: " .. query)
 
 			-- 这里可以实现搜索逻辑，类似于 server.py 中的 queryAnnotations 函数
 			-- 由于当前 LSP 服务器没有实现 queryAnnotations 命令，这里使用 listAnnotations 然后在客户端过滤
