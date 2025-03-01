@@ -5,275 +5,350 @@ import {
     InitializeParams,
     TextDocumentSyncKind,
     InitializeResult,
-    CodeLens,
-    CodeLensParams,
-    Command,
-    TextDocumentPositionParams,
-    Location,
-    Range,
-    Position,
+    TextDocumentChangeEvent,
     TextDocumentIdentifier,
-    IPCMessageReader,
-    IPCMessageWriter,
-    createServerSocketTransport,
-    DidChangeConfigurationNotification,
-    ExecuteCommandParams
+    ExecuteCommandParams,
+    RemoteConsole,
+    Connection
 } from 'vscode-languageserver/node';
 
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { DatabaseManager } from './database';
-import { NoteManager } from './note';
+import {
+    TextDocument
+} from 'vscode-languageserver-textdocument';
+
+import { URI } from 'vscode-uri';
 import * as path from 'path';
+import * as os from 'os';
 import * as fs from 'fs/promises';
-import { createServer } from 'net';
+
+import { WorkspaceManager } from './workspace';
+import { DatabaseManager } from './database';
+import { NoteManager } from './note_manager';
+import { Logger } from './logger';
+import { findAnnotationRanges, extractTextFromRange } from './utils';
+import { Config } from './config';
+
+// 声明全局变量类型
+declare global {
+    var tcpConnection: Connection;
+}
 
 // 创建连接
-let connection: any;
-
-export function startServer() {
-    const connectionType = process.env.CONNECTION_TYPE || 'stdio';
-    
-    if (connectionType === 'tcp') {
-        const host = process.env.HOST || '127.0.0.1';
-        const port = parseInt(process.env.PORT || '2087', 10);
-        
-        const server = createServer(socket => {
-            connection = createConnection(ProposedFeatures.all, socket, socket);
-            initializeConnection();
-        });
-        
-        server.listen(port, host);
+let connection: Connection;
+try {
+    // 检查是否有TCP连接
+    if (global.tcpConnection) {
+        global.console.log('Using TCP connection');
+        connection = global.tcpConnection;
     } else {
-        // 使用标准输入输出
+        // 尝试使用命令行参数创建连接
         connection = createConnection(ProposedFeatures.all);
-        initializeConnection();
     }
+} catch (error) {
+    // 如果命令行参数不可用，使用stdio
+    global.console.log('Failed to create connection, falling back to stdio');
+    connection = createConnection(ProposedFeatures.all);
 }
 
-const documents = new TextDocuments(TextDocument);
+// 获取控制台
+const console = connection.console;
 
-let dbManager: DatabaseManager;
-let noteManager: NoteManager;
-let hasConfigurationCapability = false;
-let hasWorkspaceFolderCapability = false;
+// 创建文档管理器
+const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
-function initializeConnection() {
-    connection.onInitialize((params: InitializeParams) => {
-        const capabilities = params.capabilities;
+// 创建日志记录器
+const logger = new Logger(console);
 
-        hasConfigurationCapability = !!(
-            capabilities.workspace && !!capabilities.workspace.configuration
-        );
-        hasWorkspaceFolderCapability = !!(
-            capabilities.workspace && !!capabilities.workspace.workspaceFolders
-        );
+// 创建工作区管理器
+const workspaceManager = new WorkspaceManager();
 
-        const workspaceRoot = params.rootUri ? params.rootUri.replace('file://', '') : null;
-        if (workspaceRoot) {
-            dbManager = new DatabaseManager(workspaceRoot);
-            noteManager = new NoteManager(workspaceRoot);
+// 数据库和笔记管理器，将在初始化时创建
+let dbManager: DatabaseManager | null = null;
+let noteManager: NoteManager | null = null;
+
+// 配置
+const config = new Config();
+
+/**
+ * 初始化服务器
+ */
+connection.onInitialize((params: InitializeParams): InitializeResult => {
+    logger.info('Server initializing...');
+
+    // 处理工作区文件夹
+    if (params.workspaceFolders && params.workspaceFolders.length > 0) {
+        for (const folder of params.workspaceFolders) {
+            const folderUri = folder.uri;
+            const folderPath = URI.parse(folderUri).fsPath;
+            workspaceManager.addWorkspace(folderUri, folderPath);
+            logger.info(`Added workspace: ${folderPath}`);
         }
 
-        const result: InitializeResult = {
-            capabilities: {
-                textDocumentSync: TextDocumentSyncKind.Incremental,
-                codeLensProvider: {
-                    resolveProvider: true
-                },
-                definitionProvider: true,
-                executeCommandProvider: {
-                    commands: [
-                        'annotation.createNote',
-                        'annotation.deleteNote',
-                        'annotation.gotoSource',
-                        'annotation.searchNotes'
-                    ]
-                }
-            }
-        };
-
-        return result;
-    });
-
-    connection.onInitialized(() => {
-        if (hasConfigurationCapability) {
-            connection.client.register(
-                DidChangeConfigurationNotification.type,
-                undefined
-            );
-        }
-        if (hasWorkspaceFolderCapability) {
-            connection.workspace.onDidChangeWorkspaceFolders((_event: any) => {
-                connection.console.log('Workspace folder change event received.');
+        // 初始化第一个工作区的数据库和笔记管理器
+        const firstWorkspace = workspaceManager.getAllWorkspaces()[0];
+        if (firstWorkspace) {
+            dbManager = new DatabaseManager(firstWorkspace.rootPath);
+            noteManager = new NoteManager(firstWorkspace.rootPath);
+            
+            // 初始化笔记目录
+            noteManager.init().catch(err => {
+                logger.error(`Failed to initialize note manager: ${err.message}`);
             });
         }
-    });
+    }
 
-    // 实现 CodeLens 提供者
-    connection.onCodeLens(async (params: CodeLensParams): Promise<CodeLens[]> => {
-        const document = documents.get(params.textDocument.uri);
-        if (!document) {
-            return [];
-        }
-
-        const codeLenses: CodeLens[] = [];
-        const text = document.getText();
-        const lines = text.split('\n');
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const match = line.match(/^(\s*)(.*?)\s*$/);
-            if (!match) continue;
-
-            const range = Range.create(i, match[1].length, i, match[0].length);
-            codeLenses.push({
-                range,
-                command: Command.create(
-                    'Add Annotation',
+    return {
+        capabilities: {
+            textDocumentSync: TextDocumentSyncKind.Incremental,
+            // 告诉客户端服务器支持代码完成
+            completionProvider: {
+                resolveProvider: true
+            },
+            executeCommandProvider: {
+                commands: [
                     'annotation.createNote',
-                    document.uri,
-                    range
-                )
-            });
-        }
-
-        // 获取已有的标注
-        const noteFiles = await dbManager.getNoteFilesFromSourceUri(params.textDocument.uri);
-        for (const noteFile of noteFiles) {
-            const notePath = path.join(dbManager.projectRoot!, '.annotation', 'notes', noteFile);
-            const annotationId = await noteManager.getAnnotationIdFromNoteUri(`file://${notePath}`);
-            if (annotationId === null) continue;
-
-            // TODO: 从笔记内容中获取原始行号
-            const range = Range.create(0, 0, 0, 0);
-            codeLenses.push({
-                range,
-                command: Command.create(
-                    `View Annotation #${annotationId}`,
-                    'annotation.gotoNote',
-                    document.uri,
-                    annotationId
-                )
-            });
-        }
-
-        return codeLenses;
-    });
-
-    // 实现定义跳转
-    connection.onDefinition(async (params: TextDocumentPositionParams): Promise<Location | null> => {
-        const document = documents.get(params.textDocument.uri);
-        if (!document) {
-            return null;
-        }
-
-        // 检查当前文件是否是笔记文件
-        if (!params.textDocument.uri.includes('.annotation/notes/')) {
-            return null;
-        }
-
-        // 获取源文件路径
-        const sourcePath = await noteManager.getSourcePathFromNoteUri(params.textDocument.uri);
-        if (!sourcePath) {
-            return null;
-        }
-
-        // 返回源文件位置
-        return Location.create(
-            `file://${sourcePath}`,
-            Range.create(Position.create(0, 0), Position.create(0, 0))
-        );
-    });
-
-    // 实现命令处理
-    connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
-        switch (params.command) {
-            case 'annotation.createNote': {
-                const [uri, range] = params.arguments || [];
-                if (!uri || !range) {
-                    return null;
-                }
-
-                const document = documents.get(uri);
-                if (!document) {
-                    return null;
-                }
-
-                // 创建新的标注
-                const annotationId = 1; // TODO: 生成新的标注 ID
-                await dbManager.createAnnotation(uri, annotationId);
-
-                // 创建笔记文件
-                const noteDir = path.join(dbManager.projectRoot!, '.annotation', 'notes');
-                await fs.mkdir(noteDir, { recursive: true });
-
-                const noteFile = `note_${Date.now()}.md`;
-                const notePath = path.join(noteDir, noteFile);
-
-                const selectedText = document.getText(range);
-                const noteContent = `---
-file: ${path.relative(dbManager.projectRoot!, document.uri)}
-id: ${annotationId}
----
-
-${selectedText}
-
-`;
-                await fs.writeFile(notePath, noteContent);
-
-                return;
-            }
-
-            case 'annotation.deleteNote': {
-                const [uri, annotationId] = params.arguments || [];
-                if (!uri || annotationId === undefined) {
-                    return null;
-                }
-
-                await dbManager.deleteAnnotation(uri, annotationId);
-                return;
-            }
-
-            case 'annotation.gotoSource': {
-                const [noteUri] = params.arguments || [];
-                if (!noteUri) {
-                    return null;
-                }
-
-                const sourcePath = await noteManager.getSourcePathFromNoteUri(noteUri);
-                if (!sourcePath) {
-                    return null;
-                }
-
-                // 返回源文件位置
-                return Location.create(
-                    `file://${sourcePath}`,
-                    Range.create(Position.create(0, 0), Position.create(0, 0))
-                );
-            }
-
-            case 'annotation.searchNotes': {
-                const [query, searchType] = params.arguments || [];
-                if (!query) {
-                    return [];
-                }
-
-                return await noteManager.searchNotes(query, searchType || 'all');
+                    'annotation.openNote',
+                    'annotation.deleteNote'
+                ]
             }
         }
-    });
+    };
+});
 
-    // 监听文档变化
-    documents.onDidChangeContent(change => {
-        validateTextDocument(change.document);
-    });
+/**
+ * 连接初始化完成
+ */
+connection.onInitialized(() => {
+    logger.info('Server initialized');
+});
 
-    async function validateTextDocument(textDocument: TextDocument): Promise<void> {
-        // 实现文档验证逻辑
+/**
+ * 文档打开时
+ */
+documents.onDidOpen((event: TextDocumentChangeEvent<TextDocument>) => {
+    const document = event.document;
+    const uri = document.uri;
+    
+    logger.info(`Document opened: ${uri}`);
+    
+    // 检查文档中的标注
+    processAnnotations(document);
+});
+
+/**
+ * 文档内容变更时
+ */
+documents.onDidChangeContent((event: TextDocumentChangeEvent<TextDocument>) => {
+    const document = event.document;
+    const uri = document.uri;
+    
+    logger.info(`Document changed: ${uri}`);
+    
+    // 检查文档中的标注
+    processAnnotations(document);
+});
+
+/**
+ * 文档关闭时
+ */
+documents.onDidClose((event: TextDocumentChangeEvent<TextDocument>) => {
+    const document = event.document;
+    const uri = document.uri;
+    
+    logger.info(`Document closed: ${uri}`);
+});
+
+/**
+ * 处理文档中的标注
+ */
+async function processAnnotations(document: TextDocument): Promise<void> {
+    try {
+        const uri = document.uri;
+        
+        const text = document.getText();
+        const ranges = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        
+        logger.info(`Found ${ranges.length} annotations in ${uri}`);
+        
+        // 处理每个标注
+        for (const range of ranges) {
+            const annotationId = range.id;
+            const annotationText = extractTextFromRange(text, range);
+            
+            // 检查标注是否已存在
+            if (dbManager) {
+                const exists = await dbManager.annotationExists(uri, annotationId);
+                
+                if (!exists && noteManager) {
+                    // 创建新笔记
+                    const noteFile = await noteManager.createAnnotationNote(annotationId);
+                    
+                    // 保存标注信息
+                    await dbManager.saveAnnotation(uri, annotationId, range, noteFile);
+                    
+                    logger.info(`Created annotation ${annotationId} in ${uri}`);
+                }
+            }
+        }
+    } catch (err) {
+        logger.error(`Error processing annotations: ${err}`);
     }
-
-    // 监听打开的文档
-    documents.listen(connection);
-
-    connection.listen();
 }
+
+/**
+ * 执行命令
+ */
+connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
+    const command = params.command;
+    const args = params.arguments || [];
+    
+    logger.info(`Executing command: ${command}`);
+    
+    try {
+        switch (command) {
+            case 'annotation.createNote':
+                return await handleCreateNote(args[0], args[1]);
+            
+            case 'annotation.openNote':
+                return await handleOpenNote(args[0], args[1]);
+            
+            case 'annotation.deleteNote':
+                return await handleDeleteNote(args[0], args[1]);
+            
+            default:
+                logger.error(`Unknown command: ${command}`);
+                return null;
+        }
+    } catch (err) {
+        logger.error(`Error executing command ${command}: ${err}`);
+        return null;
+    }
+});
+
+/**
+ * 处理创建笔记命令
+ */
+async function handleCreateNote(uri: string, annotationId: number): Promise<string | null> {
+    try {
+        logger.info(`Creating note for annotation ${annotationId} in ${uri}`);
+        
+        if (!dbManager || !noteManager) {
+            throw new Error('Database or note manager not initialized');
+        }
+        
+        // 检查标注是否存在
+        const exists = await dbManager.annotationExists(uri, annotationId);
+        logger.info(`Annotation exists: ${exists}`);
+        
+        if (exists) {
+            // 获取现有笔记文件
+            const noteFile = await dbManager.getAnnotationNoteFile(uri, annotationId);
+            
+            if (noteFile) {
+                logger.info(`Found existing note file: ${noteFile}`);
+                return noteFile;
+            }
+        }
+        
+        // 获取文档文本
+        const document = documents.get(uri);
+        if (!document) {
+            throw new Error(`Document not found: ${uri}`);
+        }
+        
+        const text = document.getText();
+        const ranges = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+        logger.info(`Found ${ranges.length} annotations in document`);
+        
+        // 查找对应的标注
+        const range = ranges.find(r => r.id === annotationId);
+        if (!range) {
+            throw new Error(`Annotation ${annotationId} not found in ${uri}`);
+        }
+        
+        // 提取标注文本
+        const annotationText = extractTextFromRange(text, range);
+        logger.info(`Extracted annotation text: ${annotationText.substring(0, 50)}${annotationText.length > 50 ? '...' : ''}`);
+        
+        // 创建笔记文件
+        const initialContent = `# Annotation ${annotationId}\n\n${annotationText}\n\n## Notes\n\n`;
+        logger.info(`Creating note with initial content length: ${initialContent.length}`);
+        
+        const noteFile = await noteManager.createAnnotationNote(annotationId, initialContent);
+        
+        // 保存标注信息
+        await dbManager.saveAnnotation(uri, annotationId, range, noteFile);
+        
+        logger.info(`Created note for annotation ${annotationId} in ${uri}: ${noteFile}`);
+        
+        return noteFile;
+    } catch (err) {
+        logger.error(`Error creating note: ${err}`);
+        return null;
+    }
+}
+
+/**
+ * 处理打开笔记命令
+ */
+async function handleOpenNote(uri: string, annotationId: number): Promise<string | null> {
+    try {
+        if (!dbManager || !noteManager) {
+            throw new Error('Database or note manager not initialized');
+        }
+        
+        // 获取笔记文件
+        const noteFile = await dbManager.getAnnotationNoteFile(uri, annotationId);
+        
+        if (!noteFile) {
+            // 如果笔记不存在，创建一个新的
+            return await handleCreateNote(uri, annotationId);
+        }
+        
+        // 获取笔记内容
+        const content = await noteManager.getNoteContent(noteFile);
+        
+        return content;
+    } catch (err) {
+        logger.error(`Error opening note: ${err}`);
+        return null;
+    }
+}
+
+/**
+ * 处理删除笔记命令
+ */
+async function handleDeleteNote(uri: string, annotationId: number): Promise<boolean> {
+    try {
+        if (!dbManager || !noteManager) {
+            throw new Error('Database or note manager not initialized');
+        }
+        
+        // 获取笔记文件
+        const noteFile = await dbManager.getAnnotationNoteFile(uri, annotationId);
+        
+        if (!noteFile) {
+            // 笔记不存在
+            return false;
+        }
+        
+        // 删除笔记文件
+        await noteManager.deleteAnnotationNote(noteFile);
+        
+        // 从数据库中删除标注
+        await dbManager.deleteAnnotation(uri, annotationId);
+        
+        logger.info(`Deleted note for annotation ${annotationId} in ${uri}`);
+        
+        return true;
+    } catch (err) {
+        logger.error(`Error deleting note: ${err}`);
+        return false;
+    }
+}
+
+// 监听文档管理器
+documents.listen(connection);
+
+// 监听连接
+connection.listen();

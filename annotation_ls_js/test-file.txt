@@ -1,0 +1,9 @@
+This is a test file with annotations.
+
+「1」This is the first annotation「1」
+
+Some text in between annotations.
+
+「2」This is the second annotation「2」
+
+End of file.

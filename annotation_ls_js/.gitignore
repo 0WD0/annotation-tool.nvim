@@ -1,0 +1,21 @@
+# Dependency directories
+node_modules/
+
+# Compiled output
+out/
+*.js.map
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Runtime data
+.annotations/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE specific files
+.vscode/
+*.swp
+*.swo
