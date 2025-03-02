@@ -208,7 +208,6 @@ function M.list_annotations()
 				logger.info('Found ' .. #result.note_files .. ' annotations')
 				-- 输出调试信息
 				logger.debug_obj('Result', result)
-				-- TODO: 在 quickfix 窗口中显示标注列表
 			end
 		end)
 end

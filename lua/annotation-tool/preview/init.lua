@@ -153,6 +153,7 @@ end
 
 function M.goto_annotation_note(result)
 	-- 如果预览窗口已存在，先关闭它
+	-- TODO: 如果在 nodes 中发现已经打开了这个 note_file ，直接跳转到那个 buffer
 	M.close_preview(false)
 	-- 设置新的预览窗口
 	local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
