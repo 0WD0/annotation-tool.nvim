@@ -74,9 +74,9 @@ function M.setup_preview_window(file_path)
 		once = true
 	})
 
-
 	return M.preview_state.buf
 end
+
 
 function M.goto_annotation_note(result)
 	-- 如果预览窗口已存在，先关闭它
@@ -89,36 +89,6 @@ function M.goto_annotation_note(result)
 		logger.error("Failed to open preview window")
 		return
 	end
-end
-
-function M.goto_current_annotation_note()
-	local params = core.make_position_params()
-	logger.info("Getting annotation note...")
-
-	-- 延迟加载 lsp 模块，避免循环依赖
-	local lsp = require('annotation-tool.lsp')
-	local client = lsp.get_client()
-	if not client then
-		logger.error("LSP client not available")
-		return
-	end
-
-	-- 使用 LSP 命令获取批注文件
-	client.request('workspace/executeCommand', {
-		command = "getAnnotationNote",
-		arguments = { params }
-	}, function(err, result)
-		if err then
-			logger.error("Error getting annotation note: " .. err.message)
-			return
-		end
-
-		if not result then
-			logger.warn("No annotation note found")
-			return
-		end
-		M.goto_annotation_note(result)
-	end)
 end
 
 return M

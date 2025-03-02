@@ -241,12 +241,32 @@ function M.delete_annotation()
 		end)
 end
 
-function M.preview_annotation()
+function M.goto_current_annotation_note()
+	local params = core.make_position_params()
+	logger.info("Getting annotation note...")
+
 	local client = M.get_client()
 	if not client then
+		logger.error("LSP client not available")
 		return
 	end
-	preview.goto_current_annotation_note()
+
+	-- 使用 LSP 命令获取批注文件
+	client.request('workspace/executeCommand', {
+		command = "getAnnotationNote",
+		arguments = { params }
+	}, function(err, result)
+		if err then
+			logger.error("Error getting annotation note: " .. err.message)
+			return
+		end
+
+		if not result then
+			logger.warn("No annotation note found")
+			return
+		end
+		preview.goto_annotation_note(result)
+	end)
 end
 
 function M.goto_annotation_source(offset)
