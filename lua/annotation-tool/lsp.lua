@@ -119,10 +119,10 @@ local function on_attach(client, bufnr)
 		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation, desc = "Create annotation at selection" },
 		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations, desc = "List annotations" },
 		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
-		{ mode = 'n', lhs = '<Leader>np', rhs = M.preview_annotation, desc = "Preview current annotation" },
+		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note, desc = "Preview current annotation" },
 		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" },
-		{ mode = 'n', lhs = '[a', rhs = function() M.goto_annotation_source(-1) end, desc = "Go to previous annotation" },
-		{ mode = 'n', lhs = ']a', rhs = function() M.goto_annotation_source(1) end, desc = "Go to next annotation" },
+		{ mode = 'n', lhs = '<A-k>', rhs = function() M.goto_annotation_source(-1) end, desc = "Go to previous annotation" },
+		{ mode = 'n', lhs = '<A-j>', rhs = function() M.goto_annotation_source(1) end, desc = "Go to next annotation" },
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
@@ -276,9 +276,7 @@ function M.goto_annotation_source(offset)
 		return
 	end
 
-	-- 延迟加载 lsp 模块，避免循环依赖
-	local lsp = require('annotation-tool.lsp')
-	local client = lsp.get_client()
+	local client = M.get_client()
 	if not client then
 		logger.error("LSP client not available")
 		return

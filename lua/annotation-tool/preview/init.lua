@@ -1,4 +1,3 @@
-local core = require('annotation-tool.core')
 local logger = require('annotation-tool.logger')
 local M = {}
 
@@ -78,12 +77,12 @@ function M.setup_preview_window(file_path)
 end
 
 
-function M.goto_annotation_note(result)
+function M.goto_annotation_note(opts)
 	-- 如果预览窗口已存在，先关闭它
 	-- TODO: 如果在 nodes 中发现已经打开了这个 note_file ，直接跳转到那个 buffer
 	M.close_preview(false)
 	-- 设置新的预览窗口
-	local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
+	local file_path = opts.workspace_path .. '/.annotation/notes/' .. opts.note_file
 	local buf = M.setup_preview_window(file_path)
 	if not buf then
 		logger.error("Failed to open preview window")
