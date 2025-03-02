@@ -417,7 +417,7 @@ function M.goto_annotation_source(offset)
 
 					-- 如果找到源文件窗口，更新光标位置
 					if source_win then
-						local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+						local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
 						vim.api.nvim_win_set_cursor(source_win, cursor_pos)
 					end
 				end
