@@ -74,6 +74,43 @@ function M.remove_node(node_id)
 		end
 	end
 
+	-- 关闭窗口和buffer（如果存在）
+	if M.nodes[node_id] then
+		local node = M.nodes[node_id]
+
+		-- 检查窗口是否存在，如果存在则关闭
+		if node.window and vim.api.nvim_win_is_valid(node.window) then
+			-- 保存当前窗口
+			local current_win = vim.api.nvim_get_current_win()
+
+			-- 关闭窗口
+			pcall(vim.api.nvim_win_close, node.window, true)
+
+			-- 如果当前窗口被关闭，尝试恢复到其他窗口
+			if not vim.api.nvim_win_is_valid(current_win) then
+				local wins = vim.api.nvim_list_wins()
+				if #wins > 0 then
+					vim.api.nvim_set_current_win(wins[1])
+				end
+			end
+		end
+
+		-- 检查buffer是否存在，如果存在且不再被任何窗口使用，则关闭
+		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
+			local is_buffer_in_window = false
+			for _, win in ipairs(vim.api.nvim_list_wins()) do
+				if vim.api.nvim_win_get_buf(win) == node.buffer then
+					is_buffer_in_window = true
+					break
+				end
+			end
+
+			if not is_buffer_in_window then
+				pcall(vim.api.nvim_buf_delete, node.buffer, {force = true})
+			end
+		end
+	end
+
 	M.nodes[node_id] = nil
 	M.edges[node_id] = nil
 	M.metadata[node_id] = nil
@@ -378,7 +415,7 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 		normal! G
 		?^## Notes
 		normal! 2j
-	]])
+		]])
 
 	-- 如果没有提供父节点ID，但我们知道当前窗口，则尝试查找对应的节点
 	if not parent_node_id and parent_win then
