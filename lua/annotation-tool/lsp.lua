@@ -168,35 +168,6 @@ function M.hover_annotation()
 	request(ms.textDocument_hover, params)
 end
 
--- 创建标注
-function M.create_annotation()
-	local client = M.get_client()
-	if not client then
-		return
-	end
-
-	local params = core.make_selection_params()
-
-	client.request('workspace/executeCommand', {
-		command = "createAnnotation",
-		arguments = { params }
-	}, function(err, result)
-			if err then
-				logger.error("Failed to create annotation: " .. vim.inspect(err))
-				return
-			end
-			if result and result.success then
-				-- 使用manager模块打开批注文件
-				local buf_id = vim.api.nvim_get_current_buf()
-				local win_id = vim.api.nvim_get_current_win()
-				manager.open_note_file(result.note_file, buf_id .. '_' .. win_id , {
-					workspace_path = result.workspace_path
-				})
-				logger.info("Annotation created successfully")
-			end
-		end)
-end
-
 -- 列出标注
 function M.list_annotations()
 	local client = M.get_client()
@@ -249,16 +220,14 @@ function M.delete_annotation()
 end
 
 function M.goto_current_annotation_note()
-	local params = core.make_position_params()
-	logger.info("Getting annotation note...")
-
 	local client = M.get_client()
 	if not client then
 		logger.error("LSP client not available")
 		return
 	end
 
-	-- 使用 LSP 命令获取批注文件
+	logger.info("Getting annotation note...")
+	local params = core.make_position_params()
 	client.request('workspace/executeCommand', {
 		command = "getAnnotationNote",
 		arguments = { params }
@@ -272,14 +241,38 @@ function M.goto_current_annotation_note()
 			return
 		end
 
-		-- 使用manager模块打开批注文件
-		manager.open_note_file(result.note_file, {
-			title = result.title,
-			type = "annotation"
-		}, {
+		local buf_id = vim.api.nvim_get_current_buf()
+		local win_id = vim.api.nvim_get_current_win()
+		manager.create_source(buf_id, win_id, {
+			workspace_path = result.workspace_path
+		})
+		manager.open_note_file(result.note_file, buf_id .. '_' .. win_id , {
 			workspace_path = result.workspace_path
 		})
 	end)
+end
+
+-- 创建标注
+function M.create_annotation()
+	local client = M.get_client()
+	if not client then
+		return
+	end
+
+	local params = core.make_selection_params()
+	client.request('workspace/executeCommand', {
+		command = "createAnnotation",
+		arguments = { params }
+	}, function(err, result)
+		if err then
+			logger.error("Failed to create annotation: " .. vim.inspect(err))
+			return
+		end
+		if result and result.success then
+			logger.info("Annotation created successfully")
+		end
+	end)
+	M.goto_current_annotation_note()
 end
 
 function M.goto_annotation_source(offset)

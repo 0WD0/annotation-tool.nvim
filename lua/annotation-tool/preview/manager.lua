@@ -7,6 +7,23 @@ M.edges = {}
 M.metadata = {}
 
 function M.create_node(buf_id, win_id, parent_id, metadata)
+	-- 首先检查是否已经存在使用相同 buffer 和 window 的节点
+	local existing_node_id = nil
+	for node_id, node in pairs(M.nodes) do
+		if node.buffer == buf_id and node.window == win_id then
+			existing_node_id = node_id
+			logger.debug(string.format("发现已存在的节点 %s 使用相同的 buffer %s 和 window %s",
+				existing_node_id, buf_id, win_id))
+			break
+		end
+	end
+
+	-- 如果找到了现有节点
+	if existing_node_id then
+		return existing_node_id
+	end
+
+	-- 如果不存在，创建新节点
 	local node_id = buf_id .. "_" .. win_id
 	logger.debug(string.format("创建节点 ID: %s, 父节点: %s", node_id, parent_id or "无"))
 
@@ -407,20 +424,41 @@ end
 
 -- 打开批注文件并创建新的buffer和window
 function M.open_note_file(note_file, parent_node_id, metadata)
+	logger.debug(string.format("打开批注文件: %s, 父节点ID: %s", note_file, parent_node_id or "无"))
+
 	-- 检查是否已经打开了这个批注文件
 	local existing_node_id = M.find_node(note_file)
 	if existing_node_id and M.is_node_valid(existing_node_id) then
 		-- 如果已经打开，直接跳转到那个窗口
+		logger.debug(string.format("批注文件已打开，跳转到节点: %s", existing_node_id))
 		return M.jump_to_annotation(existing_node_id)
 	end
 
 	-- 构建批注文件的完整路径
 	local workspace_path = metadata and metadata.workspace_path or vim.fn.getcwd()
 	local file_path = workspace_path .. '/.annotation/notes/' .. note_file
+	logger.debug(string.format("批注文件完整路径: %s", file_path))
 
 	-- 保存当前窗口作为父窗口
 	local parent_win = vim.api.nvim_get_current_win()
 	local parent_buf = vim.api.nvim_win_get_buf(parent_win)
+
+	-- 确保父节点存在
+	local valid_parent_id = nil
+	if parent_node_id then
+		-- 检查传入的 parent_node_id 是否是有效的节点 ID
+		if M.nodes[parent_node_id] then
+			valid_parent_id = parent_node_id
+			logger.debug(string.format("使用提供的父节点ID: %s", valid_parent_id))
+		else
+			-- 如果不是有效的节点 ID，可能是一个字符串标识符，尝试查找或创建源节点
+			logger.debug(string.format("提供的父节点ID无效: %s，尝试查找或创建源节点", parent_node_id))
+			valid_parent_id = M.find_or_create_source_node(parent_buf, parent_win, {
+				type = "source",
+			})
+			logger.debug(string.format("找到或创建的源节点ID: %s", valid_parent_id))
+		end
+	end
 
 	-- 在右侧打开文件
 	vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
@@ -428,6 +466,7 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 	-- 获取新窗口和buffer的ID
 	local note_win = vim.api.nvim_get_current_win()
 	local note_buf = vim.api.nvim_get_current_buf()
+	logger.debug(string.format("创建新窗口和buffer: win=%s, buf=%s", note_win, note_buf))
 
 	-- 设置窗口大小
 	vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.4))
@@ -448,26 +487,35 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 		normal! 2j
 		]])
 
-	-- 如果没有提供父节点ID，但我们知道当前窗口，则尝试查找对应的节点
-	if not parent_node_id and parent_win then
-		for node_id, node in pairs(M.nodes) do
-			if node.window == parent_win and node.buffer == parent_buf then
-				parent_node_id = node_id
-				break
-			end
-		end
-	end
+	-- 创建新的节点
+	local node_id = M.create_node(note_buf, note_win, valid_parent_id, {
+		type = "note",
+		file_path = file_path,
+		note_file = note_file,
+		workspace_path = workspace_path
+	})
+	logger.debug(string.format("创建新的批注节点: %s", node_id))
 
-	-- 创建新节点并建立关系
-	local node_id = M.create_node(note_buf, note_win, parent_node_id, metadata or {})
-
-	-- 当窗口关闭时自动清理节点
-	vim.api.nvim_create_autocmd('WinClosed', {
+	-- 设置窗口关闭时的处理
+	vim.api.nvim_create_autocmd("WinClosed", {
 		pattern = tostring(note_win),
 		callback = function()
-			M.cleanup()
-		end,
-		once = true
+			if M.nodes[node_id] then
+				M.nodes[node_id].window = nil
+				logger.debug(string.format("窗口 %s 关闭，更新节点 %s", note_win, node_id))
+			end
+		end
+	})
+
+	-- 设置 buffer 删除时的处理
+	vim.api.nvim_create_autocmd("BufDelete", {
+		buffer = note_buf,
+		callback = function()
+			if M.nodes[node_id] then
+				M.nodes[node_id].buffer = nil
+				logger.debug(string.format("Buffer %s 删除，更新节点 %s", note_buf, node_id))
+			end
+		end
 	})
 
 	return node_id
@@ -507,19 +555,30 @@ end
 
 -- 查找或创建源文件节点
 function M.find_or_create_source_node(buf_id, win_id, metadata)
-	-- 检查是否已经存在这个源文件节点
+	logger.debug(string.format("查找或创建源节点: buf=%s, win=%s", buf_id, win_id))
+
+	-- 首先尝试通过 buffer 和 window 查找
 	for node_id, node in pairs(M.nodes) do
-		if node.buffer == buf_id and node.window == win_id and not node.parent then
+		if node.buffer == buf_id and node.window == win_id and not M.get_parent(node_id) then
+			logger.debug(string.format("找到现有源节点: %s", node_id))
+
+			-- 如果提供了额外的元数据，更新节点元数据
+			if metadata then
+				for k, v in pairs(metadata) do
+					M.update_metadata(node_id, k, v)
+				end
+			end
+
 			return node_id
 		end
 	end
-
-	-- 不存在则创建新的源文件节点
-	return M.create_source(buf_id, win_id, metadata or {
-		type = "source",
-		file = vim.api.nvim_buf_get_name(buf_id)
-	})
+	-- 如果没有找到，创建新的源节点
+	logger.debug("未找到现有源节点，创建新节点")
+	return M.create_source(buf_id, win_id, metadata)
 end
+
+
+------------------------ 调试函数 ------------------------
 
 -- 调试函数：输出批注树的结构
 function M.debug_print_tree()
