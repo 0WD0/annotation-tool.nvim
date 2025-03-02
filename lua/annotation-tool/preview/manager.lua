@@ -106,7 +106,13 @@ function AnnotationManager:is_node_valid(node_id)
 	-- 检查 window 是否存在
 	local win_valid = vim.api.nvim_win_is_valid(node.window)
 
-	return buf_valid and win_valid
+	-- 如果窗口和buffer都有效，检查window是否显示该buffer
+	if buf_valid and win_valid then
+		local win_buf = vim.api.nvim_win_get_buf(node.window)
+		return win_buf == node.buffer
+	end
+
+	return false
 end
 
 -- 清理无效节点
