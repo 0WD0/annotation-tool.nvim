@@ -128,13 +128,6 @@ function M.toggle_annotation_mode(bufnr)
 	end
 end
 
--- 查看当前 buffer 的 conceal 规则
-function M.show_conceal_rules()
-	local bufnr = vim.api.nvim_get_current_buf()
-	vim.cmd('syn list AnnotationBracket')
-end
-
--- 将 LSP 位置转换为 Neovim 字节位置
 function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 	bufnr = bufnr or 0
 
