@@ -4,6 +4,7 @@ local core = require('annotation-tool.core')
 local lsp = require('annotation-tool.lsp')
 local telescope = require('annotation-tool.telescope')
 local logger = require('annotation-tool.logger')
+local manager = require('annotation-tool.preview.manager')
 
 -- 设置命令
 function M.setup()
@@ -21,6 +22,7 @@ function M.setup()
 		{ "AnnotationDelete", lsp.delete_annotation },
 		{ "AnnotationFind", telescope.find_annotations },
 		{ "AnnotationSearch", telescope.search_annotations },
+		{ "AnnotationTree", manager.show_annotation_tree },
 	}
 
 	for _, cmd in ipairs(commands) do
