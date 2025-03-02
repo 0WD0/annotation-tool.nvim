@@ -1,6 +1,7 @@
 local M = {}
 local core = require('annotation-tool.core')
 local preview = require('annotation-tool.preview')
+local manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
 
 --- copy from nvim source code
@@ -184,6 +185,7 @@ function M.create_annotation()
 				return
 			end
 			if result and result.success then
+				-- TODO: change
 				preview.goto_annotation_note(result)
 				logger.info("Annotation created successfully")
 			end
@@ -196,7 +198,6 @@ function M.list_annotations()
 	if not client then
 		return
 	end
-
 
 	client.request('workspace/executeCommand', {
 		command = "listAnnotations",
@@ -233,6 +234,7 @@ function M.delete_annotation()
 				logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 			else
 				-- 如果预览的就是这个文件，强制关闭预览窗口
+				-- TODO: change
 				if preview.is_previewing(result.note_file) then
 					preview.close_preview(true)
 				end
@@ -260,11 +262,12 @@ function M.goto_current_annotation_note()
 			logger.error("Error getting annotation note: " .. err.message)
 			return
 		end
-
 		if not result then
 			logger.warn("No annotation note found")
 			return
 		end
+
+		-- TODO: change
 		preview.goto_annotation_note(result)
 	end)
 end
@@ -295,13 +298,12 @@ function M.goto_annotation_source(offset)
 			logger.error("Error getting annotation source: " .. err.message)
 			return
 		end
-
 		if not result then
 			logger.warn("No annotation source found")
 			return
 		end
 
-		-- 如果预览窗口已存在，先关闭它
+		-- TODO: change
 		preview.close_preview(false)
 
 		-- 获取或创建源文件窗口
