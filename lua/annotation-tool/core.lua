@@ -21,21 +21,6 @@ function M.get_current_position()
 	return result
 end
 
--- 将LSP位置（字符位置）转换为Neovim光标位置（字节位置）
-function M.lsp_position_to_cursor_position(bufnr, position)
-	bufnr = bufnr or 0
-	local line = position.line
-	
-	-- 获取指定行的内容
-	local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
-	
-	-- 将字符位置转换为字节位置
-	local byte_index = vim.str_byteindex(line_content, position.character)
-	
-	-- Neovim的行号从1开始，而LSP的行号从0开始
-	return {line + 1, byte_index}
-end
-
 function M.make_position_params()
 	local params = {
 		textDocument = {
@@ -149,26 +134,33 @@ function M.show_conceal_rules()
 	vim.cmd('syn list AnnotationBracket')
 end
 
--- 将 UTF-8 位置转换为字节位置
-function M.convert_range_to_bytes(bufnr, range)
+-- 将 LSP 位置转换为 Neovim 字节位置
+function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 	bufnr = bufnr or 0
-	local lines = vim.api.nvim_buf_get_lines(bufnr, range.start.line, range['end'].line + 1, false)
 
-	-- 转换开始位置
-	local start_byte = vim.str_byteindex(lines[1], range.start.character + 1)
-
-	-- 转换结束位置
-	local end_byte
-	if range.start.line == range['end'].line then
-		end_byte = vim.str_byteindex(lines[1], range['end'].character)
-	else
-		end_byte = vim.str_byteindex(lines[#lines], range['end'].character)
+	local function convert_position(line, character)
+		local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
+		return vim.str_byteindex(line_content, character)
 	end
 
-	return {
-		start = { line = range.start.line, character = start_byte },
-		['end'] = { line = range['end'].line, character = end_byte }
-	}
+	if pos_or_range.start then
+		-- 转换 range 类型
+		local start_line = pos_or_range.start.line
+		local end_line = pos_or_range['end'].line
+
+		local start_byte = convert_position(start_line, pos_or_range.start.character + 1)
+		local end_byte = convert_position(end_line, pos_or_range['end'].character)
+
+		return {
+			start = { line = start_line, character = start_byte },
+			['end'] = { line = end_line, character = end_byte }
+		}
+	else
+		-- 转换 single position 类型
+		local line = pos_or_range.line
+		local byte_index = convert_position(line, pos_or_range.character)
+		return {line + 1, byte_index}
+	end
 end
 
 return M

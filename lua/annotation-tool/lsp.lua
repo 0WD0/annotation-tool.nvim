@@ -354,7 +354,7 @@ function M.setup(opts)
 
 				local converted_result = {}
 				for _, highlight in ipairs(result) do
-					local byte_range = core.convert_range_to_bytes(0, highlight.range)
+					local byte_range = core.convert_utf8_to_bytes(0, highlight.range)
 					table.insert(converted_result, { range = byte_range })
 				end
 

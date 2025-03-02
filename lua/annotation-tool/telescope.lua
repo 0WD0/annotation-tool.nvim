@@ -201,7 +201,7 @@ function M.find_annotations()
 						-- 打开文件并跳转到标注位置
 						vim.cmd('edit ' .. selection.value.file)
 						local deps = load_deps()
-						local cursor_pos = deps.core.lsp_position_to_cursor_position(0, selection.value.position)
+						local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 						vim.api.nvim_win_set_cursor(0, cursor_pos)
 
 						-- 打开预览窗口
@@ -226,7 +226,7 @@ function M.find_annotations()
 									-- 打开文件并跳转到标注位置
 									vim.cmd('edit ' .. selection.value.file)
 									local deps = load_deps()
-									local cursor_pos = deps.core.lsp_position_to_cursor_position(0, selection.value.position)
+									local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 									vim.api.nvim_win_set_cursor(0, cursor_pos)
 
 									-- 删除标注
