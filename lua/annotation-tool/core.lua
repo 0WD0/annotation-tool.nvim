@@ -1,9 +1,9 @@
 local M = {}
 local logger = require('annotation-tool.logger')
 
--- 检查是否为 markdown 文件
+-- 检查当前文件类型是否为 markdown
 function M.is_markdown_file()
-	return vim.bo.filetype == "markdown"
+	return vim.api.nvim_get_option_value('filetype', { buf = 0 }) == "markdown"
 end
 
 function M.get_current_position()
@@ -93,7 +93,7 @@ function M.enable_annotation_mode(bufnr)
 	end
 
 	vim.b[bufnr].annotation_mode = true
-	vim.wo.conceallevel = 2
+	vim.api.nvim_set_option_value('conceallevel', 2, { win = 0 })
 	vim.cmd([[
 		syn conceal on
 		syn match AnnotationBracket "｢\|｣"
@@ -112,7 +112,7 @@ function M.disable_annotation_mode(bufnr)
 	end
 
 	vim.b[bufnr].annotation_mode = false
-	vim.wo.conceallevel = 0
+	vim.api.nvim_set_option_value('conceallevel', 0, { win = 0 })
 	vim.cmd([[syntax clear AnnotationBracket]])
 	logger.info("Annotation mode disabled")
 end

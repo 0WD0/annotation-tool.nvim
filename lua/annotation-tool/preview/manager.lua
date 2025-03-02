@@ -207,10 +207,10 @@ M.create_annotation = M.create_node
 function M.show_annotation_tree()
 	-- 创建一个新的缓冲区
 	local buf = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_option(buf, 'buftype', 'nofile')
-	vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
-	vim.api.nvim_buf_set_option(buf, 'swapfile', false)
-	vim.api.nvim_buf_set_option(buf, 'filetype', 'annotation-tree')
+	vim.api.nvim_set_option_value('buftype', 'nofile', { buf = buf })
+	vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = buf })
+	vim.api.nvim_set_option_value('swapfile', false, { buf = buf })
+	vim.api.nvim_set_option_value('filetype', 'annotation-tree', { buf = buf })
 
 	-- 计算浮动窗口的尺寸和位置
 	local width = 60
@@ -234,8 +234,8 @@ function M.show_annotation_tree()
 	}
 
 	local win = vim.api.nvim_open_win(buf, true, win_opts)
-	vim.api.nvim_win_set_option(win, 'winhl', 'Normal:NormalFloat')
-	vim.api.nvim_win_set_option(win, 'cursorline', true)
+	vim.api.nvim_set_option_value('winhl', 'Normal:NormalFloat', { win = win })
+	vim.api.nvim_set_option_value('cursorline', true, { win = win })
 
 	-- 存储节点ID和行号的映射关系
 	local node_lines = {}
@@ -328,14 +328,14 @@ function M.show_annotation_tree()
 			vim.api.nvim_win_close(win, true)
 			M.jump_to_annotation(node_id)
 		end
-	end, { buffer = buf, noremap = true, silent = true })
+	end, opts)
 
 	-- 关闭窗口的多种方式
 	local close_keys = {'q', '<Esc>'}
 	for _, key in ipairs(close_keys) do
 		vim.keymap.set('n', key, function()
 			vim.api.nvim_win_close(win, true)
-		end, { buffer = buf, noremap = true, silent = true })
+		end, opts)
 	end
 
 	-- 添加自动命令，在窗口关闭时清理
@@ -415,13 +415,13 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 	vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.4))
 
 	-- 设置窗口选项
-	vim.wo[note_win].number = true
-	vim.wo[note_win].relativenumber = false
-	vim.wo[note_win].wrap = true
-	vim.wo[note_win].winfixwidth = true
+	vim.api.nvim_set_option_value('number', true, { win = note_win })
+	vim.api.nvim_set_option_value('relativenumber', false, { win = note_win })
+	vim.api.nvim_set_option_value('wrap', true, { win = note_win })
+	vim.api.nvim_set_option_value('winfixwidth', true, { win = note_win })
 
 	-- 设置 buffer 选项
-	vim.bo[note_buf].filetype = 'markdown'
+	vim.api.nvim_set_option_value('filetype', 'markdown', { buf = note_buf })
 
 	-- 跳转到笔记部分
 	vim.cmd([[

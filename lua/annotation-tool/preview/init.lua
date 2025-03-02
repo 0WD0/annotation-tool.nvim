@@ -11,7 +11,7 @@ M.preview_state = {
 function M.close_preview(force)
 	if M.preview_state.buf and vim.api.nvim_buf_is_valid(M.preview_state.buf) then
 		-- 如果不是强制关闭且 buffer 被修改了，保存它
-		if not force and vim.bo[M.preview_state.buf].modified then
+		if not force and vim.api.nvim_get_option_value('modified', { buf = M.preview_state.buf }) then
 			vim.api.nvim_buf_call(M.preview_state.buf, function()
 				vim.cmd('write')
 			end)
@@ -48,13 +48,13 @@ function M.setup_preview_window(file_path)
 	vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.4))
 
 	-- 设置窗口选项
-	vim.wo[M.preview_state.win].number = true
-	vim.wo[M.preview_state.win].relativenumber = false
-	vim.wo[M.preview_state.win].wrap = true
-	vim.wo[M.preview_state.win].winfixwidth = true
+	vim.api.nvim_set_option_value('number', true, { win = M.preview_state.win })
+	vim.api.nvim_set_option_value('relativenumber', false, { win = M.preview_state.win })
+	vim.api.nvim_set_option_value('wrap', true, { win = M.preview_state.win })
+	vim.api.nvim_set_option_value('winfixwidth', true, { win = M.preview_state.win })
 
 	-- 设置 buffer 选项
-	vim.bo[M.preview_state.buf].filetype = 'markdown'
+	vim.api.nvim_set_option_value('filetype', 'markdown', { buf = M.preview_state.buf })
 
 	-- 跳转到笔记部分
 	vim.cmd([[

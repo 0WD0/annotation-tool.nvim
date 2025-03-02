@@ -160,7 +160,7 @@ function M.find_annotations()
 					-- 	entry.value.position.character + 1))
 
 					vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-					vim.api.nvim_buf_set_option(self.state.bufnr, "filetype", "markdown")
+					vim.api.nvim_set_option_value("filetype", "markdown", { buf = self.state.bufnr })
 				end
 			})
 
