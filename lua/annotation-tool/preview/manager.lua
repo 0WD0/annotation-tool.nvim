@@ -30,9 +30,20 @@ end
 
 function M.find_node(note_file)
 	for node_id, node in pairs(M.nodes) do
-		local buf_name = vim.api.nvim_buf_get_name(node.buffer)
-		if(buf_name:match("/.annotation/notes/" .. note_file .. "$")) then
-			return node_id
+		-- 检查 buffer 是否有效
+		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
+			local buf_name = vim.api.nvim_buf_get_name(node.buffer)
+			-- 检查 buffer 名称是否匹配
+			if(buf_name:match("/.annotation/notes/" .. note_file .. "$")) then
+				-- 检查窗口是否有效
+				if node.window and vim.api.nvim_win_is_valid(node.window) then
+					-- 检查窗口是否显示该 buffer
+					local win_buf = vim.api.nvim_win_get_buf(node.window)
+					if win_buf == node.buffer then
+						return node_id
+					end
+				end
+			end
 		end
 	end
 	return nil
@@ -356,10 +367,12 @@ end
 
 -- 跳转到特定批注
 function M.jump_to_annotation(node_id)
-	local node = M.nodes[node_id]
-	if node and M.is_node_valid(node_id) then
-		vim.api.nvim_set_current_win(node.window)
-		return true
+	if M.is_node_valid(node_id) then
+		local node = M.nodes[node_id]
+		if node then
+			vim.api.nvim_set_current_win(node.window)
+			return true
+		end
 	end
 	return false
 end
@@ -378,7 +391,7 @@ end
 function M.open_note_file(note_file, parent_node_id, metadata)
 	-- 检查是否已经打开了这个批注文件
 	local existing_node_id = M.find_node(note_file)
-	if existing_node_id then
+	if existing_node_id and M.is_node_valid(existing_node_id) then
 		-- 如果已经打开，直接跳转到那个窗口
 		return M.jump_to_annotation(existing_node_id)
 	end
