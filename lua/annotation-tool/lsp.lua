@@ -114,62 +114,23 @@ end
 
 -- LSP 回调函数
 local function on_attach(client, bufnr)
-	-- 创建标注（可视模式）
-	vim.keymap.set('v', '<Leader>na', M.create_annotation, {
-		buffer = bufnr,
-		desc = "Create annotation at selection",
-		noremap = true,
-		silent = true
-	})
+	local base_options = { buffer = bufnr, noremap = true, silent = true }
+	local keybindings = {
+		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation, desc = "Create annotation at selection" },
+		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations, desc = "List annotations" },
+		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
+		{ mode = 'n', lhs = '<Leader>np', rhs = M.preview_annotation, desc = "Preview current annotation" },
+		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" }
+	}
 
-	-- 列出标注
-	vim.keymap.set('n', '<Leader>nl', M.list_annotations, {
-		buffer = bufnr,
-		desc = "List annotations",
-		noremap = true,
-		silent = true
-	})
-
-	vim.keymap.set('n', '<Leader>nd', M.delete_annotation, {
-		buffer = bufnr,
-		desc = "Delete annotation at position",
-		noremap = true,
-		silent = true
-	})
-
-	vim.keymap.set('n', '<Leader>np', M.preview_annotation, {
-		buffer = bufnr,
-		desc = "Preview current annotation",
-		noremap = true,
-		silent = true
-	})
-
-	-- 显示标注内容
-	vim.keymap.set('n', 'K', M.hover_annotation, {
-		buffer = bufnr,
-		desc = "Show hover information",
-		noremap = true,
-		silent = true
-	})
-
-	-- Telescope 相关快捷键
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
 	if ok then
-		-- 使用 Telescope 查找标注
-		vim.keymap.set('n', '<Leader>nf', telescope_module.find_annotations, {
-			buffer = bufnr,
-			desc = "Find annotations with Telescope",
-			noremap = true,
-			silent = true
-		})
+		table.insert(keybindings, { mode = 'n', lhs = '<Leader>nf', rhs = telescope_module.find_annotations, desc = "Find annotations with Telescope" })
+		table.insert(keybindings, { mode = 'n', lhs = '<Leader>ns', rhs = telescope_module.search_annotations, desc = "Search annotation contents" })
+	end
 
-		-- 使用 Telescope 搜索标注内容
-		vim.keymap.set('n', '<Leader>ns', telescope_module.search_annotations, {
-			buffer = bufnr,
-			desc = "Search annotation contents",
-			noremap = true,
-			silent = true
-		})
+	for _, config in ipairs(keybindings) do
+		vim.keymap.set(config.mode, config.lhs, config.rhs, vim.tbl_extend('keep', base_options, { desc = config.desc }))
 	end
 
 	-- 设置高亮组
