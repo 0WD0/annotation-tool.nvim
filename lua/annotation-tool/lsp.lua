@@ -1,6 +1,5 @@
 local M = {}
 local core = require('annotation-tool.core')
-local preview = require('annotation-tool.preview')
 local manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
 
@@ -185,8 +184,11 @@ function M.create_annotation()
 				return
 			end
 			if result and result.success then
-				-- TODO: change
-				preview.goto_annotation_note(result)
+				-- 使用manager模块打开批注文件
+				manager.open_note_file(result.note_file, {
+					title = result.title,
+					type = "annotation"
+				})
 				logger.info("Annotation created successfully")
 			end
 		end)
@@ -233,10 +235,10 @@ function M.delete_annotation()
 			if err then
 				logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 			else
-				-- 如果预览的就是这个文件，强制关闭预览窗口
-				-- TODO: change
-				if preview.is_previewing(result.note_file) then
-					preview.close_preview(true)
+				-- 如果预览的就是这个文件，移除对应的节点
+				local node_id = manager.find_node(result.note_file)
+				if node_id then
+					manager.remove_node(node_id)
 				end
 				logger.info('Annotation deleted successfully')
 			end
@@ -267,15 +269,23 @@ function M.goto_current_annotation_note()
 			return
 		end
 
-		-- TODO: change
-		preview.goto_annotation_note(result)
+		-- 使用manager模块打开批注文件
+		manager.open_note_file(result.note_file, {
+			title = result.title,
+			type = "annotation"
+		})
 	end)
 end
 
 function M.goto_annotation_source(offset)
-	local preview_state = preview.preview_state
-	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
-		logger.warn("No preview window open")
+	-- 获取当前窗口和buffer
+	local current_win = vim.api.nvim_get_current_win()
+	local current_buf = vim.api.nvim_win_get_buf(current_win)
+
+	-- 检查当前buffer是否是批注文件
+	local buf_name = vim.api.nvim_buf_get_name(current_buf)
+	if not buf_name:match("/.annotation/notes/") then
+		logger.warn("Current buffer is not an annotation file")
 		return
 	end
 
@@ -289,7 +299,7 @@ function M.goto_annotation_source(offset)
 		command = "getAnnotationSource",
 		arguments = { {
 			textDocument = {
-				uri = vim.uri_from_bufnr(preview_state.buf)
+				uri = vim.uri_from_bufnr(current_buf)
 			},
 			offset = offset
 		} }
@@ -302,9 +312,6 @@ function M.goto_annotation_source(offset)
 			logger.warn("No annotation source found")
 			return
 		end
-
-		-- TODO: change
-		preview.close_preview(false)
 
 		-- 获取或创建源文件窗口
 		local source_win = nil
@@ -319,14 +326,16 @@ function M.goto_annotation_source(offset)
 
 		-- 在源文件窗口中打开文件并跳转到批注位置
 		vim.api.nvim_set_current_win(source_win)
-		-- vim.cmd('edit ' .. result.source_path)
 		-- 使用core模块的函数将LSP位置转换为光标位置
 		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
 		vim.api.nvim_win_set_cursor(source_win, cursor_pos)
 
 		-- 设置预览窗口
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		preview.setup_preview_window(file_path)
+		manager.open_note_file(result.note_file, nil, {
+			title = result.title,
+			type = "annotation"
+		})
 	end)
 end
 
