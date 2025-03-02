@@ -123,6 +123,7 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" },
 		{ mode = 'n', lhs = '<A-k>', rhs = function() M.goto_annotation_source(-1) end, desc = "Go to previous annotation" },
 		{ mode = 'n', lhs = '<A-j>', rhs = function() M.goto_annotation_source(1) end, desc = "Go to next annotation" },
+		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source(0) end, desc = "Go to next annotation" },
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
@@ -398,7 +399,7 @@ function M.goto_annotation_source(offset)
 						table.insert(manager.edges[parent_node_id], new_note_node_id)
 					end
 				end
-				
+
 				-- 如果有源文件信息，也更新源文件中的光标位置
 				if result.source_path and result.position then
 					-- 查找是否有源文件窗口
@@ -413,7 +414,7 @@ function M.goto_annotation_source(offset)
 							break
 						end
 					end
-					
+
 					-- 如果找到源文件窗口，更新光标位置
 					if source_win then
 						local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
