@@ -23,11 +23,23 @@ function M.setup()
 		{ "AnnotationFind", telescope.find_annotations },
 		{ "AnnotationSearch", telescope.search_annotations },
 		{ "AnnotationTree", manager.show_annotation_tree },
+		-- 调试命令
+		{ "AnnotationDebugTree", manager.debug_print_tree },
+		{ "AnnotationDebugInvalidNodes", manager.debug_check_invalid_nodes },
 	}
 
 	for _, cmd in ipairs(commands) do
 		create_command(cmd[1], cmd[2])
 	end
+	
+	-- 带参数的命令需要特殊处理
+	vim.api.nvim_create_user_command("AnnotationDebugNode", function(opts)
+		if opts.args and opts.args ~= "" then
+			manager.debug_node_info(opts.args)
+		else
+			logger.debug("请提供节点ID作为参数")
+		end
+	end, { nargs = "?" })
 
 	logger.debug("Annotation commands setup complete")
 end

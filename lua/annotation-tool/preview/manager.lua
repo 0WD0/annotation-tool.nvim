@@ -503,4 +503,149 @@ function M.find_or_create_source_node(buf_id, win_id, metadata)
 	})
 end
 
+-- 调试函数：输出批注树的结构
+function M.debug_print_tree()
+	local logger = require('annotation-tool.logger')
+	logger.debug("=== 批注树结构 ===")
+
+	-- 打印节点总数
+	local node_count = 0
+	for _ in pairs(M.nodes) do
+		node_count = node_count + 1
+	end
+	logger.debug(string.format("节点总数: %d", node_count))
+
+	-- 查找根节点
+	local root_nodes = {}
+	for node_id, node in pairs(M.nodes) do
+		if not M.get_parent(node_id) then
+			table.insert(root_nodes, node_id)
+		end
+	end
+
+	logger.debug(string.format("根节点数: %d", #root_nodes))
+
+	-- 递归打印树结构
+	local function print_node(node_id, depth)
+		local indent = string.rep("  ", depth)
+		local node = M.nodes[node_id]
+		local metadata = M.metadata[node_id] or {}
+		local buffer_valid = node.buffer and vim.api.nvim_buf_is_valid(node.buffer)
+		local window_valid = node.window and vim.api.nvim_win_is_valid(node.window)
+		local buffer_name = buffer_valid and vim.api.nvim_buf_get_name(node.buffer) or "无效"
+
+		logger.debug(string.format("%s节点ID: %s", indent, node_id))
+		logger.debug(string.format("%s├─ 类型: %s", indent, metadata.type or "未知"))
+		logger.debug(string.format("%s├─ Buffer: %s (有效: %s)", indent, node.buffer or "无", buffer_valid))
+		logger.debug(string.format("%s├─ Window: %s (有效: %s)", indent, node.window or "无", window_valid))
+		logger.debug(string.format("%s├─ 文件: %s", indent, buffer_name))
+
+		-- 打印子节点
+		local children = M.get_children(node_id)
+		if #children > 0 then
+			logger.debug(string.format("%s└─ 子节点数: %d", indent, #children))
+			for _, child_id in ipairs(children) do
+				print_node(child_id, depth + 1)
+			end
+		end
+	end
+
+	-- 打印每个根节点及其子树
+	for _, root_id in ipairs(root_nodes) do
+		print_node(root_id, 0)
+		logger.debug("---")
+	end
+
+	logger.debug("=== 批注树结构结束 ===")
+end
+
+-- 调试函数：检查批注树中的无效节点
+function M.debug_check_invalid_nodes()
+	local logger = require('annotation-tool.logger')
+	logger.debug("=== 检查无效节点 ===")
+
+	local invalid_nodes = {}
+	for node_id, node in pairs(M.nodes) do
+		if not M.is_node_valid(node_id) then
+			table.insert(invalid_nodes, node_id)
+
+			-- 详细输出无效原因
+			local buffer_valid = node.buffer and vim.api.nvim_buf_is_valid(node.buffer)
+			local window_valid = node.window and vim.api.nvim_win_is_valid(node.window)
+			local window_shows_buffer = false
+
+			if buffer_valid and window_valid then
+				local win_buf = vim.api.nvim_win_get_buf(node.window)
+				window_shows_buffer = (win_buf == node.buffer)
+			end
+
+			logger.debug(string.format("无效节点ID: %s", node_id))
+			logger.debug(string.format("├─ Buffer有效: %s", buffer_valid))
+			logger.debug(string.format("├─ Window有效: %s", window_valid))
+			logger.debug(string.format("└─ Window显示Buffer: %s", window_shows_buffer))
+		end
+	end
+
+	logger.debug(string.format("发现 %d 个无效节点", #invalid_nodes))
+	logger.debug("=== 检查结束 ===")
+
+	return invalid_nodes
+end
+
+-- 调试函数：输出节点的详细信息
+function M.debug_node_info(node_id)
+	local logger = require('annotation-tool.logger')
+
+	if not node_id then
+		logger.debug("请提供节点ID")
+		return
+	end
+
+	local node = M.nodes[node_id]
+	if not node then
+		logger.debug(string.format("节点ID %s 不存在", node_id))
+		return
+	end
+
+	logger.debug(string.format("=== 节点详情 (ID: %s) ===", node_id))
+
+	-- 基本信息
+	local metadata = M.metadata[node_id] or {}
+	local buffer_valid = node.buffer and vim.api.nvim_buf_is_valid(node.buffer)
+	local window_valid = node.window and vim.api.nvim_win_is_valid(node.window)
+	local buffer_name = buffer_valid and vim.api.nvim_buf_get_name(node.buffer) or "无效"
+
+	logger.debug("基本信息:")
+	logger.debug(string.format("├─ 类型: %s", metadata.type or "未知"))
+	logger.debug(string.format("├─ Buffer: %s (有效: %s)", node.buffer or "无", buffer_valid))
+	logger.debug(string.format("├─ Window: %s (有效: %s)", node.window or "无", window_valid))
+	logger.debug(string.format("└─ 文件: %s", buffer_name))
+
+	-- 关系信息
+	local parent_id = M.get_parent(node_id)
+	local children = M.get_children(node_id)
+
+	logger.debug("关系信息:")
+	logger.debug(string.format("├─ 父节点: %s", parent_id or "无"))
+	logger.debug(string.format("└─ 子节点数: %d", #children))
+
+	if #children > 0 then
+		logger.debug("子节点列表:")
+		for i, child_id in ipairs(children) do
+			local child_valid = M.is_node_valid(child_id)
+			logger.debug(string.format("  %d. %s (有效: %s)", i, child_id, child_valid))
+		end
+	end
+
+	-- 元数据
+	if next(metadata) then
+		logger.debug("元数据:")
+		for k, v in pairs(metadata) do
+			logger.debug(string.format("├─ %s: %s", k, vim.inspect(v)))
+		end
+	end
+
+	logger.debug("=== 节点详情结束 ===")
+end
+
 return M
