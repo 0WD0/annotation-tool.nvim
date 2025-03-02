@@ -73,7 +73,12 @@ local function log(level, msg, ...)
 
 	-- 使用 vim.schedule 延迟消息显示，避免多条消息堆积
 	vim.schedule(function()
+		-- 使用 nvim_echo 显示带颜色的消息
 		vim.api.nvim_echo({{formatted_msg, hl_group}}, false, {})
+		
+		-- 同时使用 nvim_out_write 将消息写入 :messages 历史
+		-- 添加换行符确保消息正确显示
+		vim.api.nvim_out_write(formatted_msg .. "\n")
 	end)
 end
 

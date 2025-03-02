@@ -26,6 +26,7 @@ function M.setup()
 		-- 调试命令
 		{ "AnnotationDebugTree", manager.debug_print_tree },
 		{ "AnnotationDebugInvalidNodes", manager.debug_check_invalid_nodes },
+		{ "AnnotationDebugListNodes", manager.debug_list_nodes },
 	}
 
 	for _, cmd in ipairs(commands) do
@@ -37,7 +38,7 @@ function M.setup()
 		if opts.args and opts.args ~= "" then
 			manager.debug_node_info(opts.args)
 		else
-			logger.debug("请提供节点ID作为参数")
+			logger.debug("请提供节点ID作为参数\n例如: :AnnotationDebugNode node_123")
 		end
 	end, { nargs = "?" })
 

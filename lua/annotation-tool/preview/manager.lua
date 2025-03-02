@@ -648,4 +648,78 @@ function M.debug_node_info(node_id)
 	logger.debug("=== 节点详情结束 ===")
 end
 
+-- 调试函数：显示所有节点的 ID 列表
+function M.debug_list_nodes()
+	local logger = require('annotation-tool.logger')
+	logger.debug("=== 批注节点列表 ===")
+
+	-- 统计节点总数
+	local node_count = 0
+	local valid_count = 0
+	local invalid_count = 0
+
+	-- 按类型分组节点
+	local nodes_by_type = {}
+
+	for node_id, node in pairs(M.nodes) do
+		node_count = node_count + 1
+
+		local is_valid = M.is_node_valid(node_id)
+		if is_valid then
+			valid_count = valid_count + 1
+		else
+			invalid_count = invalid_count + 1
+		end
+
+		local metadata = M.metadata[node_id] or {}
+		local node_type = metadata.type or "未知"
+
+		if not nodes_by_type[node_type] then
+			nodes_by_type[node_type] = {}
+		end
+
+		table.insert(nodes_by_type[node_type], {
+			id = node_id,
+			valid = is_valid
+		})
+	end
+
+	-- 输出统计信息
+	logger.debug(string.format("节点总数: %d (有效: %d, 无效: %d)", 
+		node_count, valid_count, invalid_count))
+
+	-- 按类型输出节点
+	for node_type, nodes in pairs(nodes_by_type) do
+		logger.debug(string.format("\n类型: %s (%d个节点)", node_type, #nodes))
+
+		-- 先输出有效节点
+		local valid_nodes = {}
+		local invalid_nodes = {}
+
+		for _, node_info in ipairs(nodes) do
+			if node_info.valid then
+				table.insert(valid_nodes, node_info)
+			else
+				table.insert(invalid_nodes, node_info)
+			end
+		end
+
+		if #valid_nodes > 0 then
+			logger.debug("有效节点:")
+			for i, node_info in ipairs(valid_nodes) do
+				logger.debug(string.format("  %d. %s", i, node_info.id))
+			end
+		end
+
+		if #invalid_nodes > 0 then
+			logger.debug("无效节点:")
+			for i, node_info in ipairs(invalid_nodes) do
+				logger.debug(string.format("  %d. %s", i, node_info.id))
+			end
+		end
+	end
+
+	logger.debug("\n=== 批注节点列表结束 ===")
+end
+
 return M
