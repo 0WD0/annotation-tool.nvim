@@ -317,30 +317,111 @@ function M.goto_annotation_source(offset)
 			return
 		end
 
-		-- 获取或创建源文件窗口
-		local source_win = nil
-		local wins = vim.api.nvim_list_wins()
-		if #wins > 0 then
-			source_win = wins[1]
-		else
-			-- 如果没有窗口，创建一个新窗口
-			vim.cmd('vsplit')
-			source_win = vim.api.nvim_get_current_win()
+		-- 获取当前批注文件的节点ID
+		local note_node_id = nil
+		for node_id, node in pairs(manager.nodes) do
+			if node.window == current_win and node.buffer == current_buf then
+				note_node_id = node_id
+				break
+			end
 		end
 
-		-- 在源文件窗口中打开文件并跳转到批注位置
-		vim.api.nvim_set_current_win(source_win)
-		-- 使用core模块的函数将LSP位置转换为光标位置
-		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
-		vim.api.nvim_win_set_cursor(source_win, cursor_pos)
+		if offset == 0 then
+			-- 当 offset=0 时，从注释跳转到源文件
+			-- 在当前窗口打开源文件
+			local source_file = result.source_path
+			vim.cmd('edit ' .. vim.fn.fnameescape(source_file))
 
-		-- 设置预览窗口
-		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
-		manager.open_note_file(result.note_file, nil, {
-			title = result.title,
-			type = "annotation",
-			workspace_path = result.workspace_path
-		})
+			-- 跳转到批注位置
+			local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+			vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+
+			-- 如果找到了批注文件的节点ID，更新节点关系
+			if note_node_id then
+				-- 获取当前源文件的buffer和window
+				local source_buf = vim.api.nvim_get_current_buf()
+				local source_win = vim.api.nvim_get_current_win()
+
+				-- 创建源文件节点并与批注文件节点建立关系
+				local source_node_id = manager.create_node(source_buf, source_win, nil, {
+					type = "source",
+					note_file = result.note_file,
+					workspace_path = result.workspace_path
+				})
+
+				-- 将批注文件节点设为源文件节点的子节点
+				if manager.nodes[note_node_id] then
+					manager.nodes[note_node_id].parent = source_node_id
+					if not manager.edges[source_node_id] then
+						manager.edges[source_node_id] = {}
+					end
+					table.insert(manager.edges[source_node_id], note_node_id)
+				end
+			end
+		else
+			-- 当 offset!=0 时，切换到上一个或下一个批注
+			-- 复用当前窗口打开新的批注文件
+			if result.note_file then
+				-- 保存当前窗口和buffer，以便复用
+				local note_win = current_win
+
+				-- 在当前窗口打开新的批注文件
+				local workspace_path = result.workspace_path
+				local file_path = workspace_path .. '/.annotation/notes/' .. result.note_file
+				vim.cmd('edit ' .. vim.fn.fnameescape(file_path))
+
+				-- 跳转到笔记部分
+				vim.cmd([[
+					normal! G
+					?^## Notes
+					normal! 2j
+				]])
+
+				-- 更新节点关系
+				if note_node_id then
+					-- 获取新的批注文件buffer
+					local new_note_buf = vim.api.nvim_get_current_buf()
+
+					-- 创建新的批注文件节点
+					local new_note_node_id = manager.create_node(new_note_buf, note_win, nil, {
+						type = "annotation",
+						workspace_path = result.workspace_path
+					})
+
+					-- 如果原批注文件有父节点，将新节点也设为其子节点
+					local parent_node_id = manager.get_parent(note_node_id)
+					if parent_node_id then
+						manager.nodes[new_note_node_id].parent = parent_node_id
+						if not manager.edges[parent_node_id] then
+							manager.edges[parent_node_id] = {}
+						end
+						table.insert(manager.edges[parent_node_id], new_note_node_id)
+					end
+				end
+				
+				-- 如果有源文件信息，也更新源文件中的光标位置
+				if result.source_path and result.position then
+					-- 查找是否有源文件窗口
+					local source_win = nil
+					local source_buf = nil
+					for _, win in ipairs(vim.api.nvim_list_wins()) do
+						local buf = vim.api.nvim_win_get_buf(win)
+						local buf_name = vim.api.nvim_buf_get_name(buf)
+						if buf_name == result.source_path then
+							source_win = win
+							source_buf = buf
+							break
+						end
+					end
+					
+					-- 如果找到源文件窗口，更新光标位置
+					if source_win then
+						local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+						vim.api.nvim_win_set_cursor(source_win, cursor_pos)
+					end
+				end
+			end
+		end
 	end)
 end
 
