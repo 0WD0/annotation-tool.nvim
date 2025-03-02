@@ -188,6 +188,8 @@ function M.create_annotation()
 				manager.open_note_file(result.note_file, {
 					title = result.title,
 					type = "annotation"
+				}, {
+					workspace_path = result.workspace_path
 				})
 				logger.info("Annotation created successfully")
 			end
@@ -273,6 +275,8 @@ function M.goto_current_annotation_note()
 		manager.open_note_file(result.note_file, {
 			title = result.title,
 			type = "annotation"
+		}, {
+			workspace_path = result.workspace_path
 		})
 	end)
 end
@@ -334,7 +338,8 @@ function M.goto_annotation_source(offset)
 		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
 		manager.open_note_file(result.note_file, nil, {
 			title = result.title,
-			type = "annotation"
+			type = "annotation",
+			workspace_path = result.workspace_path
 		})
 	end)
 end

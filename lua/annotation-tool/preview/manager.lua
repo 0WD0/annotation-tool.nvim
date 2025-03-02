@@ -347,7 +347,7 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 	end
 
 	-- 构建批注文件的完整路径
-	local workspace_path = vim.fn.getcwd()
+	local workspace_path = metadata and metadata.workspace_path or vim.fn.getcwd()
 	local file_path = workspace_path .. '/.annotation/notes/' .. note_file
 
 	-- 保存当前窗口作为父窗口
