@@ -120,7 +120,9 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations, desc = "List annotations" },
 		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
 		{ mode = 'n', lhs = '<Leader>np', rhs = M.preview_annotation, desc = "Preview current annotation" },
-		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" }
+		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" },
+		{ mode = 'n', lhs = '[a', rhs = function() M.goto_annotation_source(-1) end, desc = "Go to previous annotation" },
+		{ mode = 'n', lhs = ']a', rhs = function() M.goto_annotation_source(1) end, desc = "Go to next annotation" },
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
@@ -245,6 +247,67 @@ function M.preview_annotation()
 		return
 	end
 	preview.goto_current_annotation_note()
+end
+
+function M.goto_annotation_source(offset)
+	local preview_state = preview.preview_state
+	if not preview_state.buf or not vim.api.nvim_buf_is_valid(preview_state.buf) then
+		logger.warn("No preview window open")
+		return
+	end
+
+	-- 延迟加载 lsp 模块，避免循环依赖
+	local lsp = require('annotation-tool.lsp')
+	local client = lsp.get_client()
+	if not client then
+		logger.error("LSP client not available")
+		return
+	end
+
+	client.request('workspace/executeCommand', {
+		command = "getAnnotationSource",
+		arguments = { {
+			textDocument = {
+				uri = vim.uri_from_bufnr(preview_state.buf)
+			},
+			offset = offset
+		} }
+	}, function(err, result)
+		if err then
+			logger.error("Error getting annotation source: " .. err.message)
+			return
+		end
+
+		if not result then
+			logger.warn("No annotation source found")
+			return
+		end
+
+		-- 如果预览窗口已存在，先关闭它
+		preview.close_preview(false)
+
+		-- 获取或创建源文件窗口
+		local source_win = nil
+		local wins = vim.api.nvim_list_wins()
+		if #wins > 0 then
+			source_win = wins[1]
+		else
+			-- 如果没有窗口，创建一个新窗口
+			vim.cmd('vsplit')
+			source_win = vim.api.nvim_get_current_win()
+		end
+
+		-- 在源文件窗口中打开文件并跳转到批注位置
+		vim.api.nvim_set_current_win(source_win)
+		-- vim.cmd('edit ' .. result.source_path)
+		-- 使用core模块的函数将LSP位置转换为光标位置
+		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+		vim.api.nvim_win_set_cursor(source_win, cursor_pos)
+
+		-- 设置预览窗口
+		local file_path = result.workspace_path .. '/.annotation/notes/' .. result.note_file
+		preview.setup_preview_window(file_path)
+	end)
 end
 
 -- 查找最顶层的项目根目录
