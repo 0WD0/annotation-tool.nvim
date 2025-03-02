@@ -415,7 +415,7 @@ end
 -- 注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点
-	vim.api.nvim_create_autocmd({"BufDelete", "WinClosed", "BufWinLeave"}, {
+	vim.api.nvim_create_autocmd({"BufDelete", "WinClosed", "BufWinEnter"}, {
 		callback = function()
 			M.cleanup()
 		end
