@@ -187,10 +187,9 @@ function M.create_annotation()
 			end
 			if result and result.success then
 				-- 使用manager模块打开批注文件
-				manager.open_note_file(result.note_file, {
-					title = result.title,
-					type = "annotation"
-				}, {
+				local buf_id = vim.api.nvim_get_current_buf()
+				local win_id = vim.api.nvim_get_current_win()
+				manager.open_note_file(result.note_file, buf_id .. '_' .. win_id , {
 					workspace_path = result.workspace_path
 				})
 				logger.info("Annotation created successfully")

@@ -1,11 +1,14 @@
 local M = {}
 
+local logger = require('annotation-tool.logger')
+
 M.nodes = {}
 M.edges = {}
 M.metadata = {}
 
 function M.create_node(buf_id, win_id, parent_id, metadata)
 	local node_id = buf_id .. "_" .. win_id
+	logger.debug(string.format("创建节点 ID: %s, 父节点: %s", node_id, parent_id or "无"))
 
 	-- 存储节点信息
 	M.nodes[node_id] = {
@@ -16,6 +19,7 @@ function M.create_node(buf_id, win_id, parent_id, metadata)
 
 	-- 存储节点元数据
 	M.metadata[node_id] = metadata or {}
+	logger.debug(string.format("节点 %s 元数据: %s", node_id, vim.inspect(metadata)))
 
 	-- 如果有父节点，建立关系
 	if parent_id then
@@ -23,6 +27,7 @@ function M.create_node(buf_id, win_id, parent_id, metadata)
 			M.edges[parent_id] = {}
 		end
 		table.insert(M.edges[parent_id], node_id)
+		logger.debug(string.format("将节点 %s 添加到父节点 %s 的子节点列表", node_id, parent_id))
 	end
 
 	return node_id
@@ -50,11 +55,28 @@ function M.find_node(note_file)
 end
 
 function M.get_children(node_id)
-	return M.edges[node_id] or {}
+	local node = M.nodes[node_id]
+	if not node then
+		logger.debug(string.format("获取子节点: 节点 %s 不存在", node_id))
+		return {}
+	end
+
+	if not M.edges[node_id] then
+		return {}
+	end
+
+	return M.edges[node_id]
 end
 
 function M.get_parent(node_id)
-	return M.nodes[node_id] and M.nodes[node_id].parent
+	for parent_id, children in pairs(M.edges) do
+		for _, child_id in ipairs(children) do
+			if child_id == node_id then
+				return parent_id
+			end
+		end
+	end
+	return nil
 end
 
 function M.get_ancestors(node_id)
@@ -70,66 +92,50 @@ function M.get_ancestors(node_id)
 end
 
 function M.remove_node(node_id)
+	logger.debug(string.format("删除节点: %s", node_id))
+
 	local children = M.get_children(node_id)
 	for _, child_id in ipairs(children) do
 		M.remove_node(child_id)
 	end
 
+	-- 从父节点的子节点列表中移除
 	local parent_id = M.get_parent(node_id)
 	if parent_id and M.edges[parent_id] then
-		for i, id in ipairs(M.edges[parent_id]) do
-			if id == node_id then
+		logger.debug(string.format("从父节点 %s 中移除子节点 %s", parent_id, node_id))
+		for i, child_id in ipairs(M.edges[parent_id]) do
+			if child_id == node_id then
 				table.remove(M.edges[parent_id], i)
 				break
 			end
 		end
 	end
 
-	-- 关闭窗口和buffer（如果存在）
-	if M.nodes[node_id] then
-		local node = M.nodes[node_id]
-
-		-- 检查窗口是否存在，如果存在则关闭
-		if node.window and vim.api.nvim_win_is_valid(node.window) then
-			-- 保存当前窗口
-			local current_win = vim.api.nvim_get_current_win()
-
-			-- 关闭窗口
-			pcall(vim.api.nvim_win_close, node.window, true)
-
-			-- 如果当前窗口被关闭，尝试恢复到其他窗口
-			if not vim.api.nvim_win_is_valid(current_win) then
-				local wins = vim.api.nvim_list_wins()
-				if #wins > 0 then
-					vim.api.nvim_set_current_win(wins[1])
-				end
-			end
+	-- 关闭相关的 buffer 和 window
+	local node = M.nodes[node_id]
+	if node then
+		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
+			logger.debug(string.format("关闭节点 %s 的 buffer: %s", node_id, node.buffer))
+			vim.api.nvim_buf_delete(node.buffer, { force = true })
 		end
 
-		-- 检查buffer是否存在，如果存在且不再被任何窗口使用，则关闭
-		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
-			local is_buffer_in_window = false
-			for _, win in ipairs(vim.api.nvim_list_wins()) do
-				if vim.api.nvim_win_get_buf(win) == node.buffer then
-					is_buffer_in_window = true
-					break
-				end
-			end
-
-			if not is_buffer_in_window then
-				pcall(vim.api.nvim_buf_delete, node.buffer, {force = true})
-			end
+		if node.window and vim.api.nvim_win_is_valid(node.window) then
+			logger.debug(string.format("关闭节点 %s 的 window: %s", node_id, node.window))
+			vim.api.nvim_win_close(node.window, true)
 		end
 	end
 
+	-- 移除节点和元数据
 	M.nodes[node_id] = nil
 	M.edges[node_id] = nil
 	M.metadata[node_id] = nil
+	logger.debug(string.format("节点 %s 已完全删除", node_id))
 end
 
 function M.update_metadata(node_id, key, value)
 	if M.metadata[node_id] then
 		M.metadata[node_id][key] = value
+		logger.debug(string.format("更新节点 %s 的元数据: %s = %s", node_id, key, value))
 	end
 end
 
@@ -139,18 +145,26 @@ function M.is_node_valid(node_id)
 		return false
 	end
 
-	-- 检查 buffer 是否存在
-	local buf_valid = vim.api.nvim_buf_is_valid(node.buffer)
-	-- 检查 window 是否存在
-	local win_valid = vim.api.nvim_win_is_valid(node.window)
-
-	-- 如果窗口和buffer都有效，检查window是否显示该buffer
-	if buf_valid and win_valid then
-		local win_buf = vim.api.nvim_win_get_buf(node.window)
-		return win_buf == node.buffer
+	if node.buffer and not vim.api.nvim_buf_is_valid(node.buffer) then
+		logger.debug(string.format("节点 %s 的 buffer %s 无效", node_id, node.buffer))
+		return false
 	end
 
-	return false
+	if node.window and not vim.api.nvim_win_is_valid(node.window) then
+		logger.debug(string.format("节点 %s 的 window %s 无效", node_id, node.window))
+		return false
+	end
+
+	if node.buffer and node.window then
+		local win_buf = vim.api.nvim_win_get_buf(node.window)
+		if win_buf ~= node.buffer then
+			logger.debug(string.format("节点 %s 的 window %s 不显示其 buffer %s (实际显示: %s)",
+				node_id, node.window, node.buffer, win_buf))
+			return false
+		end
+	end
+
+	return true
 end
 
 function M.cleanup()
@@ -174,6 +188,7 @@ function M.traverse(callback, start_node_id)
 
 		-- 调用回调函数，传入节点ID和深度
 		callback(node_id, M.nodes[node_id], M.metadata[node_id], depth)
+		logger.debug(string.format("遍历节点 %s (深度: %d)", node_id, depth))
 
 		-- 遍历子节点
 		local children = M.get_children(node_id)
@@ -197,6 +212,7 @@ end
 
 -- 创建根批注 (例如原始文档)
 function M.create_source(buf_id, win_id, metadata)
+	logger.debug(string.format("创建根批注: %s, %s", buf_id, win_id))
 	return M.create_node(buf_id, win_id, nil, metadata)
 end
 
@@ -205,6 +221,8 @@ M.create_annotation = M.create_node
 
 -- 显示批注树
 function M.show_annotation_tree()
+	logger.debug("显示批注树")
+
 	-- 创建一个新的缓冲区
 	local buf = vim.api.nvim_create_buf(false, true)
 	vim.api.nvim_set_option_value('buftype', 'nofile', { buf = buf })
@@ -505,7 +523,6 @@ end
 
 -- 调试函数：输出批注树的结构
 function M.debug_print_tree()
-	local logger = require('annotation-tool.logger')
 	logger.debug("=== 批注树结构 ===")
 
 	-- 打印节点总数
@@ -517,7 +534,7 @@ function M.debug_print_tree()
 
 	-- 查找根节点
 	local root_nodes = {}
-	for node_id, node in pairs(M.nodes) do
+	for node_id, _ in pairs(M.nodes) do
 		if not M.get_parent(node_id) then
 			table.insert(root_nodes, node_id)
 		end
@@ -561,7 +578,6 @@ end
 
 -- 调试函数：检查批注树中的无效节点
 function M.debug_check_invalid_nodes()
-	local logger = require('annotation-tool.logger')
 	logger.debug("=== 检查无效节点 ===")
 
 	local invalid_nodes = {}
@@ -594,8 +610,6 @@ end
 
 -- 调试函数：输出节点的详细信息
 function M.debug_node_info(node_id)
-	local logger = require('annotation-tool.logger')
-
 	if not node_id then
 		logger.debug("请提供节点ID")
 		return
@@ -650,7 +664,6 @@ end
 
 -- 调试函数：显示所有节点的 ID 列表
 function M.debug_list_nodes()
-	local logger = require('annotation-tool.logger')
 	logger.debug("=== 批注节点列表 ===")
 
 	-- 统计节点总数
@@ -661,7 +674,7 @@ function M.debug_list_nodes()
 	-- 按类型分组节点
 	local nodes_by_type = {}
 
-	for node_id, node in pairs(M.nodes) do
+	for node_id, _ in pairs(M.nodes) do
 		node_count = node_count + 1
 
 		local is_valid = M.is_node_valid(node_id)
@@ -685,7 +698,7 @@ function M.debug_list_nodes()
 	end
 
 	-- 输出统计信息
-	logger.debug(string.format("节点总数: %d (有效: %d, 无效: %d)", 
+	logger.debug(string.format("节点总数: %d (有效: %d, 无效: %d)",
 		node_count, valid_count, invalid_count))
 
 	-- 按类型输出节点
