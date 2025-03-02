@@ -362,6 +362,10 @@ function M.goto_annotation_source(offset)
 				-- 在当前窗口打开新的批注文件
 				local workspace_path = result.workspace_path
 				local file_path = workspace_path .. '/.annotation/notes/' .. result.note_file
+
+				local annotation_buf = vim.api.nvim_get_current_buf()
+				local annotation_win = vim.api.nvim_get_current_win()
+				manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 				vim.cmd('edit ' .. vim.fn.fnameescape(file_path))
 
 				-- 跳转到笔记部分

@@ -108,12 +108,15 @@ function M.get_ancestors(node_id)
 	return ancestors
 end
 
-function M.remove_node(node_id)
+function M.remove_node(node_id, delete)
+	if delete == nil then
+		delete = true
+	end
 	logger.debug(string.format("删除节点: %s", node_id))
 
 	local children = M.get_children(node_id)
 	for _, child_id in ipairs(children) do
-		M.remove_node(child_id)
+		M.remove_node(child_id, true)
 	end
 
 	-- 从父节点的子节点列表中移除
@@ -130,7 +133,7 @@ function M.remove_node(node_id)
 
 	-- 关闭相关的 buffer 和 window
 	local node = M.nodes[node_id]
-	if node then
+	if delete and node then
 		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
 			logger.debug(string.format("关闭节点 %s 的 buffer: %s", node_id, node.buffer))
 			vim.api.nvim_buf_delete(node.buffer, { force = true })
@@ -415,7 +418,7 @@ end
 -- 注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点
-	vim.api.nvim_create_autocmd({"BufDelete", "WinClosed", "BufWinEnter"}, {
+	vim.api.nvim_create_autocmd({"BufDelete", "WinClosed", "BufWinLeave"}, {
 		callback = function()
 			M.cleanup()
 		end
