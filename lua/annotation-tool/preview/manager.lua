@@ -6,6 +6,9 @@ M.nodes = {}
 M.edges = {}
 M.metadata = {}
 
+---获取节点的所有子节点
+---@param node_id string 节点ID
+---@return table 子节点ID列表
 function M.get_children(node_id)
 	local node = M.nodes[node_id]
 	if not node then
@@ -20,6 +23,9 @@ function M.get_children(node_id)
 	return M.edges[node_id]
 end
 
+---获取节点的父节点
+---@param node_id string 节点ID
+---@return string|nil 父节点ID，如果没有父节点则返回nil
 function M.get_parent(node_id)
 	for parent_id, children in pairs(M.edges) do
 		for _, child_id in ipairs(children) do
@@ -31,6 +37,9 @@ function M.get_parent(node_id)
 	return nil
 end
 
+---获取节点的所有祖先节点
+---@param node_id string 节点ID
+---@return table 祖先节点ID列表，从近到远排序
 function M.get_ancestors(node_id)
 	local ancestors = {}
 	local current = M.get_parent(node_id)
@@ -43,6 +52,9 @@ function M.get_ancestors(node_id)
 	return ancestors
 end
 
+---检查节点是否有效
+---@param node_id string 节点ID
+---@return boolean 节点是否有效
 function M.is_node_valid(node_id)
 	local node = M.nodes[node_id]
 	if not node then
@@ -71,6 +83,12 @@ function M.is_node_valid(node_id)
 	return true
 end
 
+---创建一个新节点，如果已存在使用相同buffer和window的节点则返回已存在的节点ID
+---@param buf_id integer buffer ID
+---@param win_id integer window ID
+---@param parent_id string|nil 父节点ID
+---@param metadata table|nil 节点元数据
+---@return string 节点ID
 function M.create_node(buf_id, win_id, parent_id, metadata)
 	-- 首先检查是否已经存在使用相同 buffer 和 window 的节点
 	local existing_node_id = nil
@@ -115,12 +133,19 @@ function M.create_node(buf_id, win_id, parent_id, metadata)
 	return node_id
 end
 
--- 创建根批注 (例如原始文档)
+---创建一个源节点（根节点）
+---@param buf_id integer buffer ID
+---@param win_id integer window ID
+---@param metadata table|nil 节点元数据
+---@return string 节点ID
 function M.create_source(buf_id, win_id, metadata)
 	logger.debug(string.format("创建根批注: %s, %s", buf_id, win_id))
 	return M.create_node(buf_id, win_id, nil, metadata)
 end
 
+---输入批注文件名，查找是否已经打开了该批注文件
+---@param note_file string 批注文件名
+---@return string|nil 如果找到则返回节点ID，否则返回nil
 function M.find_node(note_file)
 	for node_id, node in pairs(M.nodes) do
 		-- 检查 buffer 是否有效
@@ -142,7 +167,11 @@ function M.find_node(note_file)
 	return nil
 end
 
--- 查找或创建源文件节点
+---查找或创建源节点
+---@param buf_id integer buffer ID
+---@param win_id integer window ID
+---@param metadata table|nil 节点元数据
+---@return string 节点ID
 function M.find_or_create_source_node(buf_id, win_id, metadata)
 	logger.debug(string.format("查找或创建源节点: buf=%s, win=%s", buf_id, win_id))
 
@@ -166,6 +195,9 @@ function M.find_or_create_source_node(buf_id, win_id, metadata)
 	return M.create_source(buf_id, win_id, metadata)
 end
 
+---删除节点及其所有子节点
+---@param node_id string 节点ID
+---@param delete boolean|nil 是否同时删除buffer和window，默认为true
 function M.remove_node(node_id, delete)
 	if delete == nil then
 		delete = true
@@ -210,6 +242,7 @@ function M.remove_node(node_id, delete)
 	logger.debug(string.format("节点 %s 已完全删除", node_id))
 end
 
+---清理无效节点
 function M.cleanup()
 	local to_remove = {}
 
@@ -224,7 +257,7 @@ function M.cleanup()
 	end
 end
 
--- 注册自动命令以监听缓冲区/窗口关闭
+---注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点
 	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
@@ -234,7 +267,9 @@ function M.setup()
 	})
 end
 
--- 遍历树
+---遍历树
+---@param callback function 回调函数，接受 node_id、node、metadata 和 depth 作为参数
+---@param start_node_id string|nil 起始节点ID，如果不指定则从所有根节点开始
 function M.traverse(callback, start_node_id)
 	local function dfs(node_id, depth)
 		if not M.nodes[node_id] then return end
@@ -255,17 +290,18 @@ function M.traverse(callback, start_node_id)
 		dfs(start_node_id, 0)
 	else
 		-- 找出所有根节点 (没有父节点的节点)
-		for node_id, node in pairs(M.nodes) do
-			if not node.parent then
+		for node_id, _ in pairs(M.nodes) do
+			if not M.get_parent(node_id) then
 				dfs(node_id, 0)
 			end
 		end
 	end
 end
 
--- 显示批注树
-
--- 跳转到特定批注
+---显示批注树结构
+---跳转到特定批注
+---@param node_id string 节点ID
+---@return boolean 是否跳转成功
 function M.jump_to_annotation(node_id)
 	if M.is_node_valid(node_id) then
 		local node = M.nodes[node_id]
@@ -277,7 +313,11 @@ function M.jump_to_annotation(node_id)
 	return false
 end
 
--- 打开批注文件并创建新的buffer和window
+---打开批注文件并创建新的buffer和window
+---@param note_file string 批注文件名
+---@param parent_node_id string|nil 父节点ID
+---@param metadata table|nil 节点元数据
+---@return string|nil 创建的节点ID，如果打开失败则返回nil
 function M.open_note_file(note_file, parent_node_id, metadata)
 	logger.debug(string.format("打开批注文件: %s, 父节点ID: %s", note_file, parent_node_id or "无"))
 
@@ -376,7 +416,10 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 	return node_id
 end
 
--- 打开源文件的批注
+---打开源文件的批注
+---@param note_file string 批注文件名
+---@param metadata table|nil 节点元数据
+---@return string|nil 创建的节点ID，如果打开失败则返回nil
 function M.open_source_annotation(note_file, metadata)
 	-- 获取当前buffer和window
 	local buf_id = vim.api.nvim_get_current_buf()
@@ -566,18 +609,30 @@ function M.show_annotation_tree()
 	return buf, win
 end
 
------------------------- 调试函数 ------------------------
+---更新节点元数据
+---@param node_id string 节点ID
+---@param key string 元数据键
+---@param value any 元数据值
+function M.update_metadata(node_id, key, value)
+	if not M.nodes[node_id] then
+		logger.debug(string.format("更新元数据: 节点 %s 不存在", node_id))
+		return
+	end
 
--- 调试函数：输出批注树的结构
+	if not M.metadata[node_id] then
+		M.metadata[node_id] = {}
+	end
+
+	M.metadata[node_id][key] = value
+	logger.debug(string.format("更新节点 %s 元数据: %s = %s", node_id, key, vim.inspect(value)))
+end
+
+---调试函数：输出批注树的结构
 function M.debug_print_tree()
 	logger.debug("=== 批注树结构 ===")
 
 	-- 打印节点总数
-	local node_count = 0
-	for _ in pairs(M.nodes) do
-		node_count = node_count + 1
-	end
-	logger.debug(string.format("节点总数: %d", node_count))
+	logger.debug(string.format("节点总数: %d", #M.nodes))
 
 	-- 查找根节点
 	local root_nodes = {}
@@ -623,7 +678,7 @@ function M.debug_print_tree()
 	logger.debug("=== 批注树结构结束 ===")
 end
 
--- 调试函数：检查批注树中的无效节点
+---调试函数：检查批注树中的无效节点
 function M.debug_check_invalid_nodes()
 	logger.debug("=== 检查无效节点 ===")
 
@@ -655,7 +710,7 @@ function M.debug_check_invalid_nodes()
 	return invalid_nodes
 end
 
--- 调试函数：输出节点的详细信息
+---调试函数：输出节点的详细信息
 function M.debug_node_info(node_id)
 	if not node_id then
 		logger.debug("请提供节点ID")
@@ -709,7 +764,7 @@ function M.debug_node_info(node_id)
 	logger.debug("=== 节点详情结束 ===")
 end
 
--- 调试函数：显示所有节点的 ID 列表
+---调试函数：显示所有节点的 ID 列表
 function M.debug_list_nodes()
 	logger.debug("=== 批注节点列表 ===")
 
