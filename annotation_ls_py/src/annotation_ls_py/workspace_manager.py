@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 from .db_manager import DatabaseManager
 from .note_manager import NoteManager
@@ -33,7 +33,7 @@ class Workspace:
 
 	def contains_file(self, file_uri: str) -> bool:
 		"""检查文件是否在此工作区中"""
-		file_path = Path(urlparse(file_uri).path)
+		file_path = Path(unquote(urlparse(file_uri).path))
 		try:
 			file_path.relative_to(self.root_path)
 			return True
@@ -53,7 +53,7 @@ class Workspace:
 			workspace = child.get_workspace_for_file(file_uri)
 			if workspace:
 				try:
-					relative = Path(urlparse(file_uri).path).relative_to(workspace.root_path)
+					relative = Path(unquote(urlparse(file_uri).path)).relative_to(workspace.root_path)
 					depth = len(relative.parts)
 					if depth < min_depth:
 						deepest_workspace = workspace
@@ -64,7 +64,7 @@ class Workspace:
 		# 如果没有找到更深的工作区，返回当前工作区
 		if not deepest_workspace:
 			try:
-				relative = Path(urlparse(file_uri).path).relative_to(self.root_path)
+				relative = Path(unquote(urlparse(file_uri).path)).relative_to(self.root_path)
 				depth = len(relative.parts)
 				if depth < min_depth:
 					deepest_workspace = self
@@ -177,7 +177,8 @@ class WorkspaceManager:
 				return self._all_workspaces[workspace_uri]
 			
 			# 创建新工作区
-			workspace_path = Path(urlparse(workspace_uri).path)
+			# 解码 URL 编码的路径
+			workspace_path = Path(unquote(urlparse(workspace_uri).path))
 			
 			# 查找所有子项目
 			project_paths = self._find_subprojects(workspace_path)
@@ -283,7 +284,7 @@ class WorkspaceManager:
 	def get_workspace(self, file_uri: str) -> Optional[Workspace]:
 		"""获取文件所属的最深工作区"""
 		try:
-			file_path = Path(urlparse(file_uri).path)
+			file_path = Path(unquote(urlparse(file_uri).path))
 			
 			# 先找到所属的根项目
 			root = self._find_root_project_for_path(file_path)
