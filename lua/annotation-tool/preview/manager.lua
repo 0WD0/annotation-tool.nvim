@@ -206,7 +206,7 @@ function M.remove_node(node_id, delete)
 
 	local children = M.get_children(node_id)
 	for _, child_id in ipairs(children) do
-		M.remove_node(child_id, true)
+		M.remove_node(child_id)
 	end
 
 	-- 从父节点的子节点列表中移除
@@ -223,8 +223,10 @@ function M.remove_node(node_id, delete)
 
 	-- 关闭相关的 buffer 和 window
 	local node = M.nodes[node_id]
-	if delete and node then
-		if node.window and vim.api.nvim_win_is_valid(node.window) and M.is_node_valid(node_id) then
+	if not node then
+		logger.debug(string.format("节点 %s 不存在", node_id))
+	else
+		if delete and node.window and vim.api.nvim_win_is_valid(node.window) and M.is_node_valid(node_id) then
 			logger.debug(string.format("关闭节点 %s 的 window: %s", node_id, node.window))
 			vim.api.nvim_win_close(node.window, true)
 		end

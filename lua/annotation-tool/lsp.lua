@@ -366,7 +366,7 @@ function M.goto_annotation_source(offset)
 				vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
 				vim.api.nvim_win_set_buf(annotation_win, new_buf)
 
-				manager.remove_node(annotation_buf .. '_' .. annotation_win, true)
+				manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 
 				-- 跳转到笔记部分
 				vim.cmd([[
