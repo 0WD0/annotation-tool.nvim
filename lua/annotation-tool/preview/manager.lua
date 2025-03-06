@@ -264,18 +264,18 @@ function M.cleanup()
 	end
 
 	for _, node_id in ipairs(to_remove) do
-		M.remove_node(node_id)
+		M.remove_node(node_id, false)
 	end
 end
 
 ---注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点
-	-- vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
-	-- 	callback = function()
-	-- 		M.cleanup()
-	-- 	end
-	-- })
+	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
+		callback = function()
+			M.cleanup()
+		end
+	})
 end
 
 ---遍历树
