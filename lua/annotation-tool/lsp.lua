@@ -420,8 +420,6 @@ function M.switch_annotation(offset)
 			vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
 			vim.api.nvim_win_set_buf(annotation_win, new_buf)
 
-			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
-
 			-- 跳转到笔记部分
 			vim.cmd([[
 				normal! G
@@ -450,6 +448,8 @@ function M.switch_annotation(offset)
 					table.insert(manager.edges[parent_node_id], new_note_node_id)
 				end
 			end
+
+			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 
 			-- 如果有源文件信息，也更新源文件中的光标位置
 			if result.source_path and result.position then
