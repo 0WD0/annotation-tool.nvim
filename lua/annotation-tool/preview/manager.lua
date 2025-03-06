@@ -509,20 +509,56 @@ function M.show_annotation_tree()
 	table.insert(result, "---")
 	table.insert(result, "")
 
+	-- 跟踪每个深度级别的最后一个节点
+	local is_last_child = {}
+
+	-- 预处理，标记每个深度的最后一个子节点
+	local function mark_last_children()
+		local depth_counts = {}
+		local depth_indices = {}
+
+		-- 第一遍：计算每个深度有多少个节点
+		M.traverse(function(_, _, _, depth)
+			depth_counts[depth] = (depth_counts[depth] or 0) + 1
+			depth_indices[depth] = 0
+		end)
+
+		-- 第二遍：标记每个节点是否是其深度的最后一个
+		M.traverse(function(node_id, _, _, depth)
+			depth_indices[depth] = depth_indices[depth] + 1
+			is_last_child[node_id] = (depth_indices[depth] == depth_counts[depth])
+		end)
+	end
+
+	mark_last_children()
+
+	-- 存储每个深度级别是否是最后一个子节点的历史
+	local is_last_at_depth = {}
+
 	-- 遍历树并构建结果
 	local line_idx = #result + 1
 	M.traverse(function(node_id, node, metadata, depth)
-		local indent = string.rep("  ", depth)
 		local buf_name = vim.api.nvim_buf_get_name(node.buffer)
 		local file_name = buf_name:match("[^/]+$") or buf_name
 
-		-- 添加树形图标
+		-- 构建树形图标
 		local prefix = ""
 		if depth > 0 then
-			if depth == 1 then
-				prefix = "├─ "
+			for i = 1, depth - 1 do
+				if is_last_at_depth[i] then
+					prefix = prefix .. "    " -- 如果上层是最后一个子节点，则不显示竖线
+				else
+					prefix = prefix .. "│   " -- 否则显示竖线
+				end
+			end
+
+			-- 当前节点的连接线
+			if is_last_child[node_id] then
+				prefix = prefix .. "└── " -- 最后一个子节点使用 └
+				is_last_at_depth[depth] = true
 			else
-				prefix = "│  " .. (string.rep("  ", depth - 2)) .. "├─ "
+				prefix = prefix .. "├── " -- 非最后一个子节点使用 ├
+				is_last_at_depth[depth] = false
 			end
 		end
 
@@ -541,7 +577,7 @@ function M.show_annotation_tree()
 		end
 
 		-- 构建显示行
-		local display_line = indent .. prefix .. icon .. file_name .. meta_info
+		local display_line = prefix .. icon .. file_name .. meta_info
 		table.insert(result, display_line)
 
 		-- 记录节点ID对应的行号
