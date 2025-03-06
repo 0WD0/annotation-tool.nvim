@@ -133,14 +133,29 @@ class WorkspaceManager:
 		"""
 		result = []
 		try:
+			# 确保路径是有效的 Path 对象
+			if not isinstance(root_path, Path):
+				root_path = Path(str(root_path))
+
+			# 检查路径是否存在
+			if not root_path.exists():
+				error(f"Path does not exist: {root_path}")
+				return result
+
 			# 如果当前目录包含 .annotation，加入结果
-			if (root_path / '.annotation').is_dir():
+			annotation_dir = root_path / '.annotation'
+			if annotation_dir.exists() and annotation_dir.is_dir():
 				result.append(root_path)
 			
 			# 递归搜索子目录
-			for item in root_path.iterdir():
-				if item.is_dir() and not item.name.startswith('.'):
-					result.extend(self._find_subprojects(item))
+			try:
+				for item in root_path.iterdir():
+					if item.is_dir() and not item.name.startswith('.'):
+						result.extend(self._find_subprojects(item))
+			except PermissionError:
+				error(f"Permission denied when accessing directory: {root_path}")
+			except UnicodeDecodeError:
+				error(f"Unicode decode error when accessing directory: {root_path}")
 			
 			return result
 		except Exception as e:
