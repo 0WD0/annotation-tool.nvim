@@ -101,14 +101,37 @@ function M.get_client()
 	return clients[1]
 end
 
-function M.highlight()
+-- 高亮文档中的引用
+-- @param target_win number|nil 目标窗口ID，如果不提供则使用当前窗口
+function M.highlight(target_win)
 	local mode = vim.api.nvim_get_mode().mode
 	if mode ~= 'n' then
 		return
 	end
-
+	
+	-- 获取当前窗口和目标窗口
+	local current_win = vim.api.nvim_get_current_win()
+	target_win = target_win or current_win
+	
+	-- 检查目标窗口是否有效
+	if not vim.api.nvim_win_is_valid(target_win) then
+		logger.warn("Invalid target window for highlight: " .. tostring(target_win))
+		return
+	end
+	
+	-- 获取目标缓冲区
+	local target_buf = vim.api.nvim_win_get_buf(target_win)
+	
+	-- 清除之前的高亮
 	vim.lsp.buf.clear_references()
+	
+	-- 创建参数
 	local params = core.make_position_params()
+	
+	-- 添加目标缓冲区信息
+	params._target_bufnr = target_buf
+	
+	-- 发送请求
 	request(ms.textDocument_documentHighlight, params)
 end
 
@@ -492,6 +515,9 @@ function M.switch_annotation(offset)
 				if source_win then
 					local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
 					vim.api.nvim_win_set_cursor(source_win, cursor_pos)
+					
+					-- 直接传入目标窗口来更新高亮，不需要切换窗口
+					M.highlight(source_win)
 				end
 			end
 		end
@@ -602,14 +628,28 @@ function M.setup(opts)
 					return
 				end
 
+				-- 获取目标缓冲区，默认为请求的缓冲区
+				local target_bufnr = ctx.bufnr
+
+				-- 检查是否有自定义的目标缓冲区
+				if ctx.params and ctx.params._target_bufnr then
+					target_bufnr = ctx.params._target_bufnr
+				end
+
+				-- 检查目标缓冲区是否有效
+				if not vim.api.nvim_buf_is_valid(target_bufnr) then
+					logger.warn("Invalid target buffer for highlight: " .. tostring(target_bufnr))
+					return
+				end
+
 				local converted_result = {}
 				for _, highlight in ipairs(result) do
-					local byte_range = core.convert_utf8_to_bytes(0, highlight.range)
+					local byte_range = core.convert_utf8_to_bytes(target_bufnr, highlight.range)
 					table.insert(converted_result, { range = byte_range })
 				end
 
 				vim.lsp.util.buf_highlight_references(
-					ctx.bufnr,
+					target_bufnr,
 					converted_result,
 					'utf-8'
 				)
