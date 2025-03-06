@@ -415,10 +415,15 @@ function M.switch_annotation(offset)
 			local annotation_buf = vim.api.nvim_get_current_buf()
 			local annotation_win = vim.api.nvim_get_current_win()
 
+			logger.debug("Switching to annotation " .. result.note_file)
+
 			-- 使用 vim.api.nvim_win_set_buf 替代 vim.cmd('edit ...')
 			local new_buf = vim.fn.bufadd(result.workspace_path .. '/.annotation/notes/' .. result.note_file)
+			logger.debug("New buffer ID: " .. new_buf)
 			vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
+			logger.debug("Set buflisted")
 			vim.api.nvim_win_set_buf(annotation_win, new_buf)
+			logger.debug("Set buffer")
 
 			-- 跳转到笔记部分
 			vim.cmd([[
@@ -429,6 +434,7 @@ function M.switch_annotation(offset)
 
 			-- 更新节点关系
 			if note_node_id then
+				logger.debug("Switching to annotation " .. result.note_file)
 				-- 获取新的批注文件buffer
 				local new_note_buf = vim.api.nvim_get_current_buf()
 
@@ -437,6 +443,7 @@ function M.switch_annotation(offset)
 					type = "annotation",
 					workspace_path = result.workspace_path
 				})
+				logger.debug("New note node ID: " .. new_note_node_id)
 
 				-- 如果原批注文件有父节点，将新节点也设为其子节点
 				local parent_node_id = manager.get_parent(note_node_id)
@@ -449,7 +456,9 @@ function M.switch_annotation(offset)
 				end
 			end
 
+			logger.debug("Switched to annotation " .. result.note_file)
 			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
+			logger.debug("Removed node " .. annotation_buf .. '_' .. annotation_win)
 
 			-- 如果有源文件信息，也更新源文件中的光标位置
 			if result.source_path and result.position then

@@ -205,6 +205,13 @@ function M.remove_node(node_id, delete)
 	logger.debug(string.format("删除节点: %s", node_id))
 
 	local children = M.get_children(node_id)
+	local node = M.nodes[node_id]
+
+	-- 移除节点和元数据
+	M.nodes[node_id] = nil
+	M.edges[node_id] = nil
+	M.metadata[node_id] = nil
+
 	for _, child_id in ipairs(children) do
 		M.remove_node(child_id)
 	end
@@ -222,7 +229,6 @@ function M.remove_node(node_id, delete)
 	end
 
 	-- 关闭相关的 buffer 和 window
-	local node = M.nodes[node_id]
 	if not node then
 		logger.debug(string.format("节点 %s 不存在", node_id))
 	else
@@ -246,10 +252,6 @@ function M.remove_node(node_id, delete)
 		end
 	end
 
-	-- 移除节点和元数据
-	M.nodes[node_id] = nil
-	M.edges[node_id] = nil
-	M.metadata[node_id] = nil
 	logger.debug(string.format("节点 %s 已完全删除", node_id))
 end
 
@@ -270,10 +272,14 @@ end
 
 ---注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
-	-- 定期清理无效节点
-	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
+	-- 定期清理无效节点，使用 nested 选项和 VimLeavePre 事件确保在缓冲区和窗口删除后执行
+	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed"}, {
+		nested = true,
 		callback = function()
-			M.cleanup()
+			-- 使用 vim.schedule 确保在当前事件完成后执行清理
+			vim.schedule(function()
+				M.cleanup()
+			end)
 		end
 	})
 end

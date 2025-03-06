@@ -180,9 +180,16 @@ class WorkspaceManager:
 			# 解码 URL 编码的路径
 			workspace_path = Path(unquote(urlparse(workspace_uri).path))
 			
+			# 确保路径存在
+			if not workspace_path.exists():
+				error(f"Workspace path does not exist: {workspace_path}")
+				return None
+			
 			# 查找所有子项目
 			project_paths = self._find_subprojects(workspace_path)
 			if not project_paths:
+				# 如果没找到子项目，则返回 None
+				info(f"No projects with .annotation directory found in {workspace_path}")
 				return None
 			
 			# 按路径长度排序，确保父项目在子项目之前处理
@@ -191,35 +198,45 @@ class WorkspaceManager:
 			# 找到这些路径所属的根项目
 			root = self._find_root_project_for_path(workspace_path)
 			if root:
-				info(f"Found root {Path(root.uri)} for workspace {Path(workspace_uri)}")
+				info(f"Found root {root.root_path} for workspace {workspace_path}")
 				
 				# 将新发现的项目添加到现有树中
 				for path in project_paths:
-					if path.as_uri() not in self._all_workspaces:
+					path_uri = path.as_uri()
+					if path_uri not in self._all_workspaces:
 						info(f"Adding workspace {path} to existing tree")
 						# 创建工作区
 						workspace = Workspace(path)
-						self._all_workspaces[path.as_uri()] = workspace
+						self._all_workspaces[path_uri] = workspace
 						# 插入到项目树中
 						self._insert_workspace(workspace)
 				
-				return self._all_workspaces[workspace_uri]
+				# 确保原始 URI 也有映射
+				if workspace_uri not in self._all_workspaces and workspace_path.as_uri() in self._all_workspaces:
+					self._all_workspaces[workspace_uri] = self._all_workspaces[workspace_path.as_uri()]
+				
+				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(workspace_path.as_uri())
 			else:
 				# 没找到根项目，创建新的项目树
-				info(f"Creating new project tree for {Path(workspace_uri)}")
+				info(f"Creating new project tree for {workspace_path}")
 				
 				# 创建所有工作区
 				for path in project_paths:
 					info(f"Adding workspace {path} to new tree")
 					workspace = Workspace(path)
-					self._all_workspaces[path.as_uri()] = workspace
+					path_uri = path.as_uri()
+					self._all_workspaces[path_uri] = workspace
 					# 第一个路径作为根项目
 					if path == project_paths[0]:
 						self._roots.append(workspace)
 					else:
 						self._insert_workspace(workspace)
 				
-				return self._all_workspaces[workspace_uri]
+				# 确保原始 URI 也有映射
+				if workspace_uri not in self._all_workspaces and workspace_path.as_uri() in self._all_workspaces:
+					self._all_workspaces[workspace_uri] = self._all_workspaces[workspace_path.as_uri()]
+				
+				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(workspace_path.as_uri())
 			
 		except Exception as e:
 			error(f"Failed to add workspace {workspace_uri}: {str(e)}")
