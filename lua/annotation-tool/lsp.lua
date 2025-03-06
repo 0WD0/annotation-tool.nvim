@@ -364,7 +364,7 @@ function M.goto_annotation_source(offset)
 				manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 
 				-- 使用 vim.api.nvim_win_set_buf 替代 vim.cmd('edit ...')
-				local new_buf = vim.fn.bufadd(result.note_file)
+				local new_buf = vim.fn.bufadd(result.workspace_path .. '/.annotation/notes/' .. result.note_file)
 				vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
 				vim.api.nvim_win_set_buf(annotation_win, new_buf)
 
