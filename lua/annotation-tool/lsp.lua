@@ -206,17 +206,17 @@ function M.delete_annotation()
 		command = "deleteAnnotation",
 		arguments = { params }
 	}, function(err, result)
-			if err then
-				logger.error('Failed to delete annotation: ' .. vim.inspect(err))
-			else
-				-- 如果预览的就是这个文件，移除对应的节点
-				local node_id = manager.find_node(result.note_file)
-				if node_id then
-					manager.remove_node(node_id)
-				end
-				logger.info('Annotation deleted successfully')
+		if err then
+			logger.error('Failed to delete annotation: ' .. vim.inspect(err))
+		else
+			-- 如果预览的就是这个文件，移除对应的节点
+			local node_id = manager.find_node(result.note_file)
+			if node_id then
+				manager.remove_node(node_id)
 			end
-		end)
+			logger.info('Annotation deleted successfully')
+		end
+	end)
 end
 
 function M.goto_current_annotation_note()
@@ -243,10 +243,10 @@ function M.goto_current_annotation_note()
 
 		local buf_id = vim.api.nvim_get_current_buf()
 		local win_id = vim.api.nvim_get_current_win()
-		manager.create_source(buf_id, win_id, {
+		local source_id = manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, buf_id .. '_' .. win_id , {
+		manager.open_note_file(result.note_file, source_id , {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -271,8 +271,16 @@ function M.create_annotation()
 		if result and result.success then
 			logger.info("Annotation created successfully")
 		end
+
+		local buf_id = vim.api.nvim_get_current_buf()
+		local win_id = vim.api.nvim_get_current_win()
+		local source_id = manager.create_source(buf_id, win_id, {
+			workspace_path = result.workspace_path
+		})
+		manager.open_note_file(result.note_file, source_id , {
+			workspace_path = result.workspace_path
+		})
 	end)
-	M.goto_current_annotation_note()
 end
 
 function M.goto_annotation_source(offset)
