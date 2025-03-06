@@ -121,9 +121,9 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
 		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note, desc = "Preview current annotation" },
 		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" },
-		{ mode = 'n', lhs = '<A-k>', rhs = function() M.goto_annotation_source(-1) end, desc = "Go to previous annotation" },
-		{ mode = 'n', lhs = '<A-j>', rhs = function() M.goto_annotation_source(1) end, desc = "Go to next annotation" },
-		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source(0) end, desc = "Go to annotation source" },
+		{ mode = 'n', lhs = '<A-k>', rhs = function() M.switch_annotation(-1) end, desc = "Go to previous annotation" },
+		{ mode = 'n', lhs = '<A-j>', rhs = function() M.switch_annotation(1) end, desc = "Go to next annotation" },
+		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
 		{ mode = 'n', lhs = '<Leader>nt', rhs = function() require('annotation-tool.preview.manager').show_annotation_tree() end, desc = "Show annotation tree" },
 	}
 
@@ -283,7 +283,86 @@ function M.create_annotation()
 	end)
 end
 
-function M.goto_annotation_source(offset)
+function M.goto_annotation_source()
+	-- 获取当前窗口和buffer
+	local current_win = vim.api.nvim_get_current_win()
+	local current_buf = vim.api.nvim_win_get_buf(current_win)
+
+	-- 检查当前buffer是否是批注文件
+	local buf_name = vim.api.nvim_buf_get_name(current_buf)
+	if not buf_name:match("/.annotation/notes/") then
+		logger.warn("Current buffer is not an annotation file")
+		return
+	end
+
+	local client = M.get_client()
+	if not client then
+		logger.error("LSP client not available")
+		return
+	end
+
+	client.request('workspace/executeCommand', {
+		command = "getAnnotationSource",
+		arguments = { {
+			textDocument = {
+				uri = vim.uri_from_bufnr(current_buf)
+			},
+			offset = 0
+		} }
+	}, function(err, result)
+		if err then
+			logger.error("Error getting annotation source: " .. err.message)
+			return
+		end
+		if not result then
+			logger.warn("No annotation source found")
+			return
+		end
+
+		-- 获取当前批注文件的节点ID
+		local note_node_id = nil
+		for node_id, node in pairs(manager.nodes) do
+			if node.window == current_win and node.buffer == current_buf then
+				note_node_id = node_id
+				break
+			end
+		end
+
+		-- 从注释跳转到源文件
+		-- 在当前窗口打开源文件
+		local source_buf = vim.fn.bufadd(result.source_path)
+		vim.api.nvim_set_option_value('buflisted', true, {buf = source_buf})
+		vim.api.nvim_win_set_buf(current_win, source_buf)
+
+		-- 跳转到批注位置
+		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+		vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+
+		-- 如果找到了批注文件的节点ID，更新节点关系
+		if note_node_id then
+			-- 获取当前源文件的window
+			local source_win = vim.api.nvim_get_current_win()
+
+			-- 创建源文件节点并与批注文件节点建立关系
+			local source_node_id = manager.create_node(source_buf, source_win, nil, {
+				type = "source",
+				note_file = result.note_file,
+				workspace_path = result.workspace_path
+			})
+
+			-- 将批注文件节点设为源文件节点的子节点
+			if manager.nodes[note_node_id] then
+				manager.nodes[note_node_id].parent = source_node_id
+				if not manager.edges[source_node_id] then
+					manager.edges[source_node_id] = {}
+				end
+				table.insert(manager.edges[source_node_id], note_node_id)
+			end
+		end
+	end)
+end
+
+function M.switch_annotation(offset)
 	-- 获取当前窗口和buffer
 	local current_win = vim.api.nvim_get_current_win()
 	local current_buf = vim.api.nvim_win_get_buf(current_win)
@@ -328,103 +407,69 @@ function M.goto_annotation_source(offset)
 			end
 		end
 
-		if offset == 0 then
-			-- 当 offset=0 时，从注释跳转到源文件
-			-- 在当前窗口打开源文件
-			local source_buf = vim.fn.bufadd(result.source_path)
-			vim.api.nvim_set_option_value('buflisted', true, {buf = source_buf})
-			vim.api.nvim_win_set_buf(current_win, source_buf)
+		-- 切换到上一个或下一个批注
+		-- 复用当前窗口打开新的批注文件
+		if result.note_file then
+			-- 保存当前窗口和buffer，以便复用
+			local note_win = current_win
+			local annotation_buf = vim.api.nvim_get_current_buf()
+			local annotation_win = vim.api.nvim_get_current_win()
 
-			-- 跳转到批注位置
-			local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
-			vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+			-- 使用 vim.api.nvim_win_set_buf 替代 vim.cmd('edit ...')
+			local new_buf = vim.fn.bufadd(result.workspace_path .. '/.annotation/notes/' .. result.note_file)
+			vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
+			vim.api.nvim_win_set_buf(annotation_win, new_buf)
 
-			-- 如果找到了批注文件的节点ID，更新节点关系
+			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
+
+			-- 跳转到笔记部分
+			vim.cmd([[
+				normal! G
+				?^## Notes
+				normal! 2j
+			]])
+
+			-- 更新节点关系
 			if note_node_id then
-				-- 获取当前源文件的buffer和window
-				local source_win = vim.api.nvim_get_current_win()
+				-- 获取新的批注文件buffer
+				local new_note_buf = vim.api.nvim_get_current_buf()
 
-				-- 创建源文件节点并与批注文件节点建立关系
-				local source_node_id = manager.create_node(source_buf, source_win, nil, {
-					type = "source",
-					note_file = result.note_file,
+				-- 创建新的批注文件节点
+				local new_note_node_id = manager.create_node(new_note_buf, note_win, nil, {
+					type = "annotation",
 					workspace_path = result.workspace_path
 				})
 
-				-- 将批注文件节点设为源文件节点的子节点
-				if manager.nodes[note_node_id] then
-					manager.nodes[note_node_id].parent = source_node_id
-					if not manager.edges[source_node_id] then
-						manager.edges[source_node_id] = {}
+				-- 如果原批注文件有父节点，将新节点也设为其子节点
+				local parent_node_id = manager.get_parent(note_node_id)
+				if parent_node_id then
+					manager.nodes[new_note_node_id].parent = parent_node_id
+					if not manager.edges[parent_node_id] then
+						manager.edges[parent_node_id] = {}
 					end
-					table.insert(manager.edges[source_node_id], note_node_id)
+					table.insert(manager.edges[parent_node_id], new_note_node_id)
 				end
 			end
-		else
-			-- 当 offset!=0 时，切换到上一个或下一个批注
-			-- 复用当前窗口打开新的批注文件
-			if result.note_file then
-				-- 保存当前窗口和buffer，以便复用
-				local note_win = current_win
-				local annotation_buf = vim.api.nvim_get_current_buf()
-				local annotation_win = vim.api.nvim_get_current_win()
 
-				-- 使用 vim.api.nvim_win_set_buf 替代 vim.cmd('edit ...')
-				local new_buf = vim.fn.bufadd(result.workspace_path .. '/.annotation/notes/' .. result.note_file)
-				vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
-				vim.api.nvim_win_set_buf(annotation_win, new_buf)
-
-				manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
-
-				-- 跳转到笔记部分
-				vim.cmd([[
-					normal! G
-					?^## Notes
-					normal! 2j
-				]])
-
-				-- 更新节点关系
-				if note_node_id then
-					-- 获取新的批注文件buffer
-					local new_note_buf = vim.api.nvim_get_current_buf()
-
-					-- 创建新的批注文件节点
-					local new_note_node_id = manager.create_node(new_note_buf, note_win, nil, {
-						type = "annotation",
-						workspace_path = result.workspace_path
-					})
-
-					-- 如果原批注文件有父节点，将新节点也设为其子节点
-					local parent_node_id = manager.get_parent(note_node_id)
-					if parent_node_id then
-						manager.nodes[new_note_node_id].parent = parent_node_id
-						if not manager.edges[parent_node_id] then
-							manager.edges[parent_node_id] = {}
-						end
-						table.insert(manager.edges[parent_node_id], new_note_node_id)
+			-- 如果有源文件信息，也更新源文件中的光标位置
+			if result.source_path and result.position then
+				-- 查找是否有源文件窗口
+				local source_win = nil
+				local source_buf = nil
+				for _, win in ipairs(vim.api.nvim_list_wins()) do
+					local buf = vim.api.nvim_win_get_buf(win)
+					local buf_name = vim.api.nvim_buf_get_name(buf)
+					if buf_name == result.source_path then
+						source_win = win
+						source_buf = buf
+						break
 					end
 				end
 
-				-- 如果有源文件信息，也更新源文件中的光标位置
-				if result.source_path and result.position then
-					-- 查找是否有源文件窗口
-					local source_win = nil
-					local source_buf = nil
-					for _, win in ipairs(vim.api.nvim_list_wins()) do
-						local buf = vim.api.nvim_win_get_buf(win)
-						local buf_name = vim.api.nvim_buf_get_name(buf)
-						if buf_name == result.source_path then
-							source_win = win
-							source_buf = buf
-							break
-						end
-					end
-
-					-- 如果找到源文件窗口，更新光标位置
-					if source_win then
-						local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
-						vim.api.nvim_win_set_cursor(source_win, cursor_pos)
-					end
+				-- 如果找到源文件窗口，更新光标位置
+				if source_win then
+					local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
+					vim.api.nvim_win_set_cursor(source_win, cursor_pos)
 				end
 			end
 		end
