@@ -77,7 +77,7 @@ local function log(level, msg, ...)
 		vim.api.nvim_echo({{formatted_msg, hl_group}}, false, {})
 		-- 同时使用 nvim_out_write 将消息写入 :messages 历史
 		-- 添加换行符确保消息正确显示
-		-- vim.api.nvim_out_write(formatted_msg .. "\n")
+		vim.api.nvim_out_write(formatted_msg .. "\n")
 	end)
 end
 

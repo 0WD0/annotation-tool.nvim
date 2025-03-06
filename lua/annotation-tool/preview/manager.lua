@@ -71,6 +71,8 @@ function M.is_node_valid(node_id)
 		return false
 	end
 
+	logger.debug(string.format("buffer: %s, window: %s", node.buffer, node.window))
+
 	if node.buffer and node.window then
 		local win_buf = vim.api.nvim_win_get_buf(node.window)
 		if win_buf ~= node.buffer then
@@ -152,6 +154,7 @@ function M.find_node(note_file)
 		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
 			local buf_name = vim.api.nvim_buf_get_name(node.buffer)
 			-- 检查 buffer 名称是否匹配
+			logger.info(string.format("查找节点: %s, %s", node_id, buf_name))
 			if (buf_name:match("/.annotation/notes/" .. note_file .. "$")) then
 				-- 检查窗口是否有效
 				if node.window and vim.api.nvim_win_is_valid(node.window) then
@@ -197,20 +200,14 @@ end
 
 ---删除节点及其所有子节点
 ---@param node_id string 节点ID
----@param delete boolean|nil 是否同时删除buffer和window，默认为true
-function M.remove_node(node_id, delete)
-	if delete == nil then
-		delete = true
-	end
+function M.remove_node(node_id)
 	logger.debug(string.format("删除节点: %s", node_id))
 
 	local children = M.get_children(node_id)
 	local node = M.nodes[node_id]
 
 	-- 移除节点和元数据
-	M.nodes[node_id] = nil
 	M.edges[node_id] = nil
-	M.metadata[node_id] = nil
 
 	for _, child_id in ipairs(children) do
 		M.remove_node(child_id)
@@ -232,7 +229,7 @@ function M.remove_node(node_id, delete)
 	if not node then
 		logger.debug(string.format("节点 %s 不存在", node_id))
 	else
-		if delete and node.window and vim.api.nvim_win_is_valid(node.window) and M.is_node_valid(node_id) then
+		if node.window and vim.api.nvim_win_is_valid(node.window) and M.is_node_valid(node_id) then
 			logger.debug(string.format("关闭节点 %s 的 window: %s", node_id, node.window))
 			vim.api.nvim_win_close(node.window, true)
 		end
@@ -252,6 +249,9 @@ function M.remove_node(node_id, delete)
 		end
 	end
 
+	M.nodes[node_id] = nil
+	M.metadata[node_id] = nil
+
 	logger.debug(string.format("节点 %s 已完全删除", node_id))
 end
 
@@ -266,7 +266,7 @@ function M.cleanup()
 	end
 
 	for _, node_id in ipairs(to_remove) do
-		M.remove_node(node_id, false)
+		M.remove_node(node_id)
 	end
 end
 
@@ -413,28 +413,6 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 		workspace_path = workspace_path
 	})
 	logger.debug(string.format("创建新的批注节点: %s", node_id))
-
-	-- 设置窗口关闭时的处理
-	vim.api.nvim_create_autocmd("WinClosed", {
-		pattern = tostring(note_win),
-		callback = function()
-			if M.nodes[node_id] then
-				M.nodes[node_id].window = nil
-				logger.debug(string.format("窗口 %s 关闭，更新节点 %s", note_win, node_id))
-			end
-		end
-	})
-
-	-- 设置 buffer 删除时的处理
-	vim.api.nvim_create_autocmd("BufDelete", {
-		buffer = note_buf,
-		callback = function()
-			if M.nodes[node_id] then
-				M.nodes[node_id].buffer = nil
-				logger.debug(string.format("Buffer %s 删除，更新节点 %s", note_buf, node_id))
-			end
-		end
-	})
 
 	return node_id
 end
