@@ -537,9 +537,19 @@ function M.show_annotation_tree()
 
 	-- 遍历树并构建结果
 	local line_idx = #result + 1
+	local has_nodes = false
+
 	M.traverse(function(node_id, node, metadata, depth)
-		local buf_name = vim.api.nvim_buf_get_name(node.buffer)
-		local file_name = buf_name:match("[^/]+$") or buf_name
+		has_nodes = true
+		local buf_name, file_name
+		-- 检查 buffer 是否有效
+		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
+			buf_name = vim.api.nvim_buf_get_name(node.buffer)
+			file_name = buf_name:match("([^/]+)$")
+		else
+			logger.debug(string.format("节点 %s 的 buffer %s 无效", node_id, node.buffer))
+			return nil
+		end
 
 		-- 构建树形图标
 		local prefix = ""
@@ -586,7 +596,7 @@ function M.show_annotation_tree()
 	end)
 
 	-- 如果没有节点，显示提示信息
-	if line_idx == #result + 1 then
+	if not has_nodes then
 		table.insert(result, "  (没有批注节点)")
 	end
 
