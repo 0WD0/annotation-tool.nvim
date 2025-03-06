@@ -101,37 +101,14 @@ function M.get_client()
 	return clients[1]
 end
 
--- 高亮文档中的引用
--- @param target_win number|nil 目标窗口ID，如果不提供则使用当前窗口
-function M.highlight(target_win)
+function M.highlight()
 	local mode = vim.api.nvim_get_mode().mode
 	if mode ~= 'n' then
 		return
 	end
-	
-	-- 获取当前窗口和目标窗口
-	local current_win = vim.api.nvim_get_current_win()
-	target_win = target_win or current_win
-	
-	-- 检查目标窗口是否有效
-	if not vim.api.nvim_win_is_valid(target_win) then
-		logger.warn("Invalid target window for highlight: " .. tostring(target_win))
-		return
-	end
-	
-	-- 获取目标缓冲区
-	local target_buf = vim.api.nvim_win_get_buf(target_win)
-	
-	-- 清除之前的高亮
+
 	vim.lsp.buf.clear_references()
-	
-	-- 创建参数
 	local params = core.make_position_params()
-	
-	-- 添加目标缓冲区信息
-	params._target_bufnr = target_buf
-	
-	-- 发送请求
 	request(ms.textDocument_documentHighlight, params)
 end
 
@@ -513,11 +490,21 @@ function M.switch_annotation(offset)
 
 				-- 如果找到源文件窗口，更新光标位置
 				if source_win then
+					-- 保存当前窗口
+					local current_win = vim.api.nvim_get_current_win()
+					
+					-- 切换到源文件窗口
+					vim.api.nvim_set_current_win(source_win)
+					
+					-- 设置光标位置
 					local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
 					vim.api.nvim_win_set_cursor(source_win, cursor_pos)
 					
-					-- 直接传入目标窗口来更新高亮，不需要切换窗口
-					M.highlight(source_win)
+					-- 更新高亮
+					M.highlight()
+					
+					-- 切回原窗口
+					vim.api.nvim_set_current_win(current_win)
 				end
 			end
 		end

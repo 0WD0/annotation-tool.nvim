@@ -21,13 +21,44 @@ function M.get_current_position()
 	return result
 end
 
-function M.make_position_params()
+-- 创建位置参数
+-- @param win_id number|nil 窗口ID，如果不提供则使用当前窗口
+-- @return table 包含 textDocument 和 position 的参数表
+function M.make_position_params(win_id)
+	-- 如果没有提供窗口ID，使用当前窗口
+	win_id = win_id or vim.api.nvim_get_current_win()
+
+	-- 检查窗口是否有效
+	if not vim.api.nvim_win_is_valid(win_id) then
+		logger.warn("Invalid window ID: " .. tostring(win_id))
+		return nil
+	end
+
+	-- 获取窗口的缓冲区
+	local buf_id = vim.api.nvim_win_get_buf(win_id)
+
+	-- 获取光标位置
+	local position
+	if win_id == vim.api.nvim_get_current_win() then
+		-- 如果是当前窗口，使用原来的方法
+		position = M.get_current_position()
+	else
+		-- 如果是其他窗口，直接获取光标位置
+		local cursor = vim.api.nvim_win_get_cursor(win_id)
+		position = {
+			line = cursor[1] - 1,
+			character = cursor[2]
+		}
+	end
+
+	-- 创建参数表
 	local params = {
 		textDocument = {
-			uri = vim.uri_from_bufnr(0)
+			uri = vim.uri_from_bufnr(buf_id)
 		},
-		position = M.get_current_position()
+		position = position
 	}
+
 	return params
 end
 
@@ -128,14 +159,34 @@ function M.toggle_annotation_mode(bufnr)
 	end
 end
 
+-- 将 UTF-8 字符位置转换为字节位置
+-- @param bufnr number 缓冲区 ID
+-- @param pos_or_range table 位置或范围信息
+-- @return table 转换后的位置或范围信息
 function M.convert_utf8_to_bytes(bufnr, pos_or_range)
-	bufnr = bufnr or 0
+	-- 确保 bufnr 是有效的
+	if bufnr == nil then
+		bufnr = 0
+	elseif type(bufnr) == 'number' and not vim.api.nvim_buf_is_valid(bufnr) then
+		logger.warn("Invalid buffer ID in convert_utf8_to_bytes: " .. tostring(bufnr))
+		bufnr = 0  -- 如果无效，使用当前缓冲区
+	end
 
+	-- 检查 pos_or_range 是否有效
+	if not pos_or_range then
+		logger.warn("Nil position or range in convert_utf8_to_bytes")
+		return nil
+	end
+
+	-- 定义位置转换函数
 	local function convert_position(line, character)
+		-- 获取指定行的内容
 		local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
+		-- 转换为字节索引
 		return vim.str_byteindex(line_content, character)
 	end
 
+	-- 处理范围类型
 	if pos_or_range.start then
 		-- 转换 range 类型
 		local start_line = pos_or_range.start.line
