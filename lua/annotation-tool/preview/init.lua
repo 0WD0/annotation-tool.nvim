@@ -38,11 +38,20 @@ end
 -- 设置预览窗口
 function M.setup_preview_window(file_path)
 	-- 在右侧打开文件
-	vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
+	-- 创建新的 buffer
+	local buf = vim.fn.bufadd(file_path)
+	vim.api.nvim_buf_set_option(buf, 'buflisted', true)
+	
+	-- 创建垂直分割窗口
+	vim.cmd('vsplit')
+	local win = vim.api.nvim_get_current_win()
+	
+	-- 设置窗口显示的 buffer
+	vim.api.nvim_win_set_buf(win, buf)
 
 	-- 保存新的预览窗口信息
-	M.preview_state.win = vim.api.nvim_get_current_win()
-	M.preview_state.buf = vim.api.nvim_get_current_buf()
+	M.preview_state.win = win
+	M.preview_state.buf = buf
 
 	-- 设置窗口大小
 	vim.cmd('vertical resize ' .. math.floor(vim.o.columns * 0.4))

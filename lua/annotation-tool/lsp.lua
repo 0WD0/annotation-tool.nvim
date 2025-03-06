@@ -323,8 +323,9 @@ function M.goto_annotation_source(offset)
 		if offset == 0 then
 			-- 当 offset=0 时，从注释跳转到源文件
 			-- 在当前窗口打开源文件
-			local source_file = result.source_path
-			vim.cmd('edit ' .. vim.fn.fnameescape(source_file))
+			local source_buf = vim.fn.bufadd(result.source_path)
+			vim.api.nvim_buf_set_option(source_buf, 'buflisted', true)
+			vim.api.nvim_win_set_buf(current_win, source_buf)
 
 			-- 跳转到批注位置
 			local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
@@ -358,15 +359,14 @@ function M.goto_annotation_source(offset)
 			if result.note_file then
 				-- 保存当前窗口和buffer，以便复用
 				local note_win = current_win
-
-				-- 在当前窗口打开新的批注文件
-				local workspace_path = result.workspace_path
-				local file_path = workspace_path .. '/.annotation/notes/' .. result.note_file
-
 				local annotation_buf = vim.api.nvim_get_current_buf()
 				local annotation_win = vim.api.nvim_get_current_win()
 				manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
-				vim.cmd('edit ' .. vim.fn.fnameescape(file_path))
+
+				-- 使用 vim.api.nvim_win_set_buf 替代 vim.cmd('edit ...')
+				local new_buf = vim.fn.bufadd(result.note_file)
+				vim.api.nvim_set_option_value('buflisted', true, { buf = new_buf })
+				vim.api.nvim_win_set_buf(annotation_win, new_buf)
 
 				-- 跳转到笔记部分
 				vim.cmd([[

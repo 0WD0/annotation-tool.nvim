@@ -199,7 +199,9 @@ function M.find_annotations()
 						deps.logger.debug_obj("选中的标注", selection.value)
 
 						-- 打开文件并跳转到标注位置
-						vim.cmd('edit ' .. selection.value.file)
+						local buf = vim.fn.bufadd(selection.value.file)
+						vim.api.nvim_set_option_value('buflisted', true, {buf = buf})
+						vim.api.nvim_win_set_buf(0, buf)
 						local deps = load_deps()
 						local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 						vim.api.nvim_win_set_cursor(0, cursor_pos)
@@ -224,7 +226,9 @@ function M.find_annotations()
 									actions.close(prompt_bufnr)
 
 									-- 打开文件并跳转到标注位置
-									vim.cmd('edit ' .. selection.value.file)
+									local buf = vim.fn.bufadd(selection.value.file)
+									vim.api.nvim_set_option_value('buflisted', true, {buf = buf})
+									vim.api.nvim_win_set_buf(0, buf)
 									local deps = load_deps()
 									local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 									vim.api.nvim_win_set_cursor(0, cursor_pos)

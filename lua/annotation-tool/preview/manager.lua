@@ -356,11 +356,17 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 	end
 
 	-- 在右侧打开文件
-	vim.cmd('vsplit ' .. vim.fn.fnameescape(file_path))
+	-- 创建新的 buffer
+	local note_buf = vim.fn.bufadd(file_path)
+	vim.api.nvim_set_option_value('buflisted', true, { buf = note_buf })
 
-	-- 获取新窗口和buffer的ID
+	-- 创建垂直分割窗口
+	vim.cmd('vsplit')
 	local note_win = vim.api.nvim_get_current_win()
-	local note_buf = vim.api.nvim_get_current_buf()
+
+	-- 设置窗口显示的 buffer
+	vim.api.nvim_win_set_buf(note_win, note_buf)
+
 	logger.debug(string.format("创建新窗口和buffer: win=%s, buf=%s", note_win, note_buf))
 
 	-- 设置窗口大小
