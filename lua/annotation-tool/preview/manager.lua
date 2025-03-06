@@ -224,14 +224,23 @@ function M.remove_node(node_id, delete)
 	-- 关闭相关的 buffer 和 window
 	local node = M.nodes[node_id]
 	if delete and node then
-		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
-			logger.debug(string.format("关闭节点 %s 的 buffer: %s", node_id, node.buffer))
-			vim.api.nvim_buf_delete(node.buffer, { force = true })
-		end
-
-		if node.window and vim.api.nvim_win_is_valid(node.window) then
+		if node.window and vim.api.nvim_win_is_valid(node.window) and M.is_node_valid(node_id) then
 			logger.debug(string.format("关闭节点 %s 的 window: %s", node_id, node.window))
 			vim.api.nvim_win_close(node.window, true)
+		end
+
+		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
+			-- 检查是否有窗口显示这个 buffer
+			local windows_with_buffer = vim.fn.win_findbuf(node.buffer)
+
+			-- 只有在没有窗口显示这个 buffer 时才关闭它
+			if #windows_with_buffer == 0 then
+				logger.debug(string.format("关闭节点 %s 的 buffer: %s (没有窗口显示)", node_id, node.buffer))
+				vim.api.nvim_buf_delete(node.buffer, { force = true })
+			else
+				logger.debug(string.format("保留节点 %s 的 buffer: %s (有 %d 个窗口显示)",
+					node_id, node.buffer, #windows_with_buffer))
+			end
 		end
 	end
 
@@ -260,11 +269,11 @@ end
 ---注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点
-	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
-		callback = function()
-			M.cleanup()
-		end
-	})
+	-- vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed", "BufWinLeave" }, {
+	-- 	callback = function()
+	-- 		M.cleanup()
+	-- 	end
+	-- })
 end
 
 ---遍历树
