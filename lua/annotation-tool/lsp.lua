@@ -202,21 +202,38 @@ function M.delete_annotation()
 
 	logger.debug('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character))
 
-	client.request('workspace/executeCommand', {
-		command = "deleteAnnotation",
-		arguments = { params }
-	}, function(err, result)
-		if err then
-			logger.error('Failed to delete annotation: ' .. vim.inspect(err))
-		else
-			-- 如果预览的就是这个文件，移除对应的节点
-			local node_id = manager.find_node(result.note_file)
-			if node_id then
-				manager.remove_node(node_id)
+	-- 直接显示确认对话框
+	vim.ui.select(
+		{ "Yes", "No" },
+		{
+			prompt = "Are you sure you want to delete this annotation?",
+			kind = "confirmation"
+		},
+		function(choice)
+			if choice == "Yes" then
+				-- 用户确认删除，执行删除操作
+				client.request('workspace/executeCommand', {
+					command = "deleteAnnotation",
+					arguments = { params }
+				}, function(err, result)
+					if err then
+						logger.error('Failed to delete annotation: ' .. vim.inspect(err))
+					else
+						-- 如果预览的就是这个文件，移除对应的节点
+						local node_id = manager.find_node(result.note_file)
+						if node_id then
+							logger.info('Removing node ' .. node_id)
+							manager.remove_node(node_id)
+						end
+						logger.info('Annotation deleted successfully')
+					end
+				end)
+			else
+				-- 用户取消删除
+				logger.info('Annotation deletion cancelled by user')
 			end
-			logger.info('Annotation deleted successfully')
 		end
-	end)
+	)
 end
 
 function M.goto_current_annotation_note()
