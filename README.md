@@ -2,6 +2,23 @@
 
 一个基于 Neovim 的文本批注工具，支持嵌套批注、实时预览和全文搜索。
 
+## 目录
+
+- [特性](#特性)
+- [依赖](#依赖)
+- [安装](#安装)
+- [使用方法](#使用方法)
+  - [基本操作](#基本操作)
+  - [批注格式](#批注格式)
+- [配置选项](#配置选项)
+  - [调试模式](#调试模式)
+- [项目结构](#项目结构)
+  - [批注文件格式](#批注文件格式)
+- [数据库设计](#数据库设计)
+- [常见问题](#常见问题)
+- [贡献指南](#贡献指南)
+- [许可证](#许可证)
+
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Neovim](https://img.shields.io/badge/Neovim-0.8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
@@ -49,13 +66,13 @@
 
 ### 必需依赖
 
-- **Neovim** >= 0.8.0
-- **Python** >= 3.7
-- **nvim-lspconfig** - [neovim/nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
+- **Neovim**: >= 0.8.0
+- **Python**: >= 3.7
+- **nvim-lspconfig**: [neovim/nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
 
 ### 可选依赖
 
-- **telescope.nvim** - [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) (用于全局搜索功能)
+- **telescope.nvim**: [nvim-telescope/telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) (用于全局搜索功能)
 
 ### Python 依赖
 
@@ -145,21 +162,53 @@ use {
 
 > **注意**：目前 Neovim 和 LSP 端的括号配置还未同步。
 
+### 示例
+
+#### 创建新批注
+
+1. 选中文本。
+2. 按 `<Leader>na` 创建批注。
+
+#### 删除批注
+
+1. 将光标放在要删除的批注上。
+2. 按 `<Leader>nd` 删除批注。
+
+#### 查看批注列表
+
+1. 按 `<Leader>nl` 显示当前文件的所有批注。
+
+#### 预览批注
+
+1. 将光标放在要预览的批注上。
+2. 按 `<Leader>np` 预览批注内容。
+
+#### 使用 Telescope 查找批注
+
+1. 确保安装了 [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)。
+2. 按 `<Leader>nf` 查找所有批注。
+3. 按 `<Leader>ns` 搜索批注内容。
+
+#### 使用预览窗口
+
+1. 在预览窗口中按 `<A-k>` 跳转到上一个批注文件。
+2. 在预览窗口中按 `<A-j>` 跳转到下一个批注文件。
+
 ## 配置选项
 
 在 `setup` 函数中可以自定义以下选项：
 
 ```lua
 require('annotation-tool').setup({
-	-- Python 解释器路径，默认使用系统 Python
-	python_path = '/path/to/your/python',
-	
-	-- 是否启用调试模式，默认为 false
-	debug = false,
-	
-	-- 左右括号标识，默认使用日语半角括号
-	-- left_mark = '｢',
-	-- right_mark = '｣',
+    -- Python 解释器路径，默认使用系统 Python
+    python_path = '/path/to/your/python',
+    
+    -- 是否启用调试模式，默认为 false
+    debug = false,
+    
+    -- 左右括号标识，默认使用日语半角括号
+    left_mark = '｢',  -- 可选配置项
+    right_mark = '｣',  -- 可选配置项
 })
 ```
 
