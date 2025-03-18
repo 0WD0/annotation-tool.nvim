@@ -3,16 +3,6 @@ local core = require('annotation-tool.core')
 local manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
 
---- copy from nvim source code
-local ms= require('vim.lsp.protocol').Methods
-local function request(method, params, handler)
-	vim.validate({
-		method = { method, 's' },
-		handler = { handler, 'f', true },
-	})
-	return vim.lsp.buf_request(0, method, params, handler)
-end
-
 -- 确保虚拟环境存在并安装依赖
 local function ensure_deps(version)
 	-- 获取插件根目录
@@ -106,10 +96,8 @@ function M.highlight()
 	if mode ~= 'n' then
 		return
 	end
-
 	vim.lsp.buf.clear_references()
-	local params = vim.lsp.util.make_position_params()
-	request(ms.textDocument_documentHighlight, params)
+	vim.lsp.buf.document_highlight()
 end
 
 -- LSP 回调函数
@@ -120,7 +108,6 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations, desc = "List annotations" },
 		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
 		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note, desc = "Preview current annotation" },
-		{ mode = 'n', lhs = 'K', rhs = M.hover_annotation, desc = "Show hover information" },
 		{ mode = 'n', lhs = '<A-k>', rhs = function() M.switch_annotation(-1) end, desc = "Go to previous annotation" },
 		{ mode = 'n', lhs = '<A-j>', rhs = function() M.switch_annotation(1) end, desc = "Go to next annotation" },
 		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
@@ -159,13 +146,6 @@ local function on_attach(client, bufnr)
 	-- 启用标注模式
 	core.enable_annotation_mode()
 	logger.info("Annotation LSP attached")
-end
-
---- Displays hover information about the symbol under the cursor in a floating 
---- window. Calling the function twice will jump into the floating window.
-function M.hover_annotation()
-	local params = vim.lsp.util.make_position_params()
-	request(ms.textDocument_hover, params)
 end
 
 -- 列出标注

@@ -32,7 +32,7 @@ function M.setup()
 	for _, cmd in ipairs(commands) do
 		create_command(cmd[1], cmd[2])
 	end
-	
+
 	-- 带参数的命令需要特殊处理
 	vim.api.nvim_create_user_command("AnnotationDebugNode", function(opts)
 		if opts.args and opts.args ~= "" then
