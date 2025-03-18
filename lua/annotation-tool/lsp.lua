@@ -492,17 +492,17 @@ function M.switch_annotation(offset)
 				if source_win then
 					-- 保存当前窗口
 					local current_win = vim.api.nvim_get_current_win()
-					
+
 					-- 切换到源文件窗口
 					vim.api.nvim_set_current_win(source_win)
-					
+
 					-- 设置光标位置
 					local cursor_pos = core.convert_utf8_to_bytes(source_buf, result.position)
 					vim.api.nvim_win_set_cursor(source_win, cursor_pos)
-					
+
 					-- 更新高亮
 					M.highlight()
-					
+
 					-- 切回原窗口
 					vim.api.nvim_set_current_win(current_win)
 				end
@@ -589,10 +589,31 @@ function M.setup(opts)
 	-- 不再需要添加 --stdio 参数，因为 cli.js 不接受这个参数
 	-- 在 cli.js 中已经默认使用 stdio 作为传输方式
 
+	-- 设置 capabilities
+	local capabilities = vim.lsp.protocol.make_client_capabilities()
+
+	-- 如果有 cmp_nvim_lsp，使用它来增强 capabilities
+	local has_cmp, cmp_nvim_lsp = pcall(require, 'cmp_nvim_lsp')
+	if has_cmp then
+		capabilities = cmp_nvim_lsp.default_capabilities(capabilities)
+	end
+
+	-- 增强文档高亮功能
+	capabilities.textDocument.documentHighlight = {
+		dynamicRegistration = false
+	}
+
+	-- 确保有完整的悬停功能支持
+	capabilities.textDocument.hover = {
+		dynamicRegistration = true,
+		contentFormat = { 'markdown', 'plaintext' }
+	}
+
 	-- 注册自定义 LSP
 	if not configs.annotation_ls then
 		configs.annotation_ls = {
 			default_config = {
+				capabilities = capabilities,
 				cmd = cmd,
 				filetypes = { 'markdown', 'text', 'annot' },
 				on_attach = on_attach,
