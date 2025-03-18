@@ -6,63 +6,6 @@ function M.is_markdown_file()
 	return vim.api.nvim_get_option_value('filetype', { buf = 0 }) == "markdown"
 end
 
-function M.get_current_position()
-	local mode = vim.api.nvim_get_mode().mode
-	if mode ~= 'n' then
-		logger.warn("Please get_current_position in normal mode")
-		return nil
-	end
-	local pos = vim.fn.getcharpos('.')
-
-	local result = {
-		line = pos[2]-1,
-		character = pos[3]-1
-	}
-	return result
-end
-
--- 创建位置参数
--- @param win_id number|nil 窗口ID，如果不提供则使用当前窗口
--- @return table 包含 textDocument 和 position 的参数表
-function M.make_position_params(win_id)
-	-- 如果没有提供窗口ID，使用当前窗口
-	win_id = win_id or vim.api.nvim_get_current_win()
-
-	-- 检查窗口是否有效
-	if not vim.api.nvim_win_is_valid(win_id) then
-		logger.warn("Invalid window ID: " .. tostring(win_id))
-		return nil
-	end
-
-	-- 获取窗口的缓冲区
-	local buf_id = vim.api.nvim_win_get_buf(win_id)
-
-	-- 获取光标位置
-	local position
-	if win_id == vim.api.nvim_get_current_win() then
-		-- 如果是当前窗口，使用原来的方法
-		position = M.get_current_position()
-	else
-		-- 如果是其他窗口，直接获取光标位置
-		local cursor = vim.api.nvim_win_get_cursor(win_id)
-		position = {
-			line = cursor[1] - 1,
-			character = cursor[2]
-		}
-	end
-
-	-- 创建参数表
-	local params = {
-		textDocument = {
-			uri = vim.uri_from_bufnr(buf_id)
-		},
-		position = position
-	}
-
-	return params
-end
-
--- 获取选中区域
 function M.get_visual_selection()
 	-- 获取当前选区
 	local mode = vim.api.nvim_get_mode().mode
@@ -71,8 +14,8 @@ function M.get_visual_selection()
 		return nil
 	end
 
-	local start_pos = vim.fn.getcharpos('v')
-	local end_pos = vim.fn.getcharpos('.')
+	local start_pos = vim.fn.getpos('v')
+	local end_pos = vim.fn.getpos('.')
 
 	if start_pos[2] > end_pos[2] or (start_pos[2] == end_pos[2] and start_pos[3] > end_pos[3]) then
 		start_pos, end_pos = end_pos, start_pos
@@ -80,38 +23,24 @@ function M.get_visual_selection()
 
 	if mode == 'V' then
 		start_pos[3]= 1
-		end_pos[3]= vim.fn.virtcol({end_pos[2],'$'})-1
+		end_pos[3]= vim.fn.col({end_pos[2],'$'})-1
 	end
 
 	-- 转换为 LSP 位置格式
 	local result = {
-		start = {
-			line = start_pos[2]-1,
-			character = start_pos[3]-1
-		},
-		['end'] = {
-			line = end_pos[2]-1,
-			character = end_pos[3]
-		}
+		start_pos = { start_pos[2], start_pos[3]-1 },
+		end_pos = { end_pos[2], end_pos[3]-1 }
 	}
-
-	-- 调试输出
-	logger.info(string.format(
-		"Selection: start=[line=%d, col=%d] end=[line=%d, col=%d]",
-		result.start.line, result.start.character, result['end'].line, result['end'].character
-	))
 
 	return result
 end
 
 function M.make_selection_params()
-	local params = {
-		textDocument = {
-			uri = vim.uri_from_bufnr(0)
-		},
-		range = M.get_visual_selection()
-	}
-	return params
+	local range = M.get_visual_selection()
+	if(range == nil) then
+		return nil
+	end
+	return vim.lsp.util.make_given_range_params(range.start_pos,range.end_pos)
 end
 
 -- 启用标注模式

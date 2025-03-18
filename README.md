@@ -66,7 +66,7 @@
 
 ### 必需依赖
 
-- **Neovim**: >= 0.8.0
+- **Neovim**: >= 0.11
 - **Python**: >= 3.7
 - **nvim-lspconfig**: [neovim/nvim-lspconfig](https://github.com/neovim/nvim-lspconfig)
 

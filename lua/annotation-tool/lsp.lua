@@ -108,7 +108,7 @@ function M.highlight()
 	end
 
 	vim.lsp.buf.clear_references()
-	local params = core.make_position_params()
+	local params = vim.lsp.util.make_position_params()
 	request(ms.textDocument_documentHighlight, params)
 end
 
@@ -164,7 +164,7 @@ end
 --- Displays hover information about the symbol under the cursor in a floating 
 --- window. Calling the function twice will jump into the floating window.
 function M.hover_annotation()
-	local params = core.make_position_params()
+	local params = vim.lsp.util.make_position_params()
 	request(ms.textDocument_hover, params)
 end
 
@@ -198,7 +198,7 @@ function M.delete_annotation()
 		return
 	end
 
-	local params = core.make_position_params()
+	local params = vim.lsp.util.make_position_params()
 
 	logger.debug('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character))
 
@@ -240,7 +240,7 @@ function M.goto_current_annotation_note()
 	end
 
 	logger.info("Getting annotation note...")
-	local params = core.make_position_params()
+	local params = vim.lsp.util.make_position_params()
 	client.request('workspace/executeCommand', {
 		command = "getAnnotationNote",
 		arguments = { params }
