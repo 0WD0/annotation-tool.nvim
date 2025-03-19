@@ -14,19 +14,19 @@ function M.setup()
 	end
 
 	local commands = {
-		{ "AnnotationEnable", core.enable_annotation_mode },
-		{ "AnnotationDisable", core.disable_annotation_mode },
-		{ "AnnotationToggle", core.toggle_annotation_mode },
-		{ "AnnotationCreate", lsp.create_annotation },
-		{ "AnnotationList", lsp.list_annotations },
-		{ "AnnotationDelete", lsp.delete_annotation },
-		{ "AnnotationFind", telescope.find_annotations },
-		{ "AnnotationSearch", telescope.search_annotations },
-		{ "AnnotationTree", manager.show_annotation_tree },
+		{ "AnnotationEnable",            core.enable_annotation_mode },
+		{ "AnnotationDisable",           core.disable_annotation_mode },
+		{ "AnnotationToggle",            core.toggle_annotation_mode },
+		{ "AnnotationCreate",            lsp.create_annotation },
+		{ "AnnotationList",              lsp.list_annotations },
+		{ "AnnotationDelete",            lsp.delete_annotation },
+		{ "AnnotationFind",              telescope.find_annotations },
+		{ "AnnotationSearch",            telescope.search_annotations },
+		{ "AnnotationTree",              manager.show_annotation_tree },
 		-- 调试命令
-		{ "AnnotationDebugTree", manager.debug_print_tree },
+		{ "AnnotationDebugTree",         manager.debug_print_tree },
 		{ "AnnotationDebugInvalidNodes", manager.debug_check_invalid_nodes },
-		{ "AnnotationDebugListNodes", manager.debug_list_nodes },
+		{ "AnnotationDebugListNodes",    manager.debug_list_nodes },
 	}
 
 	for _, cmd in ipairs(commands) do

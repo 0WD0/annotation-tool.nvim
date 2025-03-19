@@ -22,14 +22,14 @@ function M.get_visual_selection()
 	end
 
 	if mode == 'V' then
-		start_pos[3]= 1
-		end_pos[3]= vim.fn.col({end_pos[2],'$'})-1
+		start_pos[3] = 1
+		end_pos[3] = vim.fn.col({ end_pos[2], '$' }) - 1
 	end
 
 	-- 转换为 LSP 位置格式
 	local result = {
-		start_pos = { start_pos[2], start_pos[3]-1 },
-		end_pos = { end_pos[2], end_pos[3]-1 }
+		start_pos = { start_pos[2], start_pos[3] - 1 },
+		end_pos = { end_pos[2], end_pos[3] - 1 }
 	}
 
 	return result
@@ -37,10 +37,10 @@ end
 
 function M.make_selection_params()
 	local range = M.get_visual_selection()
-	if(range == nil) then
+	if (range == nil) then
 		return nil
 	end
-	return vim.lsp.util.make_given_range_params(range.start_pos,range.end_pos)
+	return vim.lsp.util.make_given_range_params(range.start_pos, range.end_pos)
 end
 
 -- 启用标注模式
@@ -98,7 +98,7 @@ function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 		bufnr = 0
 	elseif type(bufnr) == 'number' and not vim.api.nvim_buf_is_valid(bufnr) then
 		logger.warn("Invalid buffer ID in convert_utf8_to_bytes: " .. tostring(bufnr))
-		bufnr = 0  -- 如果无效，使用当前缓冲区
+		bufnr = 0 -- 如果无效，使用当前缓冲区
 	end
 
 	-- 检查 pos_or_range 是否有效
@@ -132,7 +132,7 @@ function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 		-- 转换 single position 类型
 		local line = pos_or_range.line
 		local byte_index = convert_position(line, pos_or_range.character)
-		return {line + 1, byte_index}
+		return { line + 1, byte_index }
 	end
 end
 

@@ -104,20 +104,42 @@ end
 local function on_attach(client, bufnr)
 	local base_options = { buffer = bufnr, noremap = true, silent = true }
 	local keybindings = {
-		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation, desc = "Create annotation at selection" },
-		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations, desc = "List annotations" },
-		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation, desc = "Delete annotation at position" },
-		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note, desc = "Preview current annotation" },
-		{ mode = 'n', lhs = '<A-k>', rhs = function() M.switch_annotation(-1) end, desc = "Go to previous annotation" },
-		{ mode = 'n', lhs = '<A-j>', rhs = function() M.switch_annotation(1) end, desc = "Go to next annotation" },
+		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation,                       desc = "Create annotation at selection" },
+		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations,                        desc = "List annotations" },
+		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation,                       desc = "Delete annotation at position" },
+		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note,            desc = "Preview current annotation" },
+		{ mode = 'n', lhs = '<A-k>',      rhs = function() M.switch_annotation(-1) end,    desc = "Go to previous annotation" },
+		{ mode = 'n', lhs = '<A-j>',      rhs = function() M.switch_annotation(1) end,     desc = "Go to next annotation" },
 		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
-		{ mode = 'n', lhs = '<Leader>nt', rhs = function() require('annotation-tool.preview.manager').show_annotation_tree() end, desc = "Show annotation tree" },
+		{
+			mode = 'n',
+			lhs = '<Leader>nt',
+			rhs = function()
+				require('annotation-tool.preview.manager')
+					.show_annotation_tree()
+			end,
+			desc = "Show annotation tree"
+		},
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
 	if ok then
-		table.insert(keybindings, { mode = 'n', lhs = '<Leader>nf', rhs = telescope_module.find_annotations, desc = "Find annotations with Telescope" })
-		table.insert(keybindings, { mode = 'n', lhs = '<Leader>ns', rhs = telescope_module.search_annotations, desc = "Search annotation contents" })
+		table.insert(keybindings,
+			{
+				mode = 'n',
+				lhs = '<Leader>nf',
+				rhs = telescope_module.find_annotations,
+				desc =
+				"Find annotations with Telescope"
+			})
+		table.insert(keybindings,
+			{
+				mode = 'n',
+				lhs = '<Leader>ns',
+				rhs = telescope_module.search_annotations,
+				desc =
+				"Search annotation contents"
+			})
 	end
 
 	for _, config in ipairs(keybindings) do
@@ -131,7 +153,7 @@ local function on_attach(client, bufnr)
 	-- underdouble: 双下划线
 	-- underdotted: 点状下划线
 	-- underdashed: 虚线下划线
-	vim.api.nvim_set_hl(0, 'LspReferenceText', { underdouble = true, sp = '#85c1dc' })  -- 使用波浪线
+	vim.api.nvim_set_hl(0, 'LspReferenceText', { underdouble = true, sp = '#85c1dc' }) -- 使用波浪线
 	vim.api.nvim_set_hl(0, 'LspReferenceRead', { underdouble = true, sp = '#85c1dc' })
 	vim.api.nvim_set_hl(0, 'LspReferenceWrite', { underdouble = true, sp = '#85c1dc' })
 
@@ -161,14 +183,14 @@ function M.list_annotations()
 			textDocument = vim.lsp.util.make_text_document_params()
 		} }
 	}, function(err, result)
-			if err then
-				logger.error('Failed to list annotations: ' .. vim.inspect(err))
-			else
-				logger.info('Found ' .. #result.note_files .. ' annotations')
-				-- 输出调试信息
-				logger.debug_obj('Result', result)
-			end
-		end)
+		if err then
+			logger.error('Failed to list annotations: ' .. vim.inspect(err))
+		else
+			logger.info('Found ' .. #result.note_files .. ' annotations')
+			-- 输出调试信息
+			logger.debug_obj('Result', result)
+		end
+	end)
 end
 
 -- 删除标注
@@ -180,35 +202,35 @@ function M.delete_annotation()
 
 	local params = vim.lsp.util.make_position_params()
 
-	logger.debug('L'..vim.inspect(params.position.line)..'C'..vim.inspect(params.position.character))
+	logger.debug('L' .. vim.inspect(params.position.line) .. 'C' .. vim.inspect(params.position.character))
 
 	-- 直接显示确认对话框
-	vim.ui.select( { "Yes", "No" }, {
-			prompt = "Are you sure you want to delete this annotation?",
-			kind = "confirmation"
-		}, function(choice)
-			if choice == "Yes" then
-				-- 用户确认删除，执行删除操作
-				client.request('workspace/executeCommand', {
-					command = "deleteAnnotation",
-					arguments = { params }
-				}, function(err, result)
-					if err then
-						logger.error('Failed to delete annotation: ' .. vim.inspect(err))
-					else
-						local node_id = manager.find_node(result.note_file)
-						if node_id then
-							logger.info('Removing node ' .. node_id)
-							manager.remove_node(node_id)
-						end
-						logger.info('Annotation deleted successfully')
+	vim.ui.select({ "Yes", "No" }, {
+		prompt = "Are you sure you want to delete this annotation?",
+		kind = "confirmation"
+	}, function(choice)
+		if choice == "Yes" then
+			-- 用户确认删除，执行删除操作
+			client.request('workspace/executeCommand', {
+				command = "deleteAnnotation",
+				arguments = { params }
+			}, function(err, result)
+				if err then
+					logger.error('Failed to delete annotation: ' .. vim.inspect(err))
+				else
+					local node_id = manager.find_node(result.note_file)
+					if node_id then
+						logger.info('Removing node ' .. node_id)
+						manager.remove_node(node_id)
 					end
-				end)
-			else
-				-- 用户取消删除
-				logger.info('Annotation deletion cancelled by user')
-			end
+					logger.info('Annotation deleted successfully')
+				end
+			end)
+		else
+			-- 用户取消删除
+			logger.info('Annotation deletion cancelled by user')
 		end
+	end
 	)
 end
 
@@ -239,7 +261,7 @@ function M.goto_current_annotation_note()
 		local source_id = manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id , {
+		manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -270,7 +292,7 @@ function M.create_annotation()
 		local source_id = manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id , {
+		manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -324,7 +346,7 @@ function M.goto_annotation_source()
 		-- 从注释跳转到源文件
 		-- 在当前窗口打开源文件
 		local source_buf = vim.fn.bufadd(result.source_path)
-		vim.api.nvim_set_option_value('buflisted', true, {buf = source_buf})
+		vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
 		vim.api.nvim_win_set_buf(current_win, source_buf)
 
 		-- 跳转到批注位置
@@ -519,7 +541,7 @@ function M.attach()
 	end
 	logger.info("Attaching")
 	local bufnr = vim.api.nvim_get_current_buf()
-	vim.lsp.buf_attach_client(bufnr,client_id)
+	vim.lsp.buf_attach_client(bufnr, client_id)
 end
 
 -- 初始化 LSP 配置

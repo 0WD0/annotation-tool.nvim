@@ -3,8 +3,8 @@ local M = {}
 
 -- 保存预览窗口的信息
 M.preview_state = {
-	win = nil,  -- 窗口 ID
-	buf = nil,  -- Buffer ID
+	win = nil, -- 窗口 ID
+	buf = nil, -- Buffer ID
 }
 
 -- 关闭预览窗口
@@ -41,11 +41,11 @@ function M.setup_preview_window(file_path)
 	-- 创建新的 buffer
 	local buf = vim.fn.bufadd(file_path)
 	vim.api.nvim_buf_set_option(buf, 'buflisted', true)
-	
+
 	-- 创建垂直分割窗口
 	vim.cmd('vsplit')
 	local win = vim.api.nvim_get_current_win()
-	
+
 	-- 设置窗口显示的 buffer
 	vim.api.nvim_win_set_buf(win, buf)
 
@@ -84,7 +84,6 @@ function M.setup_preview_window(file_path)
 
 	return M.preview_state.buf
 end
-
 
 function M.goto_annotation_note(opts)
 	-- 如果预览窗口已存在，先关闭它

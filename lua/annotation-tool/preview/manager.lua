@@ -273,7 +273,7 @@ end
 ---注册自动命令以监听缓冲区/窗口关闭
 function M.setup()
 	-- 定期清理无效节点，使用 nested 选项和 VimLeavePre 事件确保在缓冲区和窗口删除后执行
-	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed"}, {
+	vim.api.nvim_create_autocmd({ "BufDelete", "WinClosed" }, {
 		nested = true,
 		callback = function()
 			-- 使用 vim.schedule 确保在当前事件完成后执行清理
