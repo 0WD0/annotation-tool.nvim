@@ -19,7 +19,7 @@
 - [贡献指南](#贡献指南)
 - [许可证](#许可证)
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.13.0-blue)
 ![Neovim](https://img.shields.io/badge/Neovim-0.8.0+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
@@ -43,7 +43,7 @@
 ## 特性
 
 ✅ **核心功能**
-- 支持在任意文本文件中添加批注
+- 支持在任意纯文本文件中添加批注
 - 批注区间可以嵌套
 - 自动同步批注文件 frontmatter，支持双向跳转
 - 光标下的批注区间高亮
@@ -54,12 +54,12 @@
 - 内置调试模式，方便排查问题
 
 ✅ **项目管理**
-- 多项目多文件支持
+- 同一个 nvim session 中多项目多文件支持
 - 支持项目移动和嵌套
-- 自动备份数据库
 
 🚧 **计划中的功能**
-- 支持文件重命名和移动后的自动同步
+- 自动备份数据库
+- 支持文件移动和文件重命名
 - 支持通过文件路径、原文内容或批注内容进行模糊搜索
 
 ## 依赖
@@ -231,7 +231,8 @@ require('annotation-tool').setup({
 
 ## 项目结构
 
-默认情况下，你需要手动创建一个 `.annotation` 目录，annotation-tool 将以它所在的目录作为这个批注项目的根目录。
+默认情况下，你需要手动创建一个 `.annotation` 目录，否则插件不会启动。
+annotation-tool 将以它所在的目录作为这个批注项目的根目录。
 
 annotation-tool 会在 `.annotation` 目录填充以下文件内容：
 
@@ -250,7 +251,7 @@ annotation-tool 会在 `.annotation` 目录填充以下文件内容：
 
 ````markdown
 ---
-file: /relative/path/to/project/root/of/source/file
+file: /source/file/path/relative/to/project/root
 id: 1
 ---
 ```
