@@ -186,7 +186,12 @@ function M.list_annotations()
 		if err then
 			logger.error('Failed to list annotations: ' .. vim.inspect(err))
 		else
-			logger.info('Found ' .. #result.note_files .. ' annotations')
+			if result and result.note_files then
+			  logger.info(('Found %d annotations'):format(#result.note_files))
+			else
+			  logger.warn('Server returned unexpected payload for listAnnotations: '
+						  .. vim.inspect(result))
+			end
 			-- 输出调试信息
 			logger.debug_obj('Result', result)
 		end
