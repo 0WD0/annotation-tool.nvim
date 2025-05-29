@@ -205,7 +205,7 @@ function M.delete_annotation()
 		return
 	end
 
-	local params = vim.lsp.util.make_position_params()
+	local params = vim.lsp.util.make_position_params(0,'utf-8')
 
 	logger.debug('L' .. vim.inspect(params.position.line) .. 'C' .. vim.inspect(params.position.character))
 
@@ -247,7 +247,7 @@ function M.goto_current_annotation_note()
 	end
 
 	logger.info("Getting annotation note...")
-	local params = vim.lsp.util.make_position_params()
+	local params = vim.lsp.util.make_position_params(0,'utf-8')
 	client.request('workspace/executeCommand', {
 		command = "getAnnotationNote",
 		arguments = { params }
