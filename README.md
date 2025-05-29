@@ -2,25 +2,9 @@
 
 一个基于 Neovim 的文本批注工具，支持嵌套批注、实时预览和全文搜索。
 
-## 目录
-
-- [特性](#特性)
-- [依赖](#依赖)
-- [安装](#安装)
-- [使用方法](#使用方法)
-  - [基本操作](#基本操作)
-  - [批注格式](#批注格式)
-- [配置选项](#配置选项)
-  - [调试模式](#调试模式)
-- [项目结构](#项目结构)
-  - [批注文件格式](#批注文件格式)
-- [数据库设计](#数据库设计)
-- [常见问题](#常见问题)
-- [贡献指南](#贡献指南)
-- [许可证](#许可证)
 
 ![Version](https://img.shields.io/badge/version-0.13.0-blue)
-![Neovim](https://img.shields.io/badge/Neovim-0.8.0+-green)
+![Neovim](https://img.shields.io/badge/Neovim-0.11+-green)
 ![License](https://img.shields.io/badge/license-MIT-orange)
 
 ## 目录
