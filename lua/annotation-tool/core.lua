@@ -40,7 +40,7 @@ function M.make_selection_params()
 	if (range == nil) then
 		return nil
 	end
-	return vim.lsp.util.make_given_range_params(range.start_pos, range.end_pos)
+	return vim.lsp.util.make_given_range_params(range.start_pos, range.end_pos, 0, 'utf-16')
 end
 
 -- 启用标注模式
