@@ -15,7 +15,6 @@ M.setup_preview = lsp.goto_current_annotation_note
 M.enable_annotation_mode = core.enable_annotation_mode
 M.disable_annotation_mode = core.disable_annotation_mode
 M.toggle_annotation_mode = core.toggle_annotation_mode
-M.show_conceal_rules = core.show_conceal_rules
 
 -- 初始化插件
 function M.setup(opts)
