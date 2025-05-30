@@ -6,26 +6,28 @@ from .db_manager import DatabaseManager
 from .note_manager import NoteManager
 from .logger import error, info
 
+
 class Workspace:
 	"""表示一个项目树"""
+
 	def __init__(self, root_path: Path):
 		self.root_path = root_path
 		self.uri = root_path.as_uri()
 		self.parent: Optional[Workspace] = None
 		self.children: List[Workspace] = []
-		
+
 		# 初始化管理器
 		self.db_manager = DatabaseManager(root_path)
 		self.note_manager = NoteManager(root_path)
 
-	def add_child(self, child: 'Workspace') -> None:
+	def add_child(self, child: "Workspace") -> None:
 		"""添加子工作区"""
 		if child.parent:
 			child.parent.children.remove(child)
 		child.parent = self
 		self.children.append(child)
 
-	def remove_child(self, child: 'Workspace') -> None:
+	def remove_child(self, child: "Workspace") -> None:
 		"""移除子工作区"""
 		if child in self.children:
 			child.parent = None
@@ -40,7 +42,7 @@ class Workspace:
 		except ValueError:
 			return False
 
-	def get_workspace_for_file(self, file_uri: str) -> Optional['Workspace']:
+	def get_workspace_for_file(self, file_uri: str) -> Optional["Workspace"]:
 		"""获取文件所属的最深工作区"""
 		if not self.contains_file(file_uri):
 			return None
@@ -48,12 +50,14 @@ class Workspace:
 		# 在子工作区中查找
 		deepest_workspace = None
 		min_depth = 2147483647  # 初始设为最大值
-		
+
 		for child in self.children:
 			workspace = child.get_workspace_for_file(file_uri)
 			if workspace:
 				try:
-					relative = Path(unquote(urlparse(file_uri).path)).relative_to(workspace.root_path)
+					relative = Path(unquote(urlparse(file_uri).path)).relative_to(
+						workspace.root_path
+					)
 					depth = len(relative.parts)
 					if depth < min_depth:
 						deepest_workspace = workspace
@@ -73,39 +77,41 @@ class Workspace:
 
 		return deepest_workspace
 
-	def get_subtree_workspaces(self: 'Workspace') -> List['Workspace']:
+	def get_subtree_workspaces(self: "Workspace") -> List["Workspace"]:
 		"""获取此节点及其所有子节点"""
 		result = [self]
 		for child in self.children:
 			result.extend(child.get_subtree_workspaces())
 		return result
 
-	def get_ancestor_workspaces(self: 'Workspace') -> List['Workspace']:
+	def get_ancestor_workspaces(self: "Workspace") -> List["Workspace"]:
 		"""获取此节点的所有祖先节点（包括自己）"""
 		result = [self]
 		if self.parent:
 			result.extend(self.parent.get_ancestor_workspaces())
 		return result
 
+
 class WorkspaceManager:
 	"""管理多个项目树的森林"""
+
 	def __init__(self):
 		self._roots: List[Workspace] = []  # 所有根项目
 		self._all_workspaces: Dict[str, Workspace] = {}  # uri -> workspace
 
 	def _find_root_project_for_path(self, path: Path) -> Optional[Workspace]:
 		"""找到路径所属的根项目
-		
+
 		Args:
-			path: 要查找的路径
-			
+		        path: 要查找的路径
+
 		Returns:
-			路径所属的根项目，如果不属于任何现有项目树则返回 None
+		        路径所属的根项目，如果不属于任何现有项目树则返回 None
 		"""
 		try:
 			min_depth = 2147483647
 			root = None
-			
+
 			# 遍历所有根项目，找到相对路径最短的那个
 			for workspace in self._roots:
 				try:
@@ -116,7 +122,7 @@ class WorkspaceManager:
 						min_depth = depth
 				except ValueError:
 					continue
-			
+
 			return root
 		except Exception as e:
 			error(f"Failed to find root for path {path}: {str(e)}")
@@ -124,12 +130,12 @@ class WorkspaceManager:
 
 	def _find_subprojects(self, root_path: Path) -> List[Path]:
 		"""递归查找所有包含 .annotation 目录的子目录
-		
+
 		Args:
-			root_path: 要搜索的根目录
-			
+		        root_path: 要搜索的根目录
+
 		Returns:
-			包含 .annotation 目录的子目录列表
+		        包含 .annotation 目录的子目录列表
 		"""
 		result = []
 		try:
@@ -143,20 +149,20 @@ class WorkspaceManager:
 				return result
 
 			# 如果当前目录包含 .annotation，加入结果
-			annotation_dir = root_path / '.annotation'
+			annotation_dir = root_path / ".annotation"
 			if annotation_dir.exists() and annotation_dir.is_dir():
 				result.append(root_path)
-			
+
 			# 递归搜索子目录
 			try:
 				for item in root_path.iterdir():
-					if item.is_dir() and not item.name.startswith('.'):
+					if item.is_dir() and not item.name.startswith("."):
 						result.extend(self._find_subprojects(item))
 			except PermissionError:
 				error(f"Permission denied when accessing directory: {root_path}")
 			except UnicodeDecodeError:
 				error(f"Unicode decode error when accessing directory: {root_path}")
-			
+
 			return result
 		except Exception as e:
 			error(f"Failed to find subprojects in {root_path}: {str(e)}")
@@ -164,42 +170,42 @@ class WorkspaceManager:
 
 	def add_workspace(self, workspace_uri: str) -> Optional[Workspace]:
 		"""添加新工作区，如果是新的根项目则会构建完整的项目树
-		
+
 		Args:
-			workspace_uri: 工作区的 URI
-			
+		        workspace_uri: 工作区的 URI
+
 		Returns:
-			添加的工作区，如果失败则返回 None
+		        添加的工作区，如果失败则返回 None
 		"""
 		try:
 			# 如果已存在，直接返回
 			if workspace_uri in self._all_workspaces:
 				return self._all_workspaces[workspace_uri]
-			
+
 			# 创建新工作区
 			# 解码 URL 编码的路径
 			workspace_path = Path(unquote(urlparse(workspace_uri).path))
-			
+
 			# 确保路径存在
 			if not workspace_path.exists():
 				error(f"Workspace path does not exist: {workspace_path}")
 				return None
-			
+
 			# 查找所有子项目
 			project_paths = self._find_subprojects(workspace_path)
 			if not project_paths:
 				# 如果没找到子项目，则返回 None
 				info(f"No projects with .annotation directory found in {workspace_path}")
 				return None
-			
+
 			# 按路径长度排序，确保父项目在子项目之前处理
 			project_paths.sort(key=lambda p: len(str(p)))
-			
+
 			# 找到这些路径所属的根项目
 			root = self._find_root_project_for_path(workspace_path)
 			if root:
 				info(f"Found root {root.root_path} for workspace {workspace_path}")
-				
+
 				# 将新发现的项目添加到现有树中
 				for path in project_paths:
 					path_uri = path.as_uri()
@@ -210,16 +216,23 @@ class WorkspaceManager:
 						self._all_workspaces[path_uri] = workspace
 						# 插入到项目树中
 						self._insert_workspace(workspace)
-				
+
 				# 确保原始 URI 也有映射
-				if workspace_uri not in self._all_workspaces and workspace_path.as_uri() in self._all_workspaces:
-					self._all_workspaces[workspace_uri] = self._all_workspaces[workspace_path.as_uri()]
-				
-				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(workspace_path.as_uri())
+				if (
+					workspace_uri not in self._all_workspaces
+					and workspace_path.as_uri() in self._all_workspaces
+				):
+					self._all_workspaces[workspace_uri] = self._all_workspaces[
+						workspace_path.as_uri()
+					]
+
+				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(
+					workspace_path.as_uri()
+				)
 			else:
 				# 没找到根项目，创建新的项目树
 				info(f"Creating new project tree for {workspace_path}")
-				
+
 				# 创建所有工作区
 				for path in project_paths:
 					info(f"Adding workspace {path} to new tree")
@@ -231,27 +244,34 @@ class WorkspaceManager:
 						self._roots.append(workspace)
 					else:
 						self._insert_workspace(workspace)
-				
+
 				# 确保原始 URI 也有映射
-				if workspace_uri not in self._all_workspaces and workspace_path.as_uri() in self._all_workspaces:
-					self._all_workspaces[workspace_uri] = self._all_workspaces[workspace_path.as_uri()]
-				
-				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(workspace_path.as_uri())
-			
+				if (
+					workspace_uri not in self._all_workspaces
+					and workspace_path.as_uri() in self._all_workspaces
+				):
+					self._all_workspaces[workspace_uri] = self._all_workspaces[
+						workspace_path.as_uri()
+					]
+
+				return self._all_workspaces.get(workspace_uri) or self._all_workspaces.get(
+					workspace_path.as_uri()
+				)
+
 		except Exception as e:
 			error(f"Failed to add workspace {workspace_uri}: {str(e)}")
 			return None
 
 	def remove_workspace(self, workspace_uri: str) -> bool:
 		"""移除工作区
-		
+
 		如果是根项目，会移除整个项目树
 		"""
 		try:
 			workspace = self._all_workspaces.get(workspace_uri)
 			if not workspace:
 				return False
-			
+
 			# 如果是根项目，移除整个项目树
 			if workspace in self._roots:
 				info(f"Removing root workspace {workspace_uri}")
@@ -259,14 +279,14 @@ class WorkspaceManager:
 				for child in workspace.get_subtree_workspaces():
 					self._all_workspaces.pop(child.uri, None)
 				return True
-			
+
 			# 否则只移除这个工作区 TODO: 改成移除子树
 			info(f"Removing workspace {workspace_uri}")
 			if workspace.parent:
 				workspace.parent.remove_child(workspace)
 			self._all_workspaces.pop(workspace_uri, None)
 			return True
-			
+
 		except Exception as e:
 			error(f"Failed to remove workspace {workspace_uri}: {str(e)}")
 			return False
@@ -284,17 +304,17 @@ class WorkspaceManager:
 					potential_parents.append((other, len(relative.parts)))
 				except ValueError:
 					continue
-			
+
 			if not potential_parents:
 				# 没有找到父工作区，说明应该是根项目
 				if workspace not in self._roots:
 					self._roots.append(workspace)
 				return
-			
+
 			# 选择路径最长的作为父工作区（最深的那个）
 			parent, _ = max(potential_parents, key=lambda x: x[1])
 			parent.add_child(workspace)
-			
+
 		except Exception as e:
 			error(f"Failed to insert workspace {workspace.uri}: {str(e)}")
 
@@ -302,16 +322,16 @@ class WorkspaceManager:
 		"""获取文件所属的最深工作区"""
 		try:
 			file_path = Path(unquote(urlparse(file_uri).path))
-			
+
 			# 先找到所属的根项目
 			root = self._find_root_project_for_path(file_path)
 			if not root:
 				return None
-			
+
 			# 在这个项目树中找最深的工作区
 			deepest_workspace = None
 			min_depth = 2147483647
-			
+
 			for workspace in root.get_subtree_workspaces():
 				try:
 					relative = file_path.relative_to(workspace.root_path)
@@ -321,9 +341,9 @@ class WorkspaceManager:
 						min_depth = depth
 				except ValueError:
 					continue
-			
+
 			return deepest_workspace
-			
+
 		except Exception as e:
 			error(f"Failed to get workspace for {file_uri}: {str(e)}")
 			return None
@@ -331,6 +351,7 @@ class WorkspaceManager:
 	def get_first_root_uri(self) -> Optional[str]:
 		"""获取第一个根项目的 URI"""
 		return self._roots[0].uri if self._roots else None
+
 
 # 全局工作区管理器实例
 workspace_manager = WorkspaceManager()

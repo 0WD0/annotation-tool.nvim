@@ -10,20 +10,25 @@ from .workspace_manager import workspace_manager
 from .utils import *
 from .logger import *
 
+
 class AnnotationServer(LanguageServer):
 	def __init__(self):
 		super().__init__("annotation_ls", "v0.1.0")
 		logger.set_server(self)
 
+
 server = AnnotationServer()
+
 
 @server.feature(types.INITIALIZE)
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""初始化 LSP 服务器"""
 	info("Initializing annotation LSP server...")
-	
+
 	# 初始化配置
-	init_options = params.initialization_options if hasattr(params, 'initialization_options') else None
+	init_options = (
+		params.initialization_options if hasattr(params, "initialization_options") else None
+	)
 	initialize_config(init_options)
 
 	# 初始化工作区
@@ -34,9 +39,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 
 	capabilities = types.ServerCapabilities(
 		text_document_sync=types.TextDocumentSyncOptions(
-			open_close=True,
-			change=types.TextDocumentSyncKind.Full,
-			save=True
+			open_close=True, change=types.TextDocumentSyncKind.Full, save=True
 		),
 		hover_provider=True,
 		execute_command_provider=types.ExecuteCommandOptions(
@@ -44,15 +47,17 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"createAnnotation",
 				"listAnnotations",
 				"deleteAnnotation",
+				"deleteAnnotationR",
 				"getAnnotationNote",
 				"getAnnotationSource",
 				# "queryAnnotations"
 			]
 		),
-		document_highlight_provider=True
+		document_highlight_provider=True,
 	)
-	
+
 	return types.InitializeResult(capabilities=capabilities)
+
 
 @server.feature("workspace/didChangeWorkspaceFolders")
 def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
@@ -61,22 +66,25 @@ def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
 		if params.event.added:
 			for folder in params.event.added:
 				workspace_manager.add_workspace(folder.uri)
-		
+
 		if params.event.removed:
 			for folder in params.event.removed:
 				workspace_manager.remove_workspace(folder.uri)
 	except Exception as e:
 		error(f"Error handling workspace folders change: {str(e)}")
 
+
 @server.feature(types.TEXT_DOCUMENT_DID_OPEN)
 def did_open(params: types.DidOpenTextDocumentParams):
 	"""文档打开时的处理"""
 	server.show_message(f"Document opened: {params.text_document.uri}")
 
+
 @server.feature(types.TEXT_DOCUMENT_DID_CHANGE)
 def did_change(params: types.DidChangeTextDocumentParams):
 	"""文档变化时的处理"""
 	server.show_message(f"Document changed: {params.text_document.uri}")
+
 
 @server.feature(types.TEXT_DOCUMENT_HOVER)
 def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover]:
@@ -95,40 +103,40 @@ def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover
 			return None
 		db_manager = workspace.db_manager
 		note_manager = workspace.note_manager
-		
+
 		# 获取笔记文件
 		note_file = db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
 			return None
-		
+
 		note_content = note_manager.get_note_content(note_file)
 		if not note_content:
 			error("Failed to get note file contents")
 			return types.Hover(contents=[])
-			
+
 		# 只显示 ## Notes 后面的内容
 		notes_content = extract_notes_content(note_content)
 		if not notes_content:
 			server.show_message("Empty note", types.MessageType.Info)
 			return types.Hover(contents=[])
-			
+
 		return types.Hover(
-			contents=types.MarkupContent(
-				kind=types.MarkupKind.Markdown,
-				value=notes_content
-			)
+			contents=types.MarkupContent(kind=types.MarkupKind.Markdown, value=notes_content)
 		)
 	except Exception as e:
 		error(f"Error in hover: {str(e)}")
 		return None
 
+
 @server.feature(types.TEXT_DOCUMENT_DOCUMENT_HIGHLIGHT)
-def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams) -> Optional[List[types.DocumentHighlight]]:
+def document_highlight(
+	ls: LanguageServer, params: types.DocumentHighlightParams
+) -> Optional[List[types.DocumentHighlight]]:
 	"""处理文档高亮请求，返回需要高亮的区域"""
 	try:
 		doc = ls.workspace.get_document(params.text_document.uri)
 		position = params.position
-		
+
 		# 获取光标位置的标注
 		annotation_id = get_annotation_at_position(doc, position)
 		if annotation_id is None:
@@ -138,16 +146,15 @@ def document_highlight(ls: LanguageServer, params: types.DocumentHighlightParams
 		if annotations is None:
 			raise Exception("Failed to get annotation ranges")
 
-		current_annotation_range = annotations[annotation_id-1]
-			
+		current_annotation_range = annotations[annotation_id - 1]
+
 		# 返回标注范围的高亮
-		return [types.DocumentHighlight(
-			range=current_annotation_range
-		)]
-		
+		return [types.DocumentHighlight(range=current_annotation_range)]
+
 	except Exception as e:
 		error(f"Error highlighting document: {str(e)}")
 		return None
+
 
 @server.command("createAnnotation")
 def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
@@ -159,16 +166,16 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		selection_range = types.Range(
 			start=types.Position(
 				line=params["range"]["start"]["line"],
-				character=params["range"]["start"]["character"]
+				character=params["range"]["start"]["character"],
 			),
 			end=types.Position(
 				line=params["range"]["end"]["line"],
-				character=params["range"]["end"]["character"]
-			)
+				character=params["range"]["end"]["character"],
+			),
 		)
 
-		selected_text = get_text_in_range(doc,selection_range)
-		annotation_id = get_annotation_id_before_position(doc,selection_range.start)
+		selected_text = get_text_in_range(doc, selection_range)
+		annotation_id = get_annotation_id_before_position(doc, selection_range.start)
 		if annotation_id is None:
 			error("Failed to get annotation_id before left bracket")
 			return {"success": False, "error": "1"}
@@ -180,32 +187,24 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 			raise Exception(f"No workspace found for {doc.uri}")
 		db_manager = workspace.db_manager
 		note_manager = workspace.note_manager
-		db_manager.increase_annotation_ids(doc.uri,annotation_id)
-		
+		db_manager.increase_annotation_ids(doc.uri, annotation_id)
+
 		# 创建标注
 		note_file = db_manager.create_annotation(doc.uri, annotation_id)
-		
+
 		# 在原文中插入日语半角括号
 		edits = [
 			types.TextEdit(
-				range=types.Range(
-					start=selection_range.start,
-					end=selection_range.start
-				),
-				new_text=config.left_bracket
+				range=types.Range(start=selection_range.start, end=selection_range.start),
+				new_text=config.left_bracket,
 			),
 			types.TextEdit(
-				range=types.Range(
-					start=selection_range.end,
-					end=selection_range.end
-				),
-				new_text=config.right_bracket
-			)
+				range=types.Range(start=selection_range.end, end=selection_range.end),
+				new_text=config.right_bracket,
+			),
 		]
-		
-		edit = types.WorkspaceEdit(
-			changes={params["textDocument"]["uri"]: edits}
-		)
+
+		edit = types.WorkspaceEdit(changes={params["textDocument"]["uri"]: edits})
 		ls.apply_edit(edit)
 		# 创建笔记文件
 		note_path = note_manager.create_annotation_note(
@@ -214,11 +213,16 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		if not note_path:
 			raise Exception("Failed to create note file")
 
-		return {"success": True, "note_file": note_file, "workspace_path": workspace.root_path}
+		return {
+			"success": True,
+			"note_file": note_file,
+			"workspace_path": workspace.root_path,
+		}
 
 	except Exception as e:
 		error(f"Failed to create annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
+
 
 @server.command("listAnnotations")
 def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
@@ -233,29 +237,26 @@ def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 
 		# 获取文件的所有标注
 		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
-		return {
-			"workspace_path": workspace.root_path,
-			"note_files": note_files
-		}
+		return {"workspace_path": workspace.root_path, "note_files": note_files}
 
 	except Exception as e:
 		error(f"Failed to list annotations: {str(e)}")
 		return {"success": False, "error": str(e)}
 
+
 @server.command("deleteAnnotation")
 def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
-	"""处理删除标注的逻辑"""
+	"""从原文位置删除标注"""
 	try:
 		params = params[0]
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
 		position = types.Position(
-			line=params['position']['line'],
-			character=params['position']['character']
+			line=params["position"]["line"], character=params["position"]["character"]
 		)
-		annotation_id = get_annotation_at_position(doc,position)
+		annotation_id = get_annotation_at_position(doc, position)
 		if annotation_id is None:
 			raise Exception("Failed to get annotation_id")
-		
+
 		# 获取工作区
 		workspace = workspace_manager.get_workspace(doc.uri)
 		if not workspace:
@@ -276,7 +277,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		if annotations is None:
 			raise Exception("Failed to get annotation ranges")
 
-		current_annotation_range = annotations[annotation_id-1]
+		current_annotation_range = annotations[annotation_id - 1]
 
 		edits = [
 			types.TextEdit(
@@ -284,37 +285,36 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 					start=current_annotation_range.start,
 					end=types.Position(
 						line=current_annotation_range.start.line,
-						character=current_annotation_range.start.character+1
-					)
+						character=current_annotation_range.start.character + 1,
+					),
 				),
-				new_text=""
+				new_text="",
 			),
 			types.TextEdit(
 				range=types.Range(
 					start=current_annotation_range.end,
 					end=types.Position(
 						line=current_annotation_range.end.line,
-						character=current_annotation_range.end.character+1
-					)
+						character=current_annotation_range.end.character + 1,
+					),
 				),
-				new_text=""
-			)
+				new_text="",
+			),
 		]
-		
-		edit = types.WorkspaceEdit(
-			changes={doc.uri: edits}
-		)
+
+		edit = types.WorkspaceEdit(changes={doc.uri: edits})
 		ls.apply_edit(edit)
 
 		db_manager.increase_annotation_ids(doc.uri, annotation_id, -1)
-		
+
 		# 删除笔记文件
 		note_manager.delete_note(note_file)
-		
+
 		return {"note_file": note_file}
 	except Exception as e:
 		error(f"Failed to delete annotation: {str(e)}")
 		return {"success": False, "error": str(e)}
+
 
 @server.command("getAnnotationNote")
 def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
@@ -427,7 +427,7 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 		n = len(annotations)
 		# 计算目标索引
 		target_id = (n + (current_id - 1 + offset) % n) % n + 1
-		target_annotation = annotations[target_id-1]
+		target_annotation = annotations[target_id - 1]
 
 		# 获取目标笔记文件
 		note_file = workspace.db_manager.get_annotation_note_file(source_path, target_id)
@@ -439,12 +439,13 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 			"source_path": source_path,
 			"note_file": note_file,
 			"annotation_id": target_id,
-			"position": target_annotation.start
+			"position": target_annotation.start,
 		}
 
 	except Exception as e:
 		error(f"Error getting annotation source: {str(e)}")
 		return None
+
 
 # @server.command("queryAnnotations")
 # def query_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
@@ -458,7 +459,7 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 # 		# 根据查询范围获取工作区列表
 # 		workspaces_to_query = []
 # 		query_scope = query_params.get('scope', 'current')  # current, subtree, ancestors, all
-# 		
+#
 # 		if query_scope == 'current':
 # 			workspaces_to_query = [current_workspace]
 # 		elif query_scope == 'subtree':
@@ -483,15 +484,16 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 # 		error(f"Error querying annotations: {str(e)}")
 # 		return {"success": False, "error": str(e)}
 
-def start_server(transport: str = 'stdio', host: str = '127.0.0.1', port: int = 2087):
+
+def start_server(transport: str = "stdio", host: str = "127.0.0.1", port: int = 2087):
 	"""启动 LSP 服务器
 
 	Args:
-		transport: 传输方式，'stdio' 或 'tcp'
-		host: TCP 服务器主机地址
-		port: TCP 服务器端口号
+	        transport: 传输方式，'stdio' 或 'tcp'
+	        host: TCP 服务器主机地址
+	        port: TCP 服务器端口号
 	"""
-	if transport == 'tcp':
+	if transport == "tcp":
 		server.start_tcp(host, port)
 	else:
 		server.start_io()
