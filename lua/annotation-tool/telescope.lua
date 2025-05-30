@@ -407,10 +407,12 @@ function M.find_atn_lc()
 				local delete_annotation = function()
 					local selection = action_state.get_selected_entry()
 
+					deps.logger.debug_obj("尝试删除标注", selection.value)
+					local file_path = selection.value.workspace_path .. '/.annotation/notes/' .. selection.value.note_file
 					-- 使用新的delete_annotation API，传入位置信息和回调
 					deps.lsp.delete_annotation({
-						buffer = vim.fn.bufadd(selection.value.file),
-						position = selection.value.position,
+						buffer = vim.fn.bufadd(file_path),
+						rev = true,
 						on_success = function(result)
 							-- 删除成功后刷新列表
 							vim.schedule(function()
