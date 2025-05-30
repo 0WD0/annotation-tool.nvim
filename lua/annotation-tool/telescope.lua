@@ -25,6 +25,16 @@ local function check_annotation_mode()
 	return true
 end
 
+-- 简单的LSP请求函数
+local function fetch_annotations(callback)
+	vim.lsp.buf_request(0, 'workspace/executeCommand', {
+		command = "listAnnotations",
+		arguments = { {
+			textDocument = vim.lsp.util.make_text_document_params()
+		} }
+	}, callback)
+end
+
 -- 在当前文件的所有被批注文本中查找
 function M.find_atn_lc()
 	if not check_annotation_mode() then return end
@@ -43,32 +53,86 @@ function M.find_atn_lc()
 	local action_state = require('telescope.actions.state')
 	local previewers = require('telescope.previewers')
 
-	vim.lsp.buf_request(0, 'workspace/executeCommand', {
-		command = "listAnnotations",
-		arguments = { {
-			textDocument = vim.lsp.util.make_text_document_params()
-		} }
-	}, function(err, result)
-		if err then
-			deps.logger.error("获取标注列表失败: " .. vim.inspect(err))
-			return
-		end
-
-		-- 输出调试信息
-		deps.logger.debug_obj("服务器返回结果", result)
+	-- 解析标注数据的函数
+	local function parse_annotations_result(result)
+		local annotations = {}
 
 		if not result or not result.note_files or #result.note_files == 0 then
-			deps.logger.info("未找到标注")
-			return
+			return annotations
 		end
 
-		-- 输出第一个标注的信息
-		deps.logger.debug_obj("第一个标注", result.note_files[1])
-
-		-- 从每个标注文件中提取信息
-		local annotations = {}
 		local workspace_path = result.workspace_path
 		local current_file = vim.fn.expand('%:p')
+
+		-- 创建标注条目的辅助函数
+		local function create_annotation_entries(og_content, og_note, base_info)
+			local content_entries = {}
+			local note_entries = {}
+
+			-- 处理内容行 - 只有有内容时才创建content条目
+			if og_content and og_content ~= "" then
+				local content_lines = {}
+				for line in og_content:gmatch("[^\r\n]+") do
+					local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
+					if trimmed ~= "" then -- 跳过空行
+						table.insert(content_lines, trimmed)
+					end
+				end
+
+				-- 只有当有有效内容行时才创建条目
+				if #content_lines > 0 then
+					for i, line in ipairs(content_lines) do
+						table.insert(content_entries, {
+							file = base_info.file,
+							content = line, -- 单行内容
+							full_content = og_content, -- 完整内容用于预览
+							full_note = og_note, -- 完整笔记用于预览
+							position = base_info.position,
+							range = base_info.range,
+							note_file = base_info.note_file,
+							workspace_path = base_info.workspace_path,
+							line_info = string.format("内容第%d行", i),
+							is_content_line = true,
+							line_number = i,
+							entry_type = "content"
+						})
+					end
+				end
+			end
+
+			-- 处理笔记行 - 只有有笔记时才创建note条目
+			if og_note and og_note ~= "" then
+				local note_lines = {}
+				for line in og_note:gmatch("[^\r\n]+") do
+					local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
+					if trimmed ~= "" then -- 跳过空行
+						table.insert(note_lines, trimmed)
+					end
+				end
+
+				-- 只有当有有效笔记行时才创建条目
+				if #note_lines > 0 then
+					for i, line in ipairs(note_lines) do
+						table.insert(note_entries, {
+							file = base_info.file,
+							note = line, -- 单行笔记
+							full_content = og_content, -- 完整内容用于预览
+							full_note = og_note, -- 完整笔记用于预览
+							position = base_info.position,
+							range = base_info.range,
+							note_file = base_info.note_file,
+							workspace_path = base_info.workspace_path,
+							line_info = string.format("笔记第%d行", i),
+							is_note_line = true,
+							line_number = i,
+							entry_type = "note"
+						})
+					end
+				end
+			end
+
+			return content_entries, note_entries
+		end
 
 		for _, note_file_info in ipairs(result.note_files) do
 			local note_file = note_file_info.note_file
@@ -126,76 +190,6 @@ function M.find_atn_lc()
 				::continue::
 			end
 
-			-- 创建标注条目的辅助函数
-			local function create_annotation_entries(og_content, og_note, base_info)
-				local content_entries = {}
-				local note_entries = {}
-
-				-- 处理内容行 - 只有有内容时才创建content条目
-				if og_content and og_content ~= "" then
-					local content_lines = {}
-					for line in og_content:gmatch("[^\r\n]+") do
-						local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
-						if trimmed ~= "" then -- 跳过空行
-							table.insert(content_lines, trimmed)
-						end
-					end
-
-					-- 只有当有有效内容行时才创建条目
-					if #content_lines > 0 then
-						for i, line in ipairs(content_lines) do
-							table.insert(content_entries, {
-								file = base_info.file,
-								content = line, -- 单行内容
-								full_content = og_content, -- 完整内容用于预览
-								full_note = og_note, -- 完整笔记用于预览
-								position = base_info.position,
-								range = base_info.range,
-								note_file = base_info.note_file,
-								workspace_path = base_info.workspace_path,
-								line_info = string.format("内容第%d行", i),
-								is_content_line = true,
-								line_number = i,
-								entry_type = "content"
-							})
-						end
-					end
-				end
-
-				-- 处理笔记行 - 只有有笔记时才创建note条目
-				if og_note and og_note ~= "" then
-					local note_lines = {}
-					for line in og_note:gmatch("[^\r\n]+") do
-						local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
-						if trimmed ~= "" then -- 跳过空行
-							table.insert(note_lines, trimmed)
-						end
-					end
-
-					-- 只有当有有效笔记行时才创建条目
-					if #note_lines > 0 then
-						for i, line in ipairs(note_lines) do
-							table.insert(note_entries, {
-								file = base_info.file,
-								note = line, -- 单行笔记
-								full_content = og_content, -- 完整内容用于预览
-								full_note = og_note, -- 完整笔记用于预览
-								position = base_info.position,
-								range = base_info.range,
-								note_file = base_info.note_file,
-								workspace_path = base_info.workspace_path,
-								line_info = string.format("笔记第%d行", i),
-								is_note_line = true,
-								line_number = i,
-								entry_type = "note"
-							})
-						end
-					end
-				end
-
-				return content_entries, note_entries
-			end
-
 			-- 使用新的拆分逻辑
 			local base_info = {
 				file = current_file,
@@ -215,6 +209,29 @@ function M.find_atn_lc()
 				table.insert(annotations, entry)
 			end
 		end
+
+		return annotations
+	end
+
+	fetch_annotations(function(err, result)
+		if err then
+			deps.logger.error("获取标注列表失败: " .. vim.inspect(err))
+			return
+		end
+
+		-- 输出调试信息
+		deps.logger.debug_obj("服务器返回结果", result)
+
+		if not result or not result.note_files or #result.note_files == 0 then
+			deps.logger.info("未找到标注")
+			return
+		end
+
+		-- 输出第一个标注的信息
+		deps.logger.debug_obj("第一个标注", result.note_files[1])
+
+		-- 解析标注数据
+		local annotations = parse_annotations_result(result)
 
 		-- 创建预览器
 		local annotation_previewer = previewers.new_buffer_previewer({
@@ -362,12 +379,6 @@ function M.find_atn_lc()
 					})
 					-- 刷新picker，重置选择状态
 					current_picker:refresh(new_finder, {})
-					-- 重置选择到第一项，避免索引问题
-					-- vim.schedule(function()
-					-- 	if #annotations > 0 then
-					-- 		current_picker:set_selection(0)
-					-- 	end
-					-- end)
 				end
 
 				-- 定义打开标注的动作
@@ -396,26 +407,39 @@ function M.find_atn_lc()
 				local delete_annotation = function()
 					local selection = action_state.get_selected_entry()
 
-					-- 确认删除
-					vim.ui.select(
-						{ "Yes", "No" },
-						{ prompt = "Are you sure you want to delete this annotation?" },
-						function(choice)
-							if choice == "Yes" then
-								actions.close(prompt_bufnr)
+					-- 使用新的delete_annotation API，传入位置信息和回调
+					deps.lsp.delete_annotation({
+						buffer = vim.fn.bufadd(selection.value.file),
+						position = selection.value.position,
+						on_success = function(result)
+							-- 删除成功后刷新列表
+							vim.schedule(function()
+								fetch_annotations(function(err, result)
+									if err then
+										deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+										return
+									end
 
-								-- 打开文件并跳转到标注位置
-								local buf = vim.fn.bufadd(selection.value.file)
-								vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
-								vim.api.nvim_win_set_buf(0, buf)
-								local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
-								vim.api.nvim_win_set_cursor(0, cursor_pos)
+									-- 更新全局annotations变量
+									annotations = parse_annotations_result(result)
 
-								-- 删除标注
-								deps.lsp.delete_annotation()
-							end
+									-- 刷新picker
+									local current_picker = action_state.get_current_picker(prompt_bufnr)
+									if current_picker then
+										local new_finder = finders.new_table({
+											results = get_filtered_results(search_mode),
+											entry_maker = create_entry_maker(search_mode),
+										})
+										current_picker:refresh(new_finder, {})
+										deps.logger.info("标注删除成功，列表已刷新")
+									end
+								end)
+							end)
+						end,
+						on_cancel = function()
+							-- 取消删除，什么都不做，picker保持打开
 						end
-					)
+					})
 				end
 
 				-- 映射按键
