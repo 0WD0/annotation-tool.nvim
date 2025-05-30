@@ -85,34 +85,45 @@ function M.find_atn_lc()
 			local content = ""
 			local note = ""
 			local in_notes_section = false
+			local in_selected_text_section = false
+			local in_code_block = false
+			local in_frontmatter = false
 			local position = { line = 0, character = 0 }
 			local range = { start = { line = 0, character = 0 }, ["end"] = { line = 0, character = 0 } }
 
-			-- 尝试从文件名中提取行号和列号
-			-- local line_num, char_num = note_file:match("L(%d+)C(%d+)")
-			-- if line_num and char_num then
-			-- 	position.line = tonumber(line_num) - 1
-			-- 	position.character = tonumber(char_num) - 1
-			-- 	range.start = { line = position.line, character = position.character }
-			-- 	range["end"] = { line = position.line, character = position.character + 1 }
-			-- end
-
 			for _, line in ipairs(file_content) do
-				if line:match("^## Content") then
+				-- 处理 frontmatter
+				if line:match("^%-%-%-") then
+					in_frontmatter = not in_frontmatter
+				elseif in_frontmatter then
+					-- 跳过 frontmatter 内容
+					goto continue
+				elseif line:match("^## Selected Text") then
+					in_selected_text_section = true
 					in_notes_section = false
 				elseif line:match("^## Notes") then
 					in_notes_section = true
+					in_selected_text_section = false
+					in_code_block = false
+				elseif in_selected_text_section then
+					-- 在 Selected Text 部分
+					if line:match("^```") then
+						in_code_block = not in_code_block
+					elseif in_code_block then
+						-- 提取代码块内的内容
+						if content ~= "" then
+							content = content .. "\n"
+						end
+						content = content .. line
+					end
 				elseif in_notes_section then
+					-- 在 Notes 部分
 					if note ~= "" then
 						note = note .. "\n"
 					end
 					note = note .. line
-				elseif not in_notes_section and not line:match("^#") then
-					if content ~= "" then
-						content = content .. " "
-					end
-					content = content .. line:gsub("^%s*(.-)%s*$", "%1")
 				end
+				::continue::
 			end
 
 			table.insert(annotations, {
@@ -178,8 +189,8 @@ function M.find_atn_lc()
 
 					return {
 						value = entry,
-						display = string.format("%s: %s", filename, display_text),
-						ordinal = entry.content
+						display = display_text .. " (" .. filename .. ")",
+						ordinal = display_text .. " " .. filename,
 					}
 				end,
 			}),
