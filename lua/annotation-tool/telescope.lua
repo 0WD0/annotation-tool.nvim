@@ -189,9 +189,29 @@ function M.find_atn_lc()
 				local ordinal_text
 				if mode == 'content' then
 					ordinal_text = entry.content or ""
+					if display_text == "" then
+						display_text = "（无批注内容）"
+					end
 				else -- mode == 'note'
 					ordinal_text = entry.note or ""
 					display_text = entry.note or ""
+					-- 如果笔记为空，使用内容作为fallback显示
+					if display_text == "" then
+						display_text = "（无笔记内容）"
+					end
+				end
+
+				-- 将ordinal_text中的换行符替换为空格，避免telescope搜索问题
+				ordinal_text = ordinal_text:gsub("[\r\n]+", " ")
+
+				-- 对于显示文本，如果是多行的，只显示第一行并添加省略号
+				if display_text:find("[\r\n]") then
+					local first_line = display_text:match("([^\r\n]*)")
+					if first_line and #first_line > 0 then
+						display_text = first_line .. "..."
+					else
+						display_text = "..."
+					end
 				end
 
 				if #display_text > 50 then
@@ -229,18 +249,23 @@ function M.find_atn_lc()
 				local toggle_search_mode = function()
 					-- 切换模式
 					search_mode = search_mode == 'content' and 'note' or 'content'
-
-					-- 更新picker
+					-- 获取当前picker
 					local current_picker = action_state.get_current_picker(prompt_bufnr)
+					-- 更新标题和finder
 					current_picker.prompt_title = create_title(search_mode)
-					current_picker.finder = finders.new_table({
+					-- 创建新的finder
+					local new_finder = finders.new_table({
 						results = annotations,
 						entry_maker = create_entry_maker(search_mode),
 					})
-					current_picker:refresh(finders.new_table({
-						results = annotations,
-						entry_maker = create_entry_maker(search_mode),
-					}), {reset_prompt = false})
+					-- 刷新picker，重置选择状态
+					current_picker:refresh(new_finder, {})
+					-- 重置选择到第一项，避免索引问题
+					-- vim.schedule(function()
+					-- 	if #annotations > 0 then
+					-- 		current_picker:set_selection(0)
+					-- 	end
+					-- end)
 				end
 
 				-- 定义打开标注的动作
