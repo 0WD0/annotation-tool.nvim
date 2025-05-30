@@ -324,49 +324,79 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		# 获取文档和位置
 		doc = ls.workspace.get_document(params["textDocument"]["uri"])
 		position = types.Position(
-			line=params['position']['line'],
-			character=params['position']['character']
+			line=params["position"]["line"], character=params["position"]["character"]
 		)
-		
+
 		# 获取当前位置的批注
 		annotation_id = get_annotation_at_position(doc, position)
 		if not annotation_id:
 			raise Exception("No annotation found at current position")
-			
+
 		# 获取工作区
 		workspace = workspace_manager.get_workspace(doc.uri)
 		if not workspace:
 			raise Exception(f"No workspace found for {doc.uri}")
-			
+
 		# 获取笔记文件路径
 		note_file = workspace.db_manager.get_annotation_note_file(doc.uri, annotation_id)
 		if not note_file:
 			raise Exception("Annotation note file not found")
-			
+
 		return {
 			"note_file": note_file,
-			"workspace_path": workspace.root_path,  
-			"annotation_id": annotation_id
+			"workspace_path": workspace.root_path,
+			"annotation_id": annotation_id,
 		}
-			
+
 	except Exception as e:
 		error(f"Error getting annotation note: {str(e)}")
 		return None
 
+
+@server.command("deleteAnnotationR")
+def delete_annotation_r(ls: LanguageServer, params: List[Dict]) -> Dict:
+	"""从批注文件中删除批注"""
+	try:
+		# 先获取批注的源文件位置信息
+		source_info = get_annotation_source(ls, params)
+		if not source_info:
+			raise Exception("Failed to get annotation source information")
+
+		# 构建delete_annotation需要的参数格式
+		delete_params = [
+			{
+				"textDocument": {"uri": source_info["source_path"]},
+				"position": {
+					"line": source_info["position"]["line"],
+					"character": source_info["position"]["character"],
+				},
+			}
+		]
+
+		# 调用delete_annotation删除批注
+		result = delete_annotation(ls, delete_params)
+
+		return result
+
+	except Exception as e:
+		error(f"Failed to delete annotation R: {str(e)}")
+		return {"success": False, "error": str(e)}
+
+
 @server.command("getAnnotationSource")
-def get_annotation_source(ls: LanguageServer, params: Dict) -> Optional[Dict]:
+def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Dict]:
 	"""从笔记跳转到源文件的批注位置
 	params:
-		- textDocument: 当前笔记文件
-		- offset: 偏移量，1 表示下一个批注，-1 表示上一个批注，0 表示当前批注
+	        - textDocument: 当前笔记文件
+	        - offset: 偏移量，1 表示下一个批注，-1 表示上一个批注，0 表示当前批注
 	"""
 	try:
-		params = params[0]
+		param = params[0]
 
-		info(f"params = {params}")
+		info(f"params = {param}")
 
-		note = ls.workspace.get_document(params["textDocument"]["uri"])
-		offset = params.get("offset", 1)  # 默认获取下一个
+		note = ls.workspace.get_document(param["textDocument"]["uri"])
+		offset = param.get("offset", 1)  # 默认获取下一个
 
 		info(f"Getting annotation source with offset {offset}")
 
