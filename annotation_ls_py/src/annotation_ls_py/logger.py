@@ -2,6 +2,7 @@
 
 from lsprotocol import types
 
+
 class Logger:
 	def __init__(self):
 		self._server = None
@@ -18,10 +19,13 @@ class Logger:
 		if self._server and self.debug:
 			self._server.show_message(msg, types.MessageType.Info)
 
+
 logger = Logger()
+
 
 def error(msg: str = "") -> None:
 	logger.error(msg)
+
 
 def info(msg: str = "") -> None:
 	logger.info(msg)
