@@ -16,7 +16,6 @@ M.enable_annotation_mode = core.enable_annotation_mode
 M.disable_annotation_mode = core.disable_annotation_mode
 M.toggle_annotation_mode = core.toggle_annotation_mode
 M.show_conceal_rules = core.show_conceal_rules
-M.show_annotation_tree = manager.show_annotation_tree
 
 -- 初始化插件
 function M.setup(opts)

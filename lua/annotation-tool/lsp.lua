@@ -100,6 +100,8 @@ function M.highlight()
 	vim.lsp.buf.document_highlight()
 end
 
+M.show_annotation_tree = manager.show_annotation_tree
+
 -- LSP 回调函数
 local function on_attach(client, bufnr)
 	local base_options = { buffer = bufnr, noremap = true, silent = true }
@@ -111,7 +113,7 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<A-k>',      rhs = function() M.switch_annotation(-1) end,    desc = "Go to previous annotation" },
 		{ mode = 'n', lhs = '<A-j>',      rhs = function() M.switch_annotation(1) end,     desc = "Go to next annotation" },
 		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
-		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree(),                  desc = "Show annotation tree" },
+		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                  desc = "Show annotation tree" },
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
