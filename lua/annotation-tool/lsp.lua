@@ -126,14 +126,6 @@ local function on_attach(client, bufnr)
 				desc =
 				"Find annotations with Telescope"
 			})
-		table.insert(keybindings,
-			{
-				mode = 'n',
-				lhs = '<Leader>ns',
-				rhs = telescope_module.search_annotations,
-				desc =
-				"Search annotation contents"
-			})
 	end
 
 	for _, config in ipairs(keybindings) do

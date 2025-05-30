@@ -433,35 +433,4 @@ function M.find_atn_lc()
 	end)
 end
 
--- 搜索标注内容
-function M.search_annotations()
-	if not check_annotation_mode() then return end
-
-	local deps = load_deps()
-	local client = deps.lsp.get_client()
-	if not client then
-		deps.logger.error("LSP 客户端未连接")
-		return
-	end
-
-	-- 弹出输入框让用户输入搜索关键词
-	vim.ui.input(
-		{ prompt = "输入搜索关键词: " },
-		function(query)
-			if not query or query == "" then
-				return
-			end
-
-			-- 实现搜索功能
-			deps.logger.info("正在搜索: " .. query)
-
-			-- TODO:
-			-- 这里可以实现搜索逻辑，类似于 server.py 中的 queryAnnotations 函数
-			-- 由于当前 LSP 服务器没有实现 queryAnnotations 命令，这里使用 listAnnotations 然后在客户端过滤
-
-			M.find_atn_lc() -- 临时使用 find_annotations 代替
-		end
-	)
-end
-
 return M
