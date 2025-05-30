@@ -110,7 +110,7 @@ function M.find_atn_lc()
 					if line:match("^```") then
 						in_code_block = not in_code_block
 					elseif in_code_block then
-						-- 提取代码块内的内容
+						-- 提取代码块内的内容，保持原始格式
 						if content ~= "" then
 							content = content .. "\n"
 						end
@@ -146,7 +146,13 @@ function M.find_atn_lc()
 				-- 添加标注内容
 				table.insert(lines, "# 标注内容")
 				table.insert(lines, "")
-				table.insert(lines, entry.value.content)
+				if entry.value.content and entry.value.content ~= "" then
+					for content_line in entry.value.content:gmatch("[^\r\n]+") do
+						table.insert(lines, content_line)
+					end
+				else
+					table.insert(lines, "（无内容）")
+				end
 				table.insert(lines, "")
 
 				-- 添加笔记内容
