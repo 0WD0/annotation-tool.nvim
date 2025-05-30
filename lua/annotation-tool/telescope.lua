@@ -131,7 +131,7 @@ function M.find_atn_lc()
 				local content_entries = {}
 				local note_entries = {}
 
-				-- 处理内容行 - 创建content条目
+				-- 处理内容行 - 只有有内容时才创建content条目
 				if og_content and og_content ~= "" then
 					local content_lines = {}
 					for line in og_content:gmatch("[^\r\n]+") do
@@ -141,25 +141,28 @@ function M.find_atn_lc()
 						end
 					end
 
-					for i, line in ipairs(content_lines) do
-						table.insert(content_entries, {
-							file = base_info.file,
-							content = line, -- 单行内容
-							full_content = og_content, -- 完整内容用于预览
-							full_note = og_note, -- 完整笔记用于预览
-							position = base_info.position,
-							range = base_info.range,
-							note_file = base_info.note_file,
-							workspace_path = base_info.workspace_path,
-							line_info = string.format("内容第%d行", i),
-							is_content_line = true,
-							line_number = i,
-							entry_type = "content"
-						})
+					-- 只有当有有效内容行时才创建条目
+					if #content_lines > 0 then
+						for i, line in ipairs(content_lines) do
+							table.insert(content_entries, {
+								file = base_info.file,
+								content = line, -- 单行内容
+								full_content = og_content, -- 完整内容用于预览
+								full_note = og_note, -- 完整笔记用于预览
+								position = base_info.position,
+								range = base_info.range,
+								note_file = base_info.note_file,
+								workspace_path = base_info.workspace_path,
+								line_info = string.format("内容第%d行", i),
+								is_content_line = true,
+								line_number = i,
+								entry_type = "content"
+							})
+						end
 					end
 				end
 
-				-- 处理笔记行 - 创建note条目
+				-- 处理笔记行 - 只有有笔记时才创建note条目
 				if og_note and og_note ~= "" then
 					local note_lines = {}
 					for line in og_note:gmatch("[^\r\n]+") do
@@ -169,21 +172,24 @@ function M.find_atn_lc()
 						end
 					end
 
-					for i, line in ipairs(note_lines) do
-						table.insert(note_entries, {
-							file = base_info.file,
-							note = line, -- 单行笔记
-							full_content = og_content, -- 完整内容用于预览
-							full_note = og_note, -- 完整笔记用于预览
-							position = base_info.position,
-							range = base_info.range,
-							note_file = base_info.note_file,
-							workspace_path = base_info.workspace_path,
-							line_info = string.format("笔记第%d行", i),
-							is_note_line = true,
-							line_number = i,
-							entry_type = "note"
-						})
+					-- 只有当有有效笔记行时才创建条目
+					if #note_lines > 0 then
+						for i, line in ipairs(note_lines) do
+							table.insert(note_entries, {
+								file = base_info.file,
+								note = line, -- 单行笔记
+								full_content = og_content, -- 完整内容用于预览
+								full_note = og_note, -- 完整笔记用于预览
+								position = base_info.position,
+								range = base_info.range,
+								note_file = base_info.note_file,
+								workspace_path = base_info.workspace_path,
+								line_info = string.format("笔记第%d行", i),
+								is_note_line = true,
+								line_number = i,
+								entry_type = "note"
+							})
+						end
 					end
 				end
 
@@ -282,9 +288,6 @@ function M.find_atn_lc()
 					end
 					ordinal_text = entry.content or ""
 					display_text = entry.content or ""
-					if display_text == "" then
-						display_text = "（无批注内容）"
-					end
 				else -- note模式
 					-- note模式只处理note条目
 					if entry.entry_type ~= "note" then
@@ -292,9 +295,6 @@ function M.find_atn_lc()
 					end
 					ordinal_text = entry.note or ""
 					display_text = entry.note or ""
-					if display_text == "" then
-						display_text = "（无笔记内容）"
-					end
 				end
 
 				-- 添加行号信息到显示文本
