@@ -126,15 +126,88 @@ function M.find_atn_lc()
 				::continue::
 			end
 
-			table.insert(annotations, {
+			-- 创建标注条目的辅助函数
+			local function create_annotation_entries(og_content, og_note, base_info)
+				local content_entries = {}
+				local note_entries = {}
+
+				-- 处理内容行 - 创建content条目
+				if og_content and og_content ~= "" then
+					local content_lines = {}
+					for line in og_content:gmatch("[^\r\n]+") do
+						local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
+						if trimmed ~= "" then -- 跳过空行
+							table.insert(content_lines, trimmed)
+						end
+					end
+
+					for i, line in ipairs(content_lines) do
+						table.insert(content_entries, {
+							file = base_info.file,
+							content = line, -- 单行内容
+							full_content = og_content, -- 完整内容用于预览
+							full_note = og_note, -- 完整笔记用于预览
+							position = base_info.position,
+							range = base_info.range,
+							note_file = base_info.note_file,
+							workspace_path = base_info.workspace_path,
+							line_info = string.format("内容第%d行", i),
+							is_content_line = true,
+							line_number = i,
+							entry_type = "content"
+						})
+					end
+				end
+
+				-- 处理笔记行 - 创建note条目
+				if og_note and og_note ~= "" then
+					local note_lines = {}
+					for line in og_note:gmatch("[^\r\n]+") do
+						local trimmed = line:gsub("^%s*(.-)%s*$", "%1")
+						if trimmed ~= "" then -- 跳过空行
+							table.insert(note_lines, trimmed)
+						end
+					end
+
+					for i, line in ipairs(note_lines) do
+						table.insert(note_entries, {
+							file = base_info.file,
+							note = line, -- 单行笔记
+							full_content = og_content, -- 完整内容用于预览
+							full_note = og_note, -- 完整笔记用于预览
+							position = base_info.position,
+							range = base_info.range,
+							note_file = base_info.note_file,
+							workspace_path = base_info.workspace_path,
+							line_info = string.format("笔记第%d行", i),
+							is_note_line = true,
+							line_number = i,
+							entry_type = "note"
+						})
+					end
+				end
+
+				return content_entries, note_entries
+			end
+
+			-- 使用新的拆分逻辑
+			local base_info = {
 				file = current_file,
-				content = content,
-				note = note,
 				position = position,
 				range = range,
 				note_file = note_file,
 				workspace_path = workspace_path
-			})
+			}
+
+			local content_entries, note_entries = create_annotation_entries(content, note, base_info)
+
+			-- 将content和note条目都添加到annotations中，但标记类型
+			for _, entry in ipairs(content_entries) do
+				table.insert(annotations, entry)
+			end
+			for _, entry in ipairs(note_entries) do
+				table.insert(annotations, entry)
+			end
 		end
 
 		-- 创建预览器
@@ -143,11 +216,12 @@ function M.find_atn_lc()
 			define_preview = function(self, entry, status)
 				local lines = {}
 
-				-- 添加标注内容
+				-- 添加标注内容（使用完整内容）
 				table.insert(lines, "# 标注内容")
 				table.insert(lines, "")
-				if entry.value.content and entry.value.content ~= "" then
-					for content_line in entry.value.content:gmatch("[^\r\n]+") do
+				local full_content = entry.value.full_content
+				if full_content and full_content ~= "" then
+					for content_line in full_content:gmatch("[^\r\n]+") do
 						table.insert(lines, content_line)
 					end
 				else
@@ -155,15 +229,29 @@ function M.find_atn_lc()
 				end
 				table.insert(lines, "")
 
-				-- 添加笔记内容
+				-- 添加笔记内容（使用完整笔记）
 				table.insert(lines, "# 笔记")
 				table.insert(lines, "")
-				if entry.value.note and entry.value.note ~= "" then
-					for note_line in entry.value.note:gmatch("[^\r\n]+") do
+				local full_note = entry.value.full_note
+				if full_note and full_note ~= "" then
+					for note_line in full_note:gmatch("[^\r\n]+") do
 						table.insert(lines, note_line)
 					end
 				else
 					table.insert(lines, "（无笔记）")
+				end
+
+				-- 添加当前选中信息
+				if entry.value.line_info then
+					table.insert(lines, "")
+					table.insert(lines, "# 当前选中")
+					table.insert(lines, "")
+					table.insert(lines, entry.value.line_info)
+					if entry.value.entry_type == "content" then
+						table.insert(lines, "内容: " .. (entry.value.content or ""))
+					else
+						table.insert(lines, "笔记: " .. (entry.value.note or ""))
+					end
 				end
 
 				-- 添加文件信息
@@ -183,39 +271,40 @@ function M.find_atn_lc()
 		-- 创建动态entry_maker函数
 		local function create_entry_maker(mode)
 			return function(entry)
-				local display_text = entry.content or ""
+				-- 确保display_text是单行的
+				local display_text = ""
+				local ordinal_text = ""
 
-				-- 根据当前模式决定搜索字段
-				local ordinal_text
 				if mode == 'content' then
+					-- content模式只处理content条目
+					if entry.entry_type ~= "content" then
+						return nil -- 过滤掉非content条目
+					end
 					ordinal_text = entry.content or ""
+					display_text = entry.content or ""
 					if display_text == "" then
 						display_text = "（无批注内容）"
 					end
-				else -- mode == 'note'
+				else -- note模式
+					-- note模式只处理note条目
+					if entry.entry_type ~= "note" then
+						return nil -- 过滤掉非note条目
+					end
 					ordinal_text = entry.note or ""
 					display_text = entry.note or ""
-					-- 如果笔记为空，使用内容作为fallback显示
 					if display_text == "" then
 						display_text = "（无笔记内容）"
 					end
 				end
 
-				-- 将ordinal_text中的换行符替换为空格，避免telescope搜索问题
-				ordinal_text = ordinal_text:gsub("[\r\n]+", " ")
+				-- 添加行号信息到显示文本
+				-- if entry.line_info then
+				-- 	display_text = string.format("[%s] %s", entry.line_info, display_text)
+				-- end
 
-				-- 对于显示文本，如果是多行的，只显示第一行并添加省略号
-				if display_text:find("[\r\n]") then
-					local first_line = display_text:match("([^\r\n]*)")
-					if first_line and #first_line > 0 then
-						display_text = first_line .. "..."
-					else
-						display_text = "..."
-					end
-				end
-
-				if #display_text > 50 then
-					display_text = display_text:sub(1, 47) .. "..."
+				-- 限制显示长度
+				if #display_text > 80 then
+					display_text = display_text:sub(1, 77) .. "..."
 				end
 
 				return {
@@ -224,6 +313,19 @@ function M.find_atn_lc()
 					ordinal = ordinal_text,
 				}
 			end
+		end
+
+		-- 创建过滤后的结果函数
+		local function get_filtered_results(mode)
+			local filtered = {}
+			for _, entry in ipairs(annotations) do
+				if mode == 'content' and entry.entry_type == "content" then
+					table.insert(filtered, entry)
+				elseif mode == 'note' and entry.entry_type == "note" then
+					table.insert(filtered, entry)
+				end
+			end
+			return filtered
 		end
 
 		-- 创建动态标题函数
@@ -239,7 +341,7 @@ function M.find_atn_lc()
 		pickers.new({}, {
 			prompt_title = create_title(search_mode),
 			finder = finders.new_table({
-				results = annotations,
+				results = get_filtered_results(search_mode),
 				entry_maker = create_entry_maker(search_mode),
 			}),
 			sorter = conf.generic_sorter({}),
@@ -255,7 +357,7 @@ function M.find_atn_lc()
 					current_picker.prompt_title = create_title(search_mode)
 					-- 创建新的finder
 					local new_finder = finders.new_table({
-						results = annotations,
+						results = get_filtered_results(search_mode),
 						entry_maker = create_entry_maker(search_mode),
 					})
 					-- 刷新picker，重置选择状态
