@@ -21,7 +21,6 @@ function M.setup()
 		{ "AnnotationList",              lsp.list_annotations },
 		{ "AnnotationDelete",            lsp.delete_annotation },
 		{ "AnnotationFind",              telescope.find_atn_lc },
-		{ "AnnotationSearch",            telescope.search_annotations },
 		{ "AnnotationTree",              manager.show_annotation_tree },
 		-- 调试命令
 		{ "AnnotationDebugTree",         manager.debug_print_tree },
