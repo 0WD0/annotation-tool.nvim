@@ -120,7 +120,7 @@ local function on_attach(client, bufnr)
 			{
 				mode = 'n',
 				lhs = '<Leader>nf',
-				rhs = telescope_module.find_annotations,
+				rhs = telescope_module.find_atn_lc,
 				desc =
 				"Find annotations with Telescope"
 			})

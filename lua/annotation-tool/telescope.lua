@@ -25,8 +25,8 @@ local function check_annotation_mode()
 	return true
 end
 
--- 获取当前工作区的所有标注
-function M.find_annotations()
+-- 在当前文件的所有被批注文本中查找
+function M.find_atn_lc()
 	if not check_annotation_mode() then return end
 
 	local deps = load_deps()
@@ -43,7 +43,6 @@ function M.find_annotations()
 	local action_state = require('telescope.actions.state')
 	local previewers = require('telescope.previewers')
 
-	-- 从 LSP 服务器获取所有标注
 	vim.lsp.buf_request(0, 'workspace/executeCommand', {
 		command = "listAnnotations",
 		arguments = { {
@@ -180,10 +179,7 @@ function M.find_annotations()
 					return {
 						value = entry,
 						display = string.format("%s: %s", filename, display_text),
-						ordinal = string.format("%s %s %s",
-							entry.file,
-							entry.content,
-							entry.note or ""),
+						ordinal = entry.content
 					}
 				end,
 			}),
@@ -279,7 +275,7 @@ function M.search_annotations()
 			-- 这里可以实现搜索逻辑，类似于 server.py 中的 queryAnnotations 函数
 			-- 由于当前 LSP 服务器没有实现 queryAnnotations 命令，这里使用 listAnnotations 然后在客户端过滤
 
-			M.find_annotations() -- 临时使用 find_annotations 代替
+			M.find_atn_lc() -- 临时使用 find_annotations 代替
 		end
 	)
 end
