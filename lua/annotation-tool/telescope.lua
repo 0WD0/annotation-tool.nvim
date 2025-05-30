@@ -191,12 +191,10 @@ function M.find_atn_lc()
 						display_text = display_text:sub(1, 47) .. "..."
 					end
 
-					local filename = vim.fn.fnamemodify(entry.file, ":t")
-
 					return {
 						value = entry,
-						display = display_text .. " (" .. filename .. ")",
-						ordinal = display_text .. " " .. filename,
+						display = display_text,
+						ordinal = display_text,
 					}
 				end,
 			}),
@@ -215,7 +213,6 @@ function M.find_atn_lc()
 					local buf = vim.fn.bufadd(selection.value.file)
 					vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
 					vim.api.nvim_win_set_buf(0, buf)
-					local deps = load_deps()
 					local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 					vim.api.nvim_win_set_cursor(0, cursor_pos)
 
@@ -232,17 +229,16 @@ function M.find_atn_lc()
 
 					-- 确认删除
 					vim.ui.select(
-						{ "是", "否" },
-						{ prompt = "确定要删除这个标注吗？" },
+						{ "Yes", "No" },
+						{ prompt = "Are you sure you want to delete this annotation?" },
 						function(choice)
-							if choice == "是" then
+							if choice == "Yes" then
 								actions.close(prompt_bufnr)
 
 								-- 打开文件并跳转到标注位置
 								local buf = vim.fn.bufadd(selection.value.file)
 								vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
 								vim.api.nvim_win_set_buf(0, buf)
-								local deps = load_deps()
 								local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
 								vim.api.nvim_win_set_cursor(0, cursor_pos)
 
