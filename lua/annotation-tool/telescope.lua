@@ -171,36 +171,78 @@ function M.find_atn_lc()
 				table.insert(lines, "# 文件信息")
 				table.insert(lines, "")
 				table.insert(lines, "文件: " .. entry.value.file)
-				-- table.insert(lines, string.format("位置: 第 %d 行, 第 %d 列",
-				-- 	entry.value.position.line + 1,
-				-- 	entry.value.position.character + 1))
 
 				vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
 				vim.api.nvim_set_option_value("filetype", "markdown", { buf = self.state.bufnr })
 			end
 		})
 
+		-- 搜索模式状态（'content' 或 'note'）
+		local search_mode = 'content'
+
+		-- 创建动态entry_maker函数
+		local function create_entry_maker(mode)
+			return function(entry)
+				local display_text = entry.content or ""
+
+				-- 根据当前模式决定搜索字段
+				local ordinal_text
+				if mode == 'content' then
+					ordinal_text = entry.content or ""
+				else -- mode == 'note'
+					ordinal_text = entry.note or ""
+					display_text = entry.note or ""
+				end
+
+				if #display_text > 50 then
+					display_text = display_text:sub(1, 47) .. "..."
+				end
+
+				return {
+					value = entry,
+					display = display_text,
+					ordinal = ordinal_text,
+				}
+			end
+		end
+
+		-- 创建动态标题函数
+		local function create_title(mode)
+			if mode == 'content' then
+				return '查找标注 (搜索内容) - <C-t>切换'
+			else
+				return '查找标注 (搜索笔记) - <C-t>切换'
+			end
+		end
+
 		-- 创建 Telescope 选择器
 		pickers.new({}, {
-			prompt_title = '查找标注',
+			prompt_title = create_title(search_mode),
 			finder = finders.new_table({
 				results = annotations,
-				entry_maker = function(entry)
-					local display_text = entry.content
-					if #display_text > 50 then
-						display_text = display_text:sub(1, 47) .. "..."
-					end
-
-					return {
-						value = entry,
-						display = display_text,
-						ordinal = display_text,
-					}
-				end,
+				entry_maker = create_entry_maker(search_mode),
 			}),
 			sorter = conf.generic_sorter({}),
 			previewer = annotation_previewer,
 			attach_mappings = function(prompt_bufnr, map)
+				-- 切换搜索模式的函数
+				local toggle_search_mode = function()
+					-- 切换模式
+					search_mode = search_mode == 'content' and 'note' or 'content'
+
+					-- 更新picker
+					local current_picker = action_state.get_current_picker(prompt_bufnr)
+					current_picker.prompt_title = create_title(search_mode)
+					current_picker.finder = finders.new_table({
+						results = annotations,
+						entry_maker = create_entry_maker(search_mode),
+					})
+					current_picker:refresh(finders.new_table({
+						results = annotations,
+						entry_maker = create_entry_maker(search_mode),
+					}), {reset_prompt = false})
+				end
+
 				-- 定义打开标注的动作
 				local open_annotation = function()
 					actions.close(prompt_bufnr)
@@ -255,6 +297,8 @@ function M.find_atn_lc()
 				map("n", "d", delete_annotation)
 				map("i", "<C-o>", open_annotation)
 				map("n", "o", open_annotation)
+				map("i", "<C-t>", toggle_search_mode)
+				map("n", "t", toggle_search_mode)
 
 				return true
 			end,
