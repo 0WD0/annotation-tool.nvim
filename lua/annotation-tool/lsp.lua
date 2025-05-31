@@ -1,6 +1,6 @@
 local M = {}
 local core = require('annotation-tool.core')
-local manager = require('annotation-tool.preview.manager')
+local pvw_manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
 
 -- 确保虚拟环境存在并安装依赖
@@ -100,7 +100,7 @@ function M.highlight()
 	vim.lsp.buf.document_highlight()
 end
 
-M.show_annotation_tree = manager.show_annotation_tree
+M.show_annotation_tree = pvw_manager.show_annotation_tree
 
 ---LSP 客户端附加时的回调函数，设置标注相关的快捷键、高亮和自动高亮功能。
 ---@param client table LSP 客户端对象。
@@ -118,15 +118,15 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                    desc = "Show annotation tree" },
 	}
 
-	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
+	local ok, search_module = pcall(require, 'annotation-tool.search')
 	if ok then
 		table.insert(keybindings,
 			{
 				mode = 'n',
 				lhs = '<Leader>nf',
-				rhs = telescope_module.find_atn_lc,
+				rhs = search_module.find_atn_lc,
 				desc =
-				"Find annotations with Telescope"
+				"Find annotations with Search"
 			})
 	end
 
@@ -243,10 +243,10 @@ function M.delete_annotation(opts)
 				if err then
 					logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 				else
-					local node_id = manager.find_node(result.note_file)
+					local node_id = pvw_manager.find_node(result.note_file)
 					if node_id then
 						logger.info('Removing node ' .. node_id)
-						manager.remove_node(node_id)
+						pvw_manager.remove_node(node_id)
 					end
 					logger.info('Annotation deleted successfully')
 
@@ -293,10 +293,10 @@ function M.goto_current_annotation_note()
 
 		local buf_id = vim.api.nvim_get_current_buf()
 		local win_id = vim.api.nvim_get_current_win()
-		local source_id = manager.create_source(buf_id, win_id, {
+		local source_id = pvw_manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id, {
+		pvw_manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -324,10 +324,10 @@ function M.create_annotation()
 
 		local buf_id = vim.api.nvim_get_current_buf()
 		local win_id = vim.api.nvim_get_current_win()
-		local source_id = manager.create_source(buf_id, win_id, {
+		local source_id = pvw_manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id, {
+		pvw_manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -371,7 +371,7 @@ function M.goto_annotation_source()
 
 		-- 获取当前批注文件的节点ID
 		local note_node_id = nil
-		for node_id, node in pairs(manager.nodes) do
+		for node_id, node in pairs(pvw_manager.nodes) do
 			if node.window == current_win and node.buffer == current_buf then
 				note_node_id = node_id
 				break
@@ -394,19 +394,19 @@ function M.goto_annotation_source()
 			local source_win = vim.api.nvim_get_current_win()
 
 			-- 创建源文件节点并与批注文件节点建立关系
-			local source_node_id = manager.create_node(source_buf, source_win, nil, {
+			local source_node_id = pvw_manager.create_node(source_buf, source_win, nil, {
 				type = "source",
 				note_file = result.note_file,
 				workspace_path = result.workspace_path
 			})
 
 			-- 将批注文件节点设为源文件节点的子节点
-			if manager.nodes[note_node_id] then
-				manager.nodes[note_node_id].parent = source_node_id
-				if not manager.edges[source_node_id] then
-					manager.edges[source_node_id] = {}
+			if pvw_manager.nodes[note_node_id] then
+				pvw_manager.nodes[note_node_id].parent = source_node_id
+				if not pvw_manager.edges[source_node_id] then
+					pvw_manager.edges[source_node_id] = {}
 				end
-				table.insert(manager.edges[source_node_id], note_node_id)
+				table.insert(pvw_manager.edges[source_node_id], note_node_id)
 			end
 		end
 	end)
@@ -450,7 +450,7 @@ function M.switch_annotation(offset)
 
 		-- 获取当前批注文件的节点ID
 		local note_node_id = nil
-		for node_id, node in pairs(manager.nodes) do
+		for node_id, node in pairs(pvw_manager.nodes) do
 			if node.window == current_win and node.buffer == current_buf then
 				note_node_id = node_id
 				break
@@ -489,25 +489,25 @@ function M.switch_annotation(offset)
 				local new_note_buf = vim.api.nvim_get_current_buf()
 
 				-- 创建新的批注文件节点
-				local new_note_node_id = manager.create_node(new_note_buf, note_win, nil, {
+				local new_note_node_id = pvw_manager.create_node(new_note_buf, note_win, nil, {
 					type = "annotation",
 					workspace_path = result.workspace_path
 				})
 				logger.debug("New note node ID: " .. new_note_node_id)
 
 				-- 如果原批注文件有父节点，将新节点也设为其子节点
-				local parent_node_id = manager.get_parent(note_node_id)
+				local parent_node_id = pvw_manager.get_parent(note_node_id)
 				if parent_node_id then
-					manager.nodes[new_note_node_id].parent = parent_node_id
-					if not manager.edges[parent_node_id] then
-						manager.edges[parent_node_id] = {}
+					pvw_manager.nodes[new_note_node_id].parent = parent_node_id
+					if not pvw_manager.edges[parent_node_id] then
+						pvw_manager.edges[parent_node_id] = {}
 					end
-					table.insert(manager.edges[parent_node_id], new_note_node_id)
+					table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
 				end
 			end
 
 			logger.debug("Switched to annotation " .. result.note_file)
-			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
+			pvw_manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 			logger.debug("Removed node " .. annotation_buf .. '_' .. annotation_win)
 
 			-- 如果有源文件信息，也更新源文件中的光标位置
