@@ -76,7 +76,7 @@ def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 			# 过滤掉半角括号
 			filtered_line = ''.join(c for c in line if c != config.left_bracket and c != config.right_bracket)
 			selected_text.append(filtered_line)
-		selected_text = '\n'.join(selected_text)
+		selected_text = ''.join(selected_text)
 	return selected_text
 
 def get_annotation_id_before_position(doc: TextDocument, position: types.Position) -> Optional[int]:
