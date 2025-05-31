@@ -102,7 +102,9 @@ end
 
 M.show_annotation_tree = manager.show_annotation_tree
 
--- LSP 回调函数
+---LSP 客户端附加时的回调函数，设置标注相关的快捷键、高亮和自动高亮功能。
+---@param client table LSP 客户端对象。
+---@param bufnr integer 当前缓冲区编号。
 local function on_attach(client, bufnr)
 	local base_options = { buffer = bufnr, noremap = true, silent = true }
 	local keybindings = {
@@ -156,7 +158,8 @@ local function on_attach(client, bufnr)
 	logger.info("Annotation LSP attached")
 end
 
--- 列出标注
+---请求 LSP 服务器列出当前文档的所有标注。
+---@return nil
 function M.list_annotations()
 	local client = M.get_client()
 	if not client then
@@ -184,7 +187,15 @@ function M.list_annotations()
 	end)
 end
 
--- 删除标注
+---删除当前或指定位置的标注，并支持自定义删除行为与回调。
+---@param opts? table 可选参数表。支持以下字段：
+---  - buffer: 指定操作的缓冲区编号，默认为当前缓冲区。
+---  - position: 指定标注位置，若未提供则使用当前光标位置。
+---  - rev: 若为 true，则执行反向删除（deleteAnnotationR）。
+---  - on_success: 删除成功后的回调函数，参数为 LSP 返回结果。
+---  - on_cancel: 用户取消删除时的回调函数。
+---
+---弹出确认对话框，用户确认后向 LSP 发送删除标注请求。删除成功后会同步移除相关节点，并调用成功回调；取消则调用取消回调。
 function M.delete_annotation(opts)
 	local client = M.get_client()
 	if not client then
@@ -256,6 +267,8 @@ function M.delete_annotation(opts)
 	)
 end
 
+---请求并打开与当前光标位置对应的注释笔记文件。
+---@details 如果当前位置存在注释，自动创建源节点并在注释管理器中打开相关笔记文件。若未找到注释或LSP客户端不可用，将记录相应日志。
 function M.goto_current_annotation_note()
 	local client = M.get_client()
 	if not client then
