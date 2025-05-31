@@ -15,7 +15,8 @@ local function load_deps()
 	}
 end
 
--- 检查标注模式是否启用
+---检查当前缓冲区是否已启用标注模式。
+---@return boolean 若已启用标注模式则返回 true，否则返回 false。未启用时会记录警告日志。
 local function check_annotation_mode()
 	local deps = load_deps()
 	if not vim.b.annotation_mode then
@@ -25,7 +26,8 @@ local function check_annotation_mode()
 	return true
 end
 
--- 简单的LSP请求函数
+---向当前缓冲区的LSP客户端发送请求以获取注释列表，并在响应后调用回调函数。
+---@param callback function 接收LSP响应结果的回调函数。
 local function fetch_annotations(callback)
 	vim.lsp.buf_request(0, 'workspace/executeCommand', {
 		command = "listAnnotations",
@@ -35,7 +37,15 @@ local function fetch_annotations(callback)
 	}, callback)
 end
 
--- 在当前文件的所有被批注文本中查找
+---在当前文件中查找、预览、打开和删除所有批注内容与笔记，并通过 Telescope 交互式界面展示。
+---
+---该函数会：
+---1. 检查当前缓冲区是否启用批注模式；
+---2. 通过 LSP 请求获取当前文件的所有批注数据，并解析为内容行和笔记行两类条目；
+---3. 使用 Telescope 创建可切换“内容/笔记”搜索模式的选择器，支持预览完整批注内容与笔记；
+---4. 支持通过快捷键打开批注位置、预览批注详情、删除批注（删除后自动刷新列表）。
+---
+---如未启用批注模式或 LSP 客户端未连接，则不会执行任何操作。
 function M.find_atn_lc()
 	if not check_annotation_mode() then return end
 
@@ -53,7 +63,13 @@ function M.find_atn_lc()
 	local action_state = require('telescope.actions.state')
 	local previewers = require('telescope.previewers')
 
-	-- 解析标注数据的函数
+	---解析 LSP 返回的标注数据，提取并拆分为内容和笔记的条目列表。
+	---@param result table LSP 返回的标注结果，包含 note_files 和 workspace_path 字段。
+	---@return table 标注条目列表，每个条目包含内容或笔记的单行文本、完整内容、文件信息及元数据。
+	---@desc
+	---遍历所有标注 note 文件，读取并解析其内容，将“Selected Text”与“Notes”部分分别按行拆分为独立条目。
+	---每个条目包含所属文件、位置、范围、原始 note 文件路径、工作区路径、行号、条目类型（内容或笔记）等元数据。
+	---仅当内容或笔记存在有效非空行时才生成对应条目。
 	local function parse_annotations_result(result)
 		local annotations = {}
 
@@ -64,7 +80,12 @@ function M.find_atn_lc()
 		local workspace_path = result.workspace_path
 		local current_file = vim.fn.expand('%:p')
 
-		-- 创建标注条目的辅助函数
+		---将原始标注内容和笔记分割为按行的条目，并生成包含元数据的内容和笔记条目列表。
+		---@param og_content string 原始标注内容。
+		---@param og_note string 原始笔记内容。
+		---@param base_info table 包含文件、位置、范围、笔记文件路径等元数据的信息表。
+		---@return table content_entries 按行拆分的内容条目列表，每个条目包含元数据。
+		---@return table note_entries 按行拆分的笔记条目列表，每个条目包含元数据。
 		local function create_annotation_entries(og_content, og_note, base_info)
 			local content_entries = {}
 			local note_entries = {}
