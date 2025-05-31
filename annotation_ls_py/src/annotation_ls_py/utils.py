@@ -9,6 +9,15 @@ from .logger import *
 
 
 def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
+	"""
+	将四元组表示的起止位置转换为 Range 对象。
+	
+	参数:
+	    origin: 包含起始行、起始字符、结束行、结束字符的四元组。
+	
+	返回:
+	    对应的 lsprotocol.types.Range 对象。
+	"""
 	return types.Range(
 		start=types.Position(line=origin[0], character=origin[1]),
 		end=types.Position(line=origin[2], character=origin[3]),
@@ -18,7 +27,14 @@ def tuple_to_range(origin: Tuple[int, int, int, int]) -> types.Range:
 def find_annotation_ranges_raw(
 	doc: TextDocument,
 ) -> Optional[List[Tuple[int, int, int, int]]]:
-	"""找出所有标注区间及其ID（基于右括号出现顺序）"""
+	"""
+	扫描文档，查找由配置括号包围的所有标注区间。
+	
+	遍历文档内容，按右括号出现顺序返回每个标注区间的起止行列元组列表。如果括号不匹配，返回 None。
+	
+	返回:
+	    标注区间的四元组列表（起始行、起始列、结束行、结束列），或在括号不匹配时返回 None。
+	"""
 	annotations = []
 	start_stack = []
 	lines = doc.lines
@@ -46,7 +62,11 @@ def find_annotation_ranges_raw(
 def find_annotation_ranges(
 	doc: TextDocument,
 ) -> Optional[List[Tuple[int, int, int, int]]]:
-	"""找出所有标注区间及其ID（基于左括号出现顺序）"""
+	"""
+	查找文档中所有标注区间，并按左括号出现顺序返回其位置元组列表。
+	
+	返回值为每个标注区间的起止位置元组（start_line, start_char, end_line, end_char）组成的列表，按左括号出现顺序排序；若未找到有效标注区间则返回 None。
+	"""
 	annotations = find_annotation_ranges_raw(doc)
 	if annotations is None:
 		return None
@@ -54,7 +74,11 @@ def find_annotation_ranges(
 
 
 def find_annotation_Ranges(doc: TextDocument) -> Optional[List[types.Range]]:
-	"""用lsprotocol.Range来表示找到的批注区间（基于左括号出现顺序）"""
+	"""
+	返回文档中所有批注区间的lsprotocol.types.Range对象列表，按左括号出现顺序排列。
+	
+	如果未找到批注区间，则返回None。
+	"""
 	annotations = find_annotation_ranges(doc)
 	if annotations is None:
 		return None
@@ -63,6 +87,15 @@ def find_annotation_Ranges(doc: TextDocument) -> Optional[List[types.Range]]:
 
 def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 	# 获取选中的文本
+	"""
+	提取指定范围内的文本，并过滤掉配置的左右括号字符。
+	
+	Args:
+		selection_range: 指定的文本范围。
+	
+	Returns:
+		去除左右括号后的选中文本内容，支持单行和多行选择。
+	"""
 	lines = doc.lines
 	if selection_range.start.line == selection_range.end.line:
 		# 单行选择
@@ -92,7 +125,11 @@ def get_text_in_range(doc: TextDocument, selection_range: types.Range) -> str:
 
 
 def get_annotation_id_before_position(doc: TextDocument, position: types.Position) -> Optional[int]:
-	"""获取给定位置上一个批注区间的id"""
+	"""
+	返回紧邻给定位置之前的批注区间的索引id。
+	
+	如果文档中不存在批注区间，则返回None。
+	"""
 	annotations = find_annotation_ranges(doc)
 	if annotations is None:
 		return None
@@ -102,7 +139,11 @@ def get_annotation_id_before_position(doc: TextDocument, position: types.Positio
 
 
 def get_annotation_at_position(doc: TextDocument, position: types.Position) -> Optional[int]:
-	"""获取给定位置所在的批注区间"""
+	"""
+	返回给定位置所在的批注区间的编号。
+	
+	如果指定位置位于某个批注区间内，则返回该区间在排序后列表中的1-based编号；如果不在任何批注区间内，则返回None。
+	"""
 	annotation_R = find_annotation_ranges_raw(doc)
 	if annotation_R is None:
 		return None
@@ -132,11 +173,14 @@ def get_annotation_at_position(doc: TextDocument, position: types.Position) -> O
 
 
 def extract_notes_content(content: str) -> str:
-	"""从笔记内容中提取 ## Notes 后面的内容
+	"""
+	提取笔记内容中紧随“## Notes”标题之后的所有文本。
+	
 	Args:
-	        content: 完整的笔记内容
+	    content: 包含完整笔记内容的字符串。
+	
 	Returns:
-	        ## Notes 后面的内容，如果没有找到则返回空字符串
+	    “## Notes”所在行之后的所有内容字符串；若未找到该标题，则返回空字符串。
 	"""
 	# 按行分割并查找 ## Notes
 	lines = content.splitlines()
@@ -149,7 +193,11 @@ def extract_notes_content(content: str) -> str:
 
 
 def update_note_source(note_file: Path, file_path: str):
-	"""更新批注文件中记录的源文件路径"""
+	"""
+	更新批注笔记文件的元数据中的源文件路径字段。
+	
+	如果指定的笔记文件存在，则加载其 frontmatter 元数据，将 "file" 字段更新为给定的文件路径，并保存更改。若文件不存在则不执行任何操作。
+	"""
 	if not note_file.exists():
 		return
 	note_path = str(note_file)
@@ -159,7 +207,11 @@ def update_note_source(note_file: Path, file_path: str):
 
 
 def update_note_aid(note_file: Path, annotation_id: int):
-	"""更新批注文件中记录的id"""
+	"""
+	更新批注笔记文件的元数据字段"id"为指定的批注编号。
+	
+	如果文件不存在，则不进行任何操作。
+	"""
 	if not note_file.exists():
 		return
 	note_path = str(note_file)

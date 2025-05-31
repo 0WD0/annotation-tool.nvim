@@ -17,10 +17,10 @@ class AnnotationConfig:
 
 	@classmethod
 	def from_dict(cls, data: Optional[Dict[str, Any]] = None) -> "AnnotationConfig":
-		"""从字典创建配置实例
-
-		Args:
-		        data: 配置字典
+		"""
+		从可选字典创建 AnnotationConfig 配置实例。
+		
+		如果未提供字典或字典为空，则返回默认配置；否则根据字典中的 "leftBracket" 和 "rightBracket" 键覆盖默认括号字符。
 		"""
 		if not data:
 			return cls()
@@ -55,10 +55,10 @@ class _ConfigManager:
 		return self._config
 
 	def initialize(self, options: Optional[dict] = None) -> None:
-		"""初始化配置
-
-		Args:
-		        options: LSP客户端的初始化选项
+		"""
+		初始化全局注释配置，仅在首次调用时生效。
+		
+		如果已初始化，则不会重复设置。可接受来自LSP客户端的初始化选项字典。
 		"""
 		if self._config is not None:
 			return
@@ -75,9 +75,9 @@ config = _config_manager.config
 
 # 导出初始化函数
 def initialize_config(options: Optional[dict] = None) -> None:
-	"""初始化全局配置
-
-	Args:
-	        options: LSP客户端的初始化选项
+	"""
+	初始化全局注释配置。
+	
+	如果未初始化，则使用提供的选项进行配置，否则保持现有配置不变。
 	"""
 	_config_manager.initialize(options)
