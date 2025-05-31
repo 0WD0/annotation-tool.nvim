@@ -3,7 +3,7 @@ local M = {}
 local lsp = require('annotation-tool.lsp')
 local core = require('annotation-tool.core')
 local commands = require('annotation-tool.commands')
-local manager = require('annotation-tool.preview.manager')
+local pvw_manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
 
 -- 暴露主要函数
@@ -33,7 +33,7 @@ function M.setup(opts)
 	end
 
 	lsp.setup(opts)
-	manager.setup()
+	pvw_manager.setup()
 	commands.setup()
 end
 
