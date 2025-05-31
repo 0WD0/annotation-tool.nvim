@@ -88,6 +88,27 @@ local function create_annotation_previewer()
 	})
 end
 
+---安全地截断 UTF-8 字符串，避免在多字节字符中间截断
+---@param str string 要截断的字符串
+---@param max_chars number 最大字符数（不是字节数）
+---@param suffix string 截断后的后缀，默认为 "..."
+---@return string 截断后的字符串
+local function safe_truncate_utf8(str, max_chars, suffix)
+	suffix = suffix or "..."
+
+	-- 使用 vim.fn.strchars 计算实际字符数（支持多字节字符）
+	local char_count = vim.fn.strchars(str)
+
+	if char_count <= max_chars then
+		return str
+	end
+
+	-- 使用 vim.fn.strcharpart 安全地截断字符串
+	-- 这个函数会确保不在多字节字符中间截断
+	local truncated = vim.fn.strcharpart(str, 0, max_chars - vim.fn.strchars(suffix))
+	return truncated .. suffix
+end
+
 ---创建动态entry_maker函数，支持不同的搜索模式
 ---@param mode string 搜索模式，'content' 或 'note'
 ---@return function entry_maker函数
@@ -120,10 +141,8 @@ local function create_entry_maker(mode)
 		-- 添加类型指示符
 		local type_icon = (mode == 'content') and "📄" or "📝"
 
-		-- 限制显示长度
-		if #display_text > 80 then
-			display_text = display_text:sub(1, 77) .. "..."
-		end
+		-- 安全地限制显示长度，避免在多字节字符中间截断
+		display_text = safe_truncate_utf8(display_text, 80, "...")
 
 		return {
 			value = entry,
@@ -529,4 +548,3 @@ function M.search_annotations(options)
 end
 
 return M
-
