@@ -142,7 +142,7 @@ local function create_entry_maker(mode)
 		local type_icon = (mode == 'content') and "📄" or "📝"
 
 		-- 安全地限制显示长度，避免在多字节字符中间截断
-		display_text = safe_truncate_utf8(display_text, 80, "...")
+		display_text = safe_truncate_utf8(display_text, 30, "...")
 
 		return {
 			value = entry,
