@@ -37,12 +37,146 @@ local function fetch_annotations(callback)
 	}, callback)
 end
 
+---创建自定义的标注预览器，使用 telescope 的预览器构建函数
+---@return table telescope 预览器对象
+local function create_annotation_previewer()
+	local previewers = require('telescope.previewers')
+
+	return previewers.new_buffer_previewer({
+		title = "标注预览",
+		dyn_title = function(_, entry)
+			if entry and entry.value then
+				return string.format("标注预览 - %s", entry.value.note_file or "未知文件")
+			end
+			return "标注预览"
+		end,
+
+		define_preview = function(self, entry, status)
+			if not entry or not entry.value then
+				vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { "预览数据无效" })
+				return
+			end
+
+			local lines = {}
+			local value = entry.value
+
+			-- 添加标注内容（使用完整内容）
+			table.insert(lines, "# 📝 标注内容")
+			table.insert(lines, "")
+			if value.full_content and value.full_content ~= "" then
+				for content_line in value.full_content:gmatch("[^\r\n]+") do
+					table.insert(lines, content_line)
+				end
+			else
+				table.insert(lines, "*（无内容）*")
+			end
+			table.insert(lines, "")
+
+			-- 添加笔记内容（使用完整笔记）
+			table.insert(lines, "# 💡 笔记")
+			table.insert(lines, "")
+			if value.full_note and value.full_note ~= "" then
+				for note_line in value.full_note:gmatch("[^\r\n]+") do
+					table.insert(lines, note_line)
+				end
+			else
+				table.insert(lines, "*（无笔记）*")
+			end
+
+			-- 添加当前选中信息
+			if value.line_info then
+				table.insert(lines, "")
+				table.insert(lines, "# 🎯 当前选中")
+				table.insert(lines, "")
+				table.insert(lines, value.line_info)
+				if value.entry_type == "content" then
+					table.insert(lines, "📄 内容: " .. (value.content or ""))
+				else
+					table.insert(lines, "📝 笔记: " .. (value.note or ""))
+				end
+			end
+
+			-- 添加文件信息
+			table.insert(lines, "")
+			table.insert(lines, "# 📂 文件信息")
+			table.insert(lines, "")
+			table.insert(lines, "源文件: " .. (value.file or "未知"))
+			table.insert(lines, "笔记文件: " .. (value.note_file or "未知"))
+
+			-- 使用标准 vim API 设置缓冲区内容
+			vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
+			vim.api.nvim_set_option_value("filetype", "markdown", { buf = self.state.bufnr })
+		end
+	})
+end
+
+---创建动态entry_maker函数，支持不同的搜索模式
+---@param mode string 搜索模式，'content' 或 'note'
+---@return function entry_maker函数
+local function create_entry_maker(mode)
+	return function(entry)
+		-- 确保entry有效
+		if not entry or not entry.entry_type then
+			return nil
+		end
+
+		local display_text = ""
+		local ordinal_text = ""
+
+		if mode == 'content' then
+			-- content模式只处理content条目
+			if entry.entry_type ~= "content" then
+				return nil -- 过滤掉非content条目
+			end
+			ordinal_text = entry.content or ""
+			display_text = entry.content or ""
+		else -- note模式
+			-- note模式只处理note条目
+			if entry.entry_type ~= "note" then
+				return nil -- 过滤掉非note条目
+			end
+			ordinal_text = entry.note or ""
+			display_text = entry.note or ""
+		end
+
+		-- 添加类型指示符
+		local type_icon = (mode == 'content') and "📄" or "📝"
+
+		-- 限制显示长度
+		if #display_text > 80 then
+			display_text = display_text:sub(1, 77) .. "..."
+		end
+
+		return {
+			value = entry,
+			display = string.format("%s %s", type_icon, display_text),
+			ordinal = ordinal_text,
+		}
+	end
+end
+
+---获取过滤后的结果
+---@param annotations table 所有标注数据
+---@param mode string 过滤模式
+---@return table 过滤后的结果列表
+local function get_filtered_results(annotations, mode)
+	local filtered = {}
+	for _, entry in ipairs(annotations or {}) do
+		if mode == 'content' and entry.entry_type == "content" then
+			table.insert(filtered, entry)
+		elseif mode == 'note' and entry.entry_type == "note" then
+			table.insert(filtered, entry)
+		end
+	end
+	return filtered
+end
+
 ---在当前文件中查找、预览、打开和删除所有批注内容与笔记，并通过 Telescope 交互式界面展示。
 ---
 ---该函数会：
 ---1. 检查当前缓冲区是否启用批注模式；
 ---2. 通过 LSP 请求获取当前文件的所有批注数据，并解析为内容行和笔记行两类条目；
----3. 使用 Telescope 创建可切换“内容/笔记”搜索模式的选择器，支持预览完整批注内容与笔记；
+---3. 使用 Telescope 创建可切换"内容/笔记"搜索模式的选择器，支持预览完整批注内容与笔记；
 ---4. 支持通过快捷键打开批注位置、预览批注详情、删除批注（删除后自动刷新列表）。
 ---
 ---如未启用批注模式或 LSP 客户端未连接，则不会执行任何操作。
@@ -56,18 +190,33 @@ function M.find_atn_lc()
 		return
 	end
 
-	local pickers = require('telescope.pickers')
-	local finders = require('telescope.finders')
-	local conf = require('telescope.config').values
-	local actions = require('telescope.actions')
-	local action_state = require('telescope.actions.state')
-	local previewers = require('telescope.previewers')
+	-- 检查 telescope 是否可用
+	local ok, telescope_modules = pcall(function()
+		return {
+			pickers = require('telescope.pickers'),
+			finders = require('telescope.finders'),
+			conf = require('telescope.config').values,
+			actions = require('telescope.actions'),
+			action_state = require('telescope.actions.state')
+		}
+	end)
+
+	if not ok then
+		deps.logger.error("Telescope 模块加载失败")
+		return
+	end
+
+	local pickers = telescope_modules.pickers
+	local finders = telescope_modules.finders
+	local conf = telescope_modules.conf
+	local actions = telescope_modules.actions
+	local action_state = telescope_modules.action_state
 
 	---解析 LSP 返回的标注数据，提取并拆分为内容和笔记的条目列表。
 	---@param result table LSP 返回的标注结果，包含 note_files 和 workspace_path 字段。
 	---@return table 标注条目列表，每个条目包含内容或笔记的单行文本、完整内容、文件信息及元数据。
 	---@desc
-	---遍历所有标注 note 文件，读取并解析其内容，将“Selected Text”与“Notes”部分分别按行拆分为独立条目。
+	---遍历所有标注 note 文件，读取并解析其内容，将"Selected Text"与"Notes"部分分别按行拆分为独立条目。
 	---每个条目包含所属文件、位置、范围、原始 note 文件路径、工作区路径、行号、条目类型（内容或笔记）等元数据。
 	---仅当内容或笔记存在有效非空行时才生成对应条目。
 	local function parse_annotations_result(result)
@@ -160,7 +309,13 @@ function M.find_atn_lc()
 
 			-- 获取标注内容
 			local file_path = workspace_path .. "/.annotation/notes/" .. note_file
-			local file_content = vim.fn.readfile(file_path)
+
+			-- 使用 pcall 进行错误处理
+			local ok, file_content = pcall(vim.fn.readfile, file_path)
+			if not ok then
+				deps.logger.warn("无法读取文件: " .. file_path)
+				goto continue
+			end
 
 			-- 输出调试信息
 			deps.logger.debug("尝试读取文件: " .. file_path)
@@ -182,7 +337,7 @@ function M.find_atn_lc()
 					in_frontmatter = not in_frontmatter
 				elseif in_frontmatter then
 					-- 跳过 frontmatter 内容
-					goto continue
+					goto inner_continue
 				elseif line:match("^## Selected Text") then
 					in_selected_text_section = true
 					in_notes_section = false
@@ -208,7 +363,7 @@ function M.find_atn_lc()
 					end
 					note = note .. line
 				end
-				::continue::
+				::inner_continue::
 			end
 
 			-- 使用新的拆分逻辑
@@ -229,6 +384,8 @@ function M.find_atn_lc()
 			for _, entry in ipairs(note_entries) do
 				table.insert(annotations, entry)
 			end
+
+			::continue::
 		end
 
 		return annotations
@@ -245,6 +402,15 @@ function M.find_atn_lc()
 
 		if not result or not result.note_files or #result.note_files == 0 then
 			deps.logger.info("未找到标注")
+			-- 显示空的 telescope picker
+			pickers.new({}, {
+				prompt_title = '🔍 查找标注 (无结果)',
+				finder = finders.new_table({
+					results = {},
+					entry_maker = function() return nil end,
+				}),
+				sorter = conf.generic_sorter({}),
+			}):find()
 			return
 		end
 
@@ -254,132 +420,22 @@ function M.find_atn_lc()
 		-- 解析标注数据
 		local annotations = parse_annotations_result(result)
 
+		if #annotations == 0 then
+			deps.logger.info("解析后无有效标注")
+			return
+		end
+
 		-- 创建预览器
-		local annotation_previewer = previewers.new_buffer_previewer({
-			title = "标注预览",
-			define_preview = function(self, entry, status)
-				local lines = {}
-
-				-- 添加标注内容（使用完整内容）
-				table.insert(lines, "# 标注内容")
-				table.insert(lines, "")
-				local full_content = entry.value.full_content
-				if full_content and full_content ~= "" then
-					for content_line in full_content:gmatch("[^\r\n]+") do
-						table.insert(lines, content_line)
-					end
-				else
-					table.insert(lines, "（无内容）")
-				end
-				table.insert(lines, "")
-
-				-- 添加笔记内容（使用完整笔记）
-				table.insert(lines, "# 笔记")
-				table.insert(lines, "")
-				local full_note = entry.value.full_note
-				if full_note and full_note ~= "" then
-					for note_line in full_note:gmatch("[^\r\n]+") do
-						table.insert(lines, note_line)
-					end
-				else
-					table.insert(lines, "（无笔记）")
-				end
-
-				-- 添加当前选中信息
-				if entry.value.line_info then
-					table.insert(lines, "")
-					table.insert(lines, "# 当前选中")
-					table.insert(lines, "")
-					table.insert(lines, entry.value.line_info)
-					if entry.value.entry_type == "content" then
-						table.insert(lines, "内容: " .. (entry.value.content or ""))
-					else
-						table.insert(lines, "笔记: " .. (entry.value.note or ""))
-					end
-				end
-
-				-- 添加文件信息
-				table.insert(lines, "")
-				table.insert(lines, "# 文件信息")
-				table.insert(lines, "")
-				table.insert(lines, "文件: " .. entry.value.file)
-
-				vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, lines)
-				vim.api.nvim_set_option_value("filetype", "markdown", { buf = self.state.bufnr })
-			end
-		})
+		local annotation_previewer = create_annotation_previewer()
 
 		-- 搜索模式状态（'content' 或 'note'）
 		local search_mode = 'content'
 
-		-- 创建动态entry_maker函数
-		local function create_entry_maker(mode)
-			return function(entry)
-				-- 确保display_text是单行的
-				local display_text = ""
-				local ordinal_text = ""
-
-				if mode == 'content' then
-					-- content模式只处理content条目
-					if entry.entry_type ~= "content" then
-						return nil -- 过滤掉非content条目
-					end
-					ordinal_text = entry.content or ""
-					display_text = entry.content or ""
-				else -- note模式
-					-- note模式只处理note条目
-					if entry.entry_type ~= "note" then
-						return nil -- 过滤掉非note条目
-					end
-					ordinal_text = entry.note or ""
-					display_text = entry.note or ""
-				end
-
-				-- 添加行号信息到显示文本
-				-- if entry.line_info then
-				-- 	display_text = string.format("[%s] %s", entry.line_info, display_text)
-				-- end
-
-				-- 限制显示长度
-				if #display_text > 80 then
-					display_text = display_text:sub(1, 77) .. "..."
-				end
-
-				return {
-					value = entry,
-					display = display_text,
-					ordinal = ordinal_text,
-				}
-			end
-		end
-
-		-- 创建过滤后的结果函数
-		local function get_filtered_results(mode)
-			local filtered = {}
-			for _, entry in ipairs(annotations) do
-				if mode == 'content' and entry.entry_type == "content" then
-					table.insert(filtered, entry)
-				elseif mode == 'note' and entry.entry_type == "note" then
-					table.insert(filtered, entry)
-				end
-			end
-			return filtered
-		end
-
-		-- 创建动态标题函数
-		local function create_title(mode)
-			if mode == 'content' then
-				return '查找标注 (搜索内容) - <C-t>切换'
-			else
-				return '查找标注 (搜索笔记) - <C-t>切换'
-			end
-		end
-
 		-- 创建 Telescope 选择器
 		pickers.new({}, {
-			prompt_title = create_title(search_mode),
+			prompt_title = "🔍 查找当前文件批注 - <C-t>切换模式",
 			finder = finders.new_table({
-				results = get_filtered_results(search_mode),
+				results = get_filtered_results(annotations, search_mode),
 				entry_maker = create_entry_maker(search_mode),
 			}),
 			sorter = conf.generic_sorter({}),
@@ -391,31 +447,52 @@ function M.find_atn_lc()
 					search_mode = search_mode == 'content' and 'note' or 'content'
 					-- 获取当前picker
 					local current_picker = action_state.get_current_picker(prompt_bufnr)
-					-- 更新标题和finder
-					current_picker.prompt_title = create_title(search_mode)
+					if not current_picker then
+						deps.logger.error("无法获取当前picker")
+						return
+					end
+
 					-- 创建新的finder
+					local new_results = get_filtered_results(annotations, search_mode)
 					local new_finder = finders.new_table({
-						results = get_filtered_results(search_mode),
+						results = new_results,
 						entry_maker = create_entry_maker(search_mode),
 					})
+
 					-- 刷新picker，重置选择状态
 					current_picker:refresh(new_finder, {})
+
+					deps.logger.info(string.format("已切换到%s模式，共%d个结果",
+						search_mode == 'content' and '内容' or '笔记', #new_results))
 				end
 
 				-- 定义打开标注的动作
 				local open_annotation = function()
-					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
+					if not selection or not selection.value then
+						deps.logger.warn("未选中有效条目")
+						return
+					end
+
+					actions.close(prompt_bufnr)
 
 					-- 输出调试信息
 					deps.logger.debug_obj("选中的标注", selection.value)
 
 					-- 打开文件并跳转到标注位置
 					local buf = vim.fn.bufadd(selection.value.file)
+					if not vim.api.nvim_buf_is_valid(buf) then
+						deps.logger.error("无法创建有效缓冲区")
+						return
+					end
+
 					vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
 					vim.api.nvim_win_set_buf(0, buf)
+
 					local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
-					vim.api.nvim_win_set_cursor(0, cursor_pos)
+					if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
+						vim.api.nvim_win_set_cursor(0, cursor_pos)
+					end
 
 					-- 打开预览窗口
 					deps.preview.goto_annotation_note({
@@ -427,9 +504,15 @@ function M.find_atn_lc()
 				-- 定义删除标注的动作
 				local delete_annotation = function()
 					local selection = action_state.get_selected_entry()
+					if not selection or not selection.value then
+						deps.logger.warn("未选中有效条目")
+						return
+					end
 
 					deps.logger.debug_obj("尝试删除标注", selection.value)
-					local file_path = selection.value.workspace_path .. '/.annotation/notes/' .. selection.value.note_file
+					local file_path = selection.value.workspace_path ..
+						'/.annotation/notes/' .. selection.value.note_file
+
 					-- 使用新的delete_annotation API，传入位置信息和回调
 					deps.lsp.delete_annotation({
 						buffer = vim.fn.bufadd(file_path),
@@ -450,7 +533,7 @@ function M.find_atn_lc()
 									local current_picker = action_state.get_current_picker(prompt_bufnr)
 									if current_picker then
 										local new_finder = finders.new_table({
-											results = get_filtered_results(search_mode),
+											results = get_filtered_results(annotations, search_mode),
 											entry_maker = create_entry_maker(search_mode),
 										})
 										current_picker:refresh(new_finder, {})
@@ -461,6 +544,7 @@ function M.find_atn_lc()
 						end,
 						on_cancel = function()
 							-- 取消删除，什么都不做，picker保持打开
+							deps.logger.info("删除操作已取消")
 						end
 					})
 				end
