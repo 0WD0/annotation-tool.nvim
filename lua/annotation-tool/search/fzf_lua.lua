@@ -521,22 +521,20 @@ function M.search_annotations(options)
 		-- 保存条目映射
 		_entry_map = entry_map,
 		actions = actions_map,
-		-- 使用 fzf 原生预览
-		preview = {
-			type = 'cmd',
-			fn = function(items)
-				-- 在预览函数中，使用全局条目映射获取数据
-				if not items or #items == 0 or not items[1] then
-					return { "无可预览的项目" }
-				end
-				
-				local entry = global_entry_map[items[1]]
-				if entry then
-					return create_preview_lines(entry)
-				end
-				return { "预览数据无效: " .. tostring(items[1]) }
+		-- 使用 fzf-lua 预览
+		preview = function(items)
+			-- 在预览函数中，使用全局条目映射获取数据
+			if not items or #items == 0 or not items[1] then
+				return "无可预览的项目"
 			end
-		},
+			
+			local entry = global_entry_map[items[1]]
+			if entry then
+				local lines = create_preview_lines(entry)
+				return table.concat(lines, "\n")
+			end
+			return "预览数据无效: " .. tostring(items[1])
+		end,
 	}, fzf_opts)
 
 	-- 创建 fzf-lua picker
