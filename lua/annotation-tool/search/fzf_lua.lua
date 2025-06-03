@@ -350,47 +350,30 @@ function M.search_annotations(options)
 	end
 
 	-- 搜索模式状态（'content' 或 'note'）
-	local search_mode = 'content'
-
-	---重新加载数据的函数
-	local function reload_data()
-		local filtered = filter_annotations(annotations, search_mode)
-		local formatted_entries = {}
-
-		for _, entry in ipairs(filtered) do
-			local formatted = format_entry_for_fzf(entry, search_mode)
-			table.insert(formatted_entries, {
-				display = formatted,
-				entry = entry
-			})
-		end
-
-		return formatted_entries
-	end
+	-- 支持从 options 中传入初始模式
+	local search_mode = options._initial_mode or 'content'
+	-- 全局条目映射，供预览函数使用
+	local global_entry_map = {}
 
 	---切换搜索模式的动作
 	local function toggle_search_mode(selected, opts)
-		search_mode = search_mode == 'content' and 'note' or 'content'
-		local mode_name = search_mode == 'content' and '内容' or '笔记'
-		local filtered = filter_annotations(annotations, search_mode)
-
-		deps.logger.info(string.format("已切换到%s模式，共%d个结果", mode_name, #filtered))
-
-		-- 重新格式化条目
-		local formatted_entries = {}
-		local entry_map = {}
-
-		for _, entry in ipairs(filtered) do
-			local formatted = format_entry_for_fzf(entry, search_mode)
-			table.insert(formatted_entries, formatted)
-			entry_map[formatted] = entry
-		end
-
-		-- 更新条目映射
-		opts._entry_map = entry_map
-
-		-- 返回新的条目列表，让 fzf-lua 刷新显示
-		return formatted_entries
+		-- 切换搜索模式
+		local new_mode = search_mode == 'content' and 'note' or 'content'
+		local mode_name = new_mode == 'content' and '内容' or '笔记'
+		
+		deps.logger.info(string.format("正在切换到%s模式...", mode_name))
+		
+		-- 延迟执行，避免在当前 picker 操作中重新创建
+		vim.schedule(function()
+			-- 重新调用搜索，但传入新的搜索模式
+			local new_options = vim.tbl_extend('force', options, {
+				_initial_mode = new_mode
+			})
+			M.search_annotations(new_options)
+		end)
+		
+		-- 关闭当前 picker
+		-- 由于 fzf-lua 的实现，这里不需要返回任何值
 	end
 
 	---打开标注的动作
@@ -457,11 +440,10 @@ function M.search_annotations(options)
 				-- 删除成功后刷新列表
 				vim.schedule(function()
 					-- 重新获取标注数据
-					local search_module = require('annotation-tool.search')
 					local scope = options.scope
 
 					-- 根据搜索范围获取标注数据
-					if scope == search_module.SCOPE.CURRENT_FILE then
+					if scope == 'current_file' then
 						vim.lsp.buf_request(0, 'workspace/executeCommand', {
 							command = "listAnnotations",
 							arguments = { {
@@ -503,8 +485,11 @@ function M.search_annotations(options)
 		entry_map[formatted] = entry
 	end
 
+	-- 初始化全局条目映射
+	global_entry_map = entry_map
+
 	-- 获取 fzf-lua 配置
-	local fzf_opts = deps.config.get_backend_opts('fzf-lua')
+	local fzf_opts = deps.config.get_backend_opts('fzf_lua')
 	local search_keys = deps.config.get('keymaps.search_keys') or {}
 
 	-- 构建动作映射（使用配置中的快捷键）
@@ -524,15 +509,14 @@ function M.search_annotations(options)
 
 	actions_map[normalize_key(open_alt_key)] = open_annotation
 	actions_map[normalize_key(delete_key)] = delete_annotation
-	actions_map[normalize_key(toggle_key)] = {
-		fn = toggle_search_mode,
-		reload = true,
-	}
+	actions_map[normalize_key(toggle_key)] = toggle_search_mode
 
 	-- 构建 fzf-lua picker 选项
+	local mode_display = search_mode == 'content' and '内容' or '笔记'
 	local picker_opts = vim.tbl_deep_extend('force', {
-		prompt = string.format('🔍 查找%s批注 - %s切换模式 > ',
+		prompt = string.format('🔍 查找%s批注[%s] - %s切换模式 > ',
 			options.scope_display_name,
+			mode_display,
 			search_keys.toggle_mode or '<C-t>'),
 		-- 保存条目映射
 		_entry_map = entry_map,
@@ -540,12 +524,17 @@ function M.search_annotations(options)
 		-- 使用 fzf 原生预览
 		preview = {
 			type = 'cmd',
-			fn = function(items, opts)
-				local entry = opts._entry_map and opts._entry_map[items[1]]
+			fn = function(items)
+				-- 在预览函数中，使用全局条目映射获取数据
+				if not items or #items == 0 or not items[1] then
+					return { "无可预览的项目" }
+				end
+				
+				local entry = global_entry_map[items[1]]
 				if entry then
 					return create_preview_lines(entry)
 				end
-				return { "预览数据无效" }
+				return { "预览数据无效: " .. tostring(items[1]) }
 			end
 		},
 	}, fzf_opts)
