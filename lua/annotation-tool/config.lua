@@ -194,7 +194,7 @@ local default_config = {
 		-- 是否启用调试模式
 		enabled = false,
 		-- 日志级别
-		log_level = 'info', -- 'debug' | 'info' | 'warn' | 'error'
+		log_level = 4,
 		-- 日志前缀
 		log_prefix = '[annotation-tool]',
 		-- 性能监控
