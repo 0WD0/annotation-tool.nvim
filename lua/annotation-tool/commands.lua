@@ -140,8 +140,11 @@ function M.setup()
 		local backend = args[2] or deps_local.config.get_best_backend()
 
 		-- 验证范围
-		local valid_scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT, deps_local
-			.search.SCOPE.ALL_PROJECTS }
+		local valid_scopes = {
+			deps_local.search.SCOPE.CURRENT_FILE,
+			deps_local.search.SCOPE.CURRENT_PROJECT,
+			deps_local.search.SCOPE.ALL_PROJECTS,
+		}
 		if not vim.tbl_contains(valid_scopes, scope) then
 			deps_local.logger.error("不支持的搜索范围: " .. scope .. "\n支持的范围: current_file, current_project, all_projects")
 			return
@@ -163,8 +166,11 @@ function M.setup()
 
 			-- 如果当前正在输入第一个参数（scope）
 			if arg_count == 1 then
-				local scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT,
-					deps_local.search.SCOPE.ALL_PROJECTS }
+				local scopes = {
+					deps_local.search.SCOPE.CURRENT_FILE,
+					deps_local.search.SCOPE.CURRENT_PROJECT,
+					deps_local.search.SCOPE.ALL_PROJECTS,
+				}
 				return vim.tbl_filter(function(scope)
 					return vim.startswith(scope, arg_lead)
 				end, scopes)
