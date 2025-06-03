@@ -7,7 +7,6 @@ local function load_deps()
 	local search = require('annotation-tool.search')
 	local pvw_manager = require('annotation-tool.preview.manager')
 	local config = require('annotation-tool.config')
-	local keymaps = require('annotation-tool.keymaps')
 	local logger = require('annotation-tool.logger')
 
 	return {
@@ -16,7 +15,6 @@ local function load_deps()
 		search = search,
 		pvw_manager = pvw_manager,
 		config = config,
-		keymaps = keymaps,
 		logger = logger
 	}
 end
@@ -88,8 +86,6 @@ function M.setup()
 		-- 配置命令
 		{ "AnnotationConfigShow",        function() vim.print(deps.config.get()) end },
 		{ "AnnotationConfigStats",       function() vim.print(deps.config.get_stats()) end },
-		{ "AnnotationKeymapsHelp",       deps.keymaps.show_help },
-		{ "AnnotationKeymapsCheck",      function() vim.print(deps.keymaps.check_conflicts()) end },
 		-- 调试命令
 		{ "AnnotationDebugTree",         deps.pvw_manager.debug_print_tree },
 		{ "AnnotationDebugInvalidNodes", deps.pvw_manager.debug_check_invalid_nodes },
@@ -211,23 +207,11 @@ function M.setup()
 		end
 		if deps_local.config.import_config(opts.args) then
 			deps_local.logger.info("配置已从文件导入: " .. opts.args)
-			deps_local.keymaps.reload() -- 重新加载快捷键
 		else
 			deps_local.logger.error("导入配置失败")
 		end
 	end, {
 		nargs = 1,
-		complete = "file"
-	})
-
-	-- 快捷键导出命令
-	vim.api.nvim_create_user_command("AnnotationKeymapsExport", function(opts)
-		local deps_local = load_deps()
-		local file_path = opts.args or "annotation-keymaps.lua"
-		deps_local.keymaps.export_keymaps(file_path)
-		deps_local.logger.info("快捷键配置已导出到: " .. file_path)
-	end, {
-		nargs = "?",
 		complete = "file"
 	})
 
