@@ -4,6 +4,7 @@ local lsp = require('annotation-tool.lsp')
 local core = require('annotation-tool.core')
 local commands = require('annotation-tool.commands')
 local pvw_manager = require('annotation-tool.preview.manager')
+local search = require('annotation-tool.search')
 local logger = require('annotation-tool.logger')
 
 -- 暴露主要函数
@@ -15,7 +16,16 @@ M.setup_preview = lsp.goto_current_annotation_note
 M.enable_annotation_mode = core.enable_annotation_mode
 M.disable_annotation_mode = core.disable_annotation_mode
 M.toggle_annotation_mode = core.toggle_annotation_mode
-M.show_conceal_rules = core.show_conceal_rules
+
+-- 搜索相关函数
+M.find_annotations = search.find_annotations
+M.find_current_file = search.find_current_file
+M.find_current_project = search.find_current_project
+M.find_all_projects = search.find_all_projects
+
+-- 搜索常量
+M.SCOPE = search.SCOPE
+M.BACKEND = search.BACKEND
 
 -- 初始化插件
 function M.setup(opts)
