@@ -93,31 +93,31 @@ local default_config = {
 		-- 例如（当 prefix_symbol = '@'）：'@c' -> '<leader>nc', '<C-x>' -> '<C-x>'
 		mappings = {
 			-- 基本操作
-			enable = '@e',           -- 启用标注模式 -> <leader>ne
-			toggle = '@t',           -- 切换标注模式 -> <leader>nt
-			create = '@c',           -- 创建标注 (visual mode) -> <leader>nc
+			enable = '@e', -- 启用标注模式 -> <leader>ne
+			toggle = '@t', -- 切换标注模式 -> <leader>nt
+			create = '@c', -- 创建标注 (visual mode) -> <leader>nc
 
 			-- 搜索操作
-			find = '@f',             -- 智能搜索标注 -> <leader>nf
-			find_telescope = '@T',   -- 强制使用 telescope -> <leader>nT
-			find_fzf = '@F',         -- 强制使用 fzf-lua -> <leader>nF
+			find = '@f',  -- 智能搜索标注 -> <leader>nf
+			find_telescope = '@T', -- 强制使用 telescope -> <leader>nT
+			find_fzf = '@F', -- 强制使用 fzf-lua -> <leader>nF
 
 			-- 范围搜索
 			find_current_file = '@1', -- 搜索当前文件 -> <leader>n1
-			find_project = '@2',      -- 搜索当前项目 -> <leader>n2
-			find_all = '@3',          -- 搜索所有项目 -> <leader>n3
+			find_project = '@2', -- 搜索当前项目 -> <leader>n2
+			find_all = '@3', -- 搜索所有项目 -> <leader>n3
 
 			-- 智能搜索
-			smart_find = '@s',        -- 智能搜索（自动选择后端和范围） -> <leader>ns
+			smart_find = '@s', -- 智能搜索（自动选择后端和范围） -> <leader>ns
 
 			-- 管理操作
-			delete = '@d',            -- 删除标注 -> <leader>nd
-			list = '@l',              -- 列出标注 -> <leader>nl
-			tree = '@w',              -- 显示标注树 -> <leader>nw
+			delete = '@d', -- 删除标注 -> <leader>nd
+			list = '@l', -- 列出标注 -> <leader>nl
+			tree = '@w', -- 显示标注树 -> <leader>nw
 
 			-- 导航操作
-			preview = '@p',           -- 预览当前标注 -> <leader>np
-			goto_source = '@h',       -- 跳转到标注源文件 -> <leader>nh
+			preview = '@p',   -- 预览当前标注 -> <leader>np
+			goto_source = '@h', -- 跳转到标注源文件 -> <leader>nh
 			prev_annotation = '<A-k>', -- 上一个标注（全局快捷键，不使用prefix）
 			next_annotation = '<A-j>', -- 下一个标注（全局快捷键，不使用prefix）
 		},
@@ -365,6 +365,9 @@ end
 -- 获取最佳可用后端
 function M.get_best_backend()
 	local default_backend = M.get('search.default_backend')
+
+	print('telescope:' .. M.is_backend_available('telescope'))
+	print('fzf_lua:' .. M.is_backend_available('fzf-lua'))
 
 	-- 如果启用了自动检测
 	if M.get('search.auto_backend') then
