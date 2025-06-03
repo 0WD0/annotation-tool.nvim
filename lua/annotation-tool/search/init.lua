@@ -55,8 +55,6 @@ end
 ---@param scope string 搜索范围 (current_file | current_project | all_projects)
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
-	local deps = load_deps()
-
 	if scope == M.SCOPE.CURRENT_FILE then
 		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
@@ -119,7 +117,7 @@ local function get_backend(backend_name)
 			return nil
 		end
 	elseif backend_name == M.BACKEND.FZF_LUA then
-		local ok, fzf_backend = pcall(require, 'annotation-tool.search.fzf-lua')
+		local ok, fzf_backend = pcall(require, 'annotation-tool.search.fzf_lua')
 		if ok then
 			backends[backend_name] = fzf_backend
 			return fzf_backend
@@ -182,11 +180,6 @@ end
 
 function M.find_all_projects()
 	M.find_annotations({ scope = M.SCOPE.ALL_PROJECTS })
-end
-
--- 向后兼容
-function M.find_atn_lc()
-	M.find_current_file()
 end
 
 return M

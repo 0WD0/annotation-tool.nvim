@@ -20,8 +20,13 @@ function M.setup()
 		{ "AnnotationCreate",            lsp.create_annotation },
 		{ "AnnotationList",              lsp.list_annotations },
 		{ "AnnotationDelete",            lsp.delete_annotation },
-		{ "AnnotationFind",              search.find_atn_lc },
 		{ "AnnotationTree",              pvw_manager.show_annotation_tree },
+		-- 搜索命令
+		{ "AnnotationFindTelescope",     function() search.find_annotations({ backend = search.BACKEND.TELESCOPE }) end },
+		{ "AnnotationFindFzf",           function() search.find_annotations({ backend = search.BACKEND.FZF_LUA }) end },
+		{ "AnnotationFindCurrentFile",   search.find_current_file },
+		{ "AnnotationFindProject",       search.find_current_project },
+		{ "AnnotationFindAll",           search.find_all_projects },
 		-- 调试命令
 		{ "AnnotationDebugTree",         pvw_manager.debug_print_tree },
 		{ "AnnotationDebugInvalidNodes", pvw_manager.debug_check_invalid_nodes },
