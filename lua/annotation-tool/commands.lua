@@ -46,6 +46,63 @@ function M.setup()
 		end
 	end, { nargs = "?" })
 
+	-- 搜索命令带参数版本
+	vim.api.nvim_create_user_command("AnnotationFindWithBackend", function(opts)
+		local backend = opts.args or search.BACKEND.TELESCOPE
+		if backend ~= search.BACKEND.TELESCOPE and backend ~= search.BACKEND.FZF_LUA then
+			logger.error("不支持的后端: " .. backend .. "\n支持的后端: telescope, fzf-lua")
+			return
+		end
+		search.find_annotations({ backend = backend })
+	end, {
+		nargs = "?",
+		complete = function()
+			return { search.BACKEND.TELESCOPE, search.BACKEND.FZF_LUA }
+		end
+	})
+
+	vim.api.nvim_create_user_command("AnnotationFindWithScope", function(opts)
+		local args = vim.split(opts.args or "", "%s+", { trimempty = true })
+		local scope = args[1] or search.SCOPE.CURRENT_FILE
+		local backend = args[2] or search.BACKEND.TELESCOPE
+
+		-- 验证范围
+		local valid_scopes = { search.SCOPE.CURRENT_FILE, search.SCOPE.CURRENT_PROJECT, search.SCOPE.ALL_PROJECTS }
+		if not vim.tbl_contains(valid_scopes, scope) then
+			logger.error("不支持的搜索范围: " .. scope .. "\n支持的范围: current_file, current_project, all_projects")
+			return
+		end
+
+		-- 验证后端
+		if backend ~= search.BACKEND.TELESCOPE and backend ~= search.BACKEND.FZF_LUA then
+			logger.error("不支持的后端: " .. backend .. "\n支持的后端: telescope, fzf-lua")
+			return
+		end
+
+		search.find_annotations({ scope = scope, backend = backend })
+	end, {
+		nargs = "*",
+		complete = function(arg_lead, cmd_line, cursor_pos)
+			local args = vim.split(cmd_line, "%s+", { trimempty = true })
+			local arg_count = #args - 1 -- 减去命令本身
+
+			-- 如果当前正在输入第一个参数（scope）
+			if arg_count == 1 then
+				local scopes = { search.SCOPE.CURRENT_FILE, search.SCOPE.CURRENT_PROJECT, search.SCOPE.ALL_PROJECTS }
+				return vim.tbl_filter(function(scope)
+					return vim.startswith(scope, arg_lead)
+				end, scopes)
+				-- 如果当前正在输入第二个参数（backend）
+			elseif arg_count == 2 then
+				local backends = { search.BACKEND.TELESCOPE, search.BACKEND.FZF_LUA }
+				return vim.tbl_filter(function(backend)
+					return vim.startswith(backend, arg_lead)
+				end, backends)
+			end
+			return {}
+		end
+	})
+
 	logger.debug("Annotation commands setup complete")
 end
 
