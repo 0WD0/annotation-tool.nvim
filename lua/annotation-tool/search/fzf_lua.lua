@@ -29,27 +29,6 @@ local function check_fzf_lua()
 	return true, fzf_lua
 end
 
----安全地截断 UTF-8 字符串，避免在多字节字符中间截断
----@param str string 要截断的字符串
----@param max_chars number 最大字符数（不是字节数）
----@param suffix string 截断后的后缀，默认为 "..."
----@return string 截断后的字符串
-local function safe_truncate_utf8(str, max_chars, suffix)
-	suffix = suffix or "..."
-
-	-- 使用 vim.fn.strchars 计算实际字符数（支持多字节字符）
-	local char_count = vim.fn.strchars(str)
-
-	if char_count <= max_chars then
-		return str
-	end
-
-	-- 使用 vim.fn.strcharpart 安全地截断字符串
-	-- 这个函数会确保不在多字节字符中间截断
-	local truncated = vim.fn.strcharpart(str, 0, max_chars - vim.fn.strchars(suffix))
-	return truncated .. suffix
-end
-
 ---过滤标注条目根据搜索模式
 ---@param annotations table 所有标注条目
 ---@param mode string 搜索模式，'content' 或 'note'
@@ -83,7 +62,7 @@ local function format_entry_for_fzf(entry, mode)
 	end
 
 	-- 安全地限制显示长度
-	display_text = safe_truncate_utf8(display_text, 80, "...")
+	display_text = deps.core.safe_truncate_utf8(display_text, 80, "...")
 
 	return string.format("%s %s", type_icon, display_text)
 end
@@ -328,7 +307,7 @@ function M.search_annotations(options)
 	actions_map['default'] = open_annotation
 
 	-- 使用配置中的快捷键
-	local open_alt_key = search_keys.open_alt or 'ctrl-o'
+	-- local open_alt_key = search_keys.open_alt or 'ctrl-o'
 	local delete_key = search_keys.delete or 'ctrl-d'
 	local toggle_key = search_keys.toggle_mode or 'ctrl-t'
 	local exit_key = search_keys.exit or 'ctrl-c'
@@ -338,7 +317,7 @@ function M.search_annotations(options)
 		return key:gsub('<C%-(.-)>', 'ctrl-%1'):gsub('<(.-)>', '%1')
 	end
 
-	actions_map[normalize_key(open_alt_key)] = open_annotation
+	-- actions_map[normalize_key(open_alt_key)] = open_annotation
 	actions_map[normalize_key(delete_key)] = delete_annotation
 	actions_map[normalize_key(toggle_key)] = toggle_search_mode
 

@@ -114,7 +114,7 @@ local function on_attach(client, bufnr)
 	-- 设置快捷键（如果启用）
 	if keymaps_config and keymaps_config.enable_default then
 		local base_options = { buffer = bufnr, noremap = true, silent = true }
-		local keymap_mappings = config.get_keymaps()
+		local keymap_mappings = config.get_keymaps() or {}
 
 		-- 基本快捷键映射
 		local keybindings = {
@@ -597,7 +597,7 @@ end
 function M.setup()
 	-- 从配置系统获取 LSP 配置
 	local config = require('annotation-tool.config')
-	local lsp_config = config.get_lsp_opts()
+	local lsp_config = config.get_lsp_opts() or {}
 
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
