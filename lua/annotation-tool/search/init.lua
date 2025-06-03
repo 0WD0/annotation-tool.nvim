@@ -133,37 +133,7 @@ local function get_backend(backend_name)
 	end
 end
 
----获取最佳可用的后端
----@param preferred_backend? string 首选后端
----@return string|nil 最佳后端名称，如果没有可用后端则返回 nil
-local function get_best_backend(preferred_backend)
-	local deps = load_deps()
-	local config = deps.config
-	
-	-- 如果有首选后端且可用，优先使用
-	if preferred_backend and config.is_backend_available(preferred_backend) then
-		return preferred_backend
-	end
-	
-	-- 否则使用配置系统的最佳后端选择
-	return config.get_best_backend()
-end
 
----获取智能搜索范围
----@param preferred_scope? string 首选范围
----@return string 搜索范围
-local function get_smart_scope(preferred_scope)
-	local deps = load_deps()
-	local config = deps.config
-	
-	-- 如果有首选范围，使用它
-	if preferred_scope then
-		return preferred_scope
-	end
-	
-	-- 否则使用配置系统的智能范围选择
-	return config.get_smart_scope()
-end
 
 ---统一的标注搜索接口
 ---@param options? table 搜索选项 {scope: string, backend: string}
@@ -171,10 +141,20 @@ end
 ---  - backend: 使用的后端 (telescope | fzf-lua)，默认使用配置中的最佳后端
 function M.find_annotations(options)
 	options = options or {}
-	
-	-- 使用配置系统获取默认值
-	local scope = get_smart_scope(options.scope)
-	local backend_name = get_best_backend(options.backend)
+	local deps = load_deps()
+	local config = deps.config
+
+	-- 直接使用配置系统获取默认值
+	local scope = options.scope or config.get_smart_scope()
+	local backend_name = options.backend
+
+	-- 如果没有指定后端，使用配置系统的最佳后端
+	if not backend_name then
+		backend_name = config.get_best_backend()
+	elseif not config.is_backend_available(backend_name) then
+		deps.logger.warn("指定的后端 " .. backend_name .. " 不可用，使用最佳可用后端")
+		backend_name = config.get_best_backend()
+	end
 
 	-- 检查前置条件
 	if not check_annotation_mode() then return end
@@ -182,7 +162,6 @@ function M.find_annotations(options)
 
 	-- 检查后端是否可用
 	if not backend_name then
-		local deps = load_deps()
 		deps.logger.error("没有可用的搜索后端，请安装 telescope.nvim 或 fzf-lua")
 		return
 	end
