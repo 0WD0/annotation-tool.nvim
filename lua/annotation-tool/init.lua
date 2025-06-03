@@ -62,7 +62,7 @@ function M.setup(opts)
 		logger.debug_obj("最终配置", config.get())
 	end
 
-	-- 初始化各模块，传递原始 opts 给 LSP 模块以保持兼容性
+	-- 初始化各模块
 	lsp.setup()
 	pvw_manager.setup()
 	commands.setup()
