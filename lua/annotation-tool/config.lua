@@ -85,31 +85,31 @@ local default_config = {
 		-- 是否启用默认快捷键
 		enable_default = true,
 		-- 快捷键前缀
-		prefix = '<leader>a',
+		prefix = '<leader>n',
 		-- 具体快捷键映射
 		mappings = {
 			-- 基本操作
-			enable = 'e', -- <leader>ae
-			toggle = 't', -- <leader>at
-			create = 'c', -- <leader>ac (visual mode)
+			enable = 'e',
+			toggle = 't',
+			create = 'c',
 
 			-- 搜索操作
-			find = 'f',  -- <leader>af - 使用默认后端搜索
-			find_telescope = 'T', -- <leader>aT - 强制使用 telescope
-			find_fzf = 'F', -- <leader>aF - 强制使用 fzf-lua
+			find = 'f',
+			find_telescope = 'T',
+			find_fzf = 'F',
 
 			-- 范围搜索
-			find_current_file = '1', -- <leader>a1
-			find_project = '2', -- <leader>a2
-			find_all = '3', -- <leader>a3
+			find_current_file = '1',
+			find_project = '2',
+			find_all = '3',
 
 			-- 智能搜索
-			smart_find = 's', -- <leader>as
+			smart_find = 's',
 
 			-- 管理操作
-			delete = 'd', -- <leader>ad
-			list = 'l', -- <leader>al
-			tree = 'w', -- <leader>aw
+			delete = 'd',
+			list = 'l',
+			tree = 'w',
 		},
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
