@@ -580,14 +580,18 @@ function M.attach()
 end
 
 -- 初始化 LSP 配置
-function M.setup(opts)
-	opts = opts or {}
+function M.setup()
+
+	-- 从配置系统获取 LSP 配置
+	local config = require('annotation-tool.config')
+	local lsp_config = config.get_lsp_opts()
+
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
-	local version = opts.version or 'python'
-	local connection = opts.connection or 'stdio'
-	local host = opts.host or '127.0.0.1'
-	local port = opts.port or 2087
+	local version = lsp_config.version or 'python'
+	local connection = lsp_config.connection or 'stdio'
+	local host = lsp_config.host or '127.0.0.1'
+	local port = lsp_config.port or 2087
 
 	-- 获取命令路径
 	local cmd_path, plugin_root = ensure_deps(version)
