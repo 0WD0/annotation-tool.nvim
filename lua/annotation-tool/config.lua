@@ -86,36 +86,40 @@ local default_config = {
 		enable_default = true,
 		-- 快捷键前缀
 		prefix = '<leader>n',
+		-- 前缀标识符（可自定义，避免与实际快捷键冲突）
+		prefix_symbol = '@',
 		-- 具体快捷键映射
+		-- 使用前缀标识符表示 prefix，不使用则为完整快捷键
+		-- 例如（当 prefix_symbol = '@'）：'@c' -> '<leader>nc', '<C-x>' -> '<C-x>'
 		mappings = {
 			-- 基本操作
-			enable = 'e',           -- 启用标注模式
-			toggle = 't',           -- 切换标注模式
-			create = 'c',           -- 创建标注 (visual mode)
+			enable = '@e',           -- 启用标注模式 -> <leader>ne
+			toggle = '@t',           -- 切换标注模式 -> <leader>nt
+			create = '@c',           -- 创建标注 (visual mode) -> <leader>nc
 
 			-- 搜索操作
-			find = 'f',             -- 智能搜索标注
-			find_telescope = 'T',   -- 强制使用 telescope
-			find_fzf = 'F',         -- 强制使用 fzf-lua
+			find = '@f',             -- 智能搜索标注 -> <leader>nf
+			find_telescope = '@T',   -- 强制使用 telescope -> <leader>nT
+			find_fzf = '@F',         -- 强制使用 fzf-lua -> <leader>nF
 
 			-- 范围搜索
-			find_current_file = '1', -- 搜索当前文件
-			find_project = '2',      -- 搜索当前项目
-			find_all = '3',          -- 搜索所有项目
+			find_current_file = '@1', -- 搜索当前文件 -> <leader>n1
+			find_project = '@2',      -- 搜索当前项目 -> <leader>n2
+			find_all = '@3',          -- 搜索所有项目 -> <leader>n3
 
 			-- 智能搜索
-			smart_find = 's',        -- 智能搜索（自动选择后端和范围）
+			smart_find = '@s',        -- 智能搜索（自动选择后端和范围） -> <leader>ns
 
 			-- 管理操作
-			delete = 'd',            -- 删除标注
-			list = 'l',              -- 列出标注
-			tree = 'w',              -- 显示标注树
+			delete = '@d',            -- 删除标注 -> <leader>nd
+			list = '@l',              -- 列出标注 -> <leader>nl
+			tree = '@w',              -- 显示标注树 -> <leader>nw
 
 			-- 导航操作
-			preview = 'p',           -- 预览当前标注
-			goto_source = 'h',       -- 跳转到标注源文件
-			prev_annotation = '<A-k>', -- 上一个标注
-			next_annotation = '<A-j>', -- 下一个标注
+			preview = '@p',           -- 预览当前标注 -> <leader>np
+			goto_source = '@h',       -- 跳转到标注源文件 -> <leader>nh
+			prev_annotation = '<A-k>', -- 上一个标注（全局快捷键，不使用prefix）
+			next_annotation = '<A-j>', -- 下一个标注（全局快捷键，不使用prefix）
 		},
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
@@ -423,18 +427,29 @@ function M.get_backend_opts(backend)
 end
 
 -- 获取快捷键映射
+-- 支持可配置的前缀标识符
+-- 例如：'@c' -> '<leader>nc', '<C-x>' -> '<C-x>'
 function M.get_keymaps()
 	local keymaps = M.get('keymaps')
 	if not keymaps or not keymaps.enable_default then
 		return {}
 	end
 
-	local prefix = keymaps.prefix or '<leader>a'
+	local prefix = keymaps.prefix or '<leader>n'
+	local prefix_symbol = keymaps.prefix_symbol or '@'
 	local mappings = keymaps.mappings or {}
 	local result = {}
 
 	for action, key in pairs(mappings) do
-		result[action] = prefix .. key
+		if type(key) == 'string' then
+			-- 如果快捷键以前缀标识符开头，替换为 prefix
+			if key:sub(1, #prefix_symbol) == prefix_symbol then
+				result[action] = prefix .. key:sub(#prefix_symbol + 1)
+			else
+				-- 否则直接使用完整的快捷键
+				result[action] = key
+			end
+		end
 	end
 
 	return result
