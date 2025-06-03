@@ -89,27 +89,33 @@ local default_config = {
 		-- 具体快捷键映射
 		mappings = {
 			-- 基本操作
-			enable = 'e',
-			toggle = 't',
-			create = 'c',
+			enable = 'e',           -- 启用标注模式
+			toggle = 't',           -- 切换标注模式
+			create = 'c',           -- 创建标注 (visual mode)
 
 			-- 搜索操作
-			find = 'f',
-			find_telescope = 'T',
-			find_fzf = 'F',
+			find = 'f',             -- 智能搜索标注
+			find_telescope = 'T',   -- 强制使用 telescope
+			find_fzf = 'F',         -- 强制使用 fzf-lua
 
 			-- 范围搜索
-			find_current_file = '1',
-			find_project = '2',
-			find_all = '3',
+			find_current_file = '1', -- 搜索当前文件
+			find_project = '2',      -- 搜索当前项目
+			find_all = '3',          -- 搜索所有项目
 
 			-- 智能搜索
-			smart_find = 's',
+			smart_find = 's',        -- 智能搜索（自动选择后端和范围）
 
 			-- 管理操作
-			delete = 'd',
-			list = 'l',
-			tree = 'w',
+			delete = 'd',            -- 删除标注
+			list = 'l',              -- 列出标注
+			tree = 'w',              -- 显示标注树
+
+			-- 导航操作
+			preview = 'p',           -- 预览当前标注
+			goto_source = 'h',       -- 跳转到标注源文件
+			prev_annotation = '<A-k>', -- 上一个标注
+			next_annotation = '<A-j>', -- 下一个标注
 		},
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
