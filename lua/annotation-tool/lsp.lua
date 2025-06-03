@@ -107,6 +107,8 @@ M.show_annotation_tree = pvw_manager.show_annotation_tree
 ---@param client table LSP 客户端对象。
 ---@param bufnr integer 当前缓冲区编号。
 local function on_attach(client, bufnr)
+	-- 初始化快捷键冲突检测快照
+
 	-- 获取配置系统中的快捷键
 	local config = require('annotation-tool.config')
 	local keymaps_config = config.get('keymaps')
@@ -118,21 +120,21 @@ local function on_attach(client, bufnr)
 
 		-- 基本快捷键映射
 		local keybindings = {
-			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "创建标注" },
-			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "列出标注" },
-			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "删除标注" },
-			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "显示标注树" },
+			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "📝 创建标注" },
+			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "📋 列出标注" },
+			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
+			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
 			-- 搜索功能快捷键
-			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_annotations, desc = "搜索标注" },
-			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "智能搜索标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "使用 Telescope 搜索标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "使用 fzf-lua 搜索标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_current_file, rhs = search.find_current_file, desc = "搜索当前文件标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_project, rhs = search.find_current_project, desc = "搜索当前项目标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_all, rhs = search.find_all_projects, desc = "搜索所有项目标注" },
+			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_annotations, desc = "🔍 搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "🧠 智能搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "🔭 Telescope 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "⚡ fzf-lua 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_current_file, rhs = search.find_current_file, desc = "📂 搜索当前文件标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_project, rhs = search.find_current_project, desc = "📁 搜索当前项目标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_all, rhs = search.find_all_projects, desc = "🌍 搜索所有项目标注" },
 			-- 导航操作快捷键
-			{ mode = 'n', lhs = keymap_mappings.preview, rhs = M.goto_current_annotation_note, desc = "预览当前标注" },
-			{ mode = 'n', lhs = keymap_mappings.goto_source, rhs = function() M.goto_annotation_source() end, desc = "跳转到标注源文件" },
+			{ mode = 'n', lhs = keymap_mappings.preview, rhs = M.goto_current_annotation_note, desc = "📌 预览当前标注" },
+			{ mode = 'n', lhs = keymap_mappings.goto_source, rhs = function() M.goto_annotation_source() end, desc = "📄 跳转到标注源文件" },
 			{ mode = 'n', lhs = keymap_mappings.prev_annotation, rhs = function() M.switch_annotation(-1) end, desc = "上一个标注" },
 			{ mode = 'n', lhs = keymap_mappings.next_annotation, rhs = function() M.switch_annotation(1) end, desc = "下一个标注" }
 		}

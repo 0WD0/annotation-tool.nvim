@@ -6,7 +6,6 @@ local commands = require('annotation-tool.commands')
 local pvw_manager = require('annotation-tool.preview.manager')
 local search = require('annotation-tool.search')
 local config = require('annotation-tool.config')
-local keymaps = require('annotation-tool.keymaps')
 local logger = require('annotation-tool.logger')
 
 -- 暴露主要函数
@@ -40,10 +39,6 @@ M.get_best_backend = config.get_best_backend
 M.get_smart_scope = config.get_smart_scope
 M.get_lsp_opts = config.get_lsp_opts
 
--- 快捷键相关函数
-M.show_keymaps_help = keymaps.show_help
-M.check_keymap_conflicts = keymaps.check_conflicts
-
 -- 初始化插件
 function M.setup(opts)
 
@@ -66,7 +61,6 @@ function M.setup(opts)
 	lsp.setup()
 	pvw_manager.setup()
 	commands.setup()
-	keymaps.setup()
 
 	-- 显示配置统计信息
 	if logger.is_debug() then
