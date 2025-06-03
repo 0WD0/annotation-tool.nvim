@@ -124,7 +124,7 @@ local default_config = {
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
 			open = '<CR>',
-			open_alt = '<C-o>',
+			-- open_alt = '<C-o>',
 			delete = '<C-d>',
 			toggle_mode = '<C-t>',
 			exit = '<C-c>',
@@ -466,12 +466,14 @@ end
 
 -- 从文件导入配置
 function M.import_config(file_path)
-	local ok, config = pcall(dofile, file_path)
-	if ok and type(config) == 'table' then
-		M.setup(config)
+	local ok, cfg_or_err = pcall(dofile, file_path)
+	if ok and type(cfg_or_err) == 'table' then
+		M.setup(cfg_or_err)
 		return true
+	else
+		require('annotation-tool.logger').error(string.format("导入配置失败: %s", cfg_or_err))
+		return false, cfg_or_err
 	end
-	return false
 end
 
 -- 获取 LSP 配置选项
@@ -481,6 +483,10 @@ end
 
 -- 获取配置统计信息
 function M.get_stats()
+	local core = require('annotation-tool.core')
+	local cwd = vim.fn.getcwd()
+	local cache_info = core.get_project_cache_info(cwd)
+
 	return {
 		available_backends = {
 			telescope = M.is_backend_available('telescope'),
@@ -492,6 +498,8 @@ function M.get_stats()
 		debug_enabled = M.get('debug.enabled'),
 		lsp_version = M.get('lsp.version'),
 		lsp_connection = M.get('lsp.connection'),
+		project_cache = cache_info,
+		plenary_available = core.is_plenary_available(),
 	}
 end
 

@@ -175,8 +175,12 @@ function M.find_annotations(options)
 	-- 获取标注数据
 	fetch_annotations_by_scope(scope, function(err, result)
 		if err then
-			local deps = load_deps()
 			deps.logger.error("获取标注列表失败: " .. vim.inspect(err))
+			return
+		end
+
+		if result == nil or #result == 0 then
+			deps.logger.info("没有找到标注")
 			return
 		end
 

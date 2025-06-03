@@ -136,4 +136,25 @@ function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 	end
 end
 
+---安全地截断 UTF-8 字符串，避免在多字节字符中间截断
+---@param str string 要截断的字符串
+---@param max_chars number 最大字符数（不是字节数）
+---@param suffix string 截断后的后缀，默认为 "..."
+---@return string 截断后的字符串
+function M.safe_truncate_utf8(str, max_chars, suffix)
+	suffix = suffix or "..."
+
+	-- 使用 vim.fn.strchars 计算实际字符数（支持多字节字符）
+	local char_count = vim.fn.strchars(str)
+
+	if char_count <= max_chars then
+		return str
+	end
+
+	-- 使用 vim.fn.strcharpart 安全地截断字符串
+	-- 这个函数会确保不在多字节字符中间截断
+	local truncated = vim.fn.strcharpart(str, 0, max_chars - vim.fn.strchars(suffix))
+	return truncated .. suffix
+end
+
 return M
