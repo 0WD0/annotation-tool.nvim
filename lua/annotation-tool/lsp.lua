@@ -582,14 +582,9 @@ end
 -- 初始化 LSP 配置
 function M.setup()
 
-	-- 从配置系统获取 LSP 配置，opts 中的值会覆盖配置系统的默认值
+	-- 从配置系统获取 LSP 配置
 	local config = require('annotation-tool.config')
 	local lsp_config = config.get_lsp_opts()
-
-	-- 合并 opts 到 lsp_config（opts 优先级更高）
-	for key, value in pairs(opts) do
-		lsp_config[key] = value
-	end
 
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')

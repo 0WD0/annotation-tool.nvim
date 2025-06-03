@@ -89,27 +89,27 @@ local default_config = {
 		-- 具体快捷键映射
 		mappings = {
 			-- 基本操作
-			enable = 'e',           -- <leader>ae
-			toggle = 't',           -- <leader>at
-			create = 'c',           -- <leader>ac (visual mode)
+			enable = 'e', -- <leader>ae
+			toggle = 't', -- <leader>at
+			create = 'c', -- <leader>ac (visual mode)
 
 			-- 搜索操作
-			find = 'f',             -- <leader>af - 使用默认后端搜索
-			find_telescope = 'T',   -- <leader>aT - 强制使用 telescope
-			find_fzf = 'F',         -- <leader>aF - 强制使用 fzf-lua
+			find = 'f',  -- <leader>af - 使用默认后端搜索
+			find_telescope = 'T', -- <leader>aT - 强制使用 telescope
+			find_fzf = 'F', -- <leader>aF - 强制使用 fzf-lua
 
 			-- 范围搜索
 			find_current_file = '1', -- <leader>a1
-			find_project = '2',      -- <leader>a2
-			find_all = '3',          -- <leader>a3
+			find_project = '2', -- <leader>a2
+			find_all = '3', -- <leader>a3
 
 			-- 智能搜索
-			smart_find = 's',        -- <leader>as
+			smart_find = 's', -- <leader>as
 
 			-- 管理操作
-			delete = 'd',            -- <leader>ad
-			list = 'l',              -- <leader>al
-			tree = 'w',              -- <leader>aw
+			delete = 'd', -- <leader>ad
+			list = 'l', -- <leader>al
+			tree = 'w', -- <leader>aw
 		},
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
@@ -345,7 +345,7 @@ function M.is_backend_available(backend)
 	if backend == 'telescope' then
 		local ok = pcall(require, 'telescope')
 		return ok and M.get('backends.telescope.enabled')
-	elseif backend == 'fzf-lua' then
+	elseif backend == 'fzf-lua' or backend == 'fzf_lua' then
 		local ok = pcall(require, 'fzf-lua')
 		return ok and M.get('backends.fzf_lua.enabled')
 	end
@@ -410,7 +410,7 @@ end
 function M.get_backend_opts(backend)
 	if backend == 'telescope' then
 		return M.get('backends.telescope.opts') or {}
-	elseif backend == 'fzf-lua' then
+	elseif backend == 'fzf-lua' or backend == 'fzf_lua' then
 		return M.get('backends.fzf_lua.opts') or {}
 	end
 	return {}
@@ -475,4 +475,3 @@ function M.get_stats()
 end
 
 return M
-

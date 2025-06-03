@@ -24,6 +24,9 @@ M.find_annotations = search.find_annotations
 M.find_current_file = search.find_current_file
 M.find_current_project = search.find_current_project
 M.find_all_projects = search.find_all_projects
+M.smart_find = search.smart_find
+M.find_with_telescope = search.find_with_telescope
+M.find_with_fzf_lua = search.find_with_fzf_lua
 
 -- 搜索常量
 M.SCOPE = search.SCOPE
