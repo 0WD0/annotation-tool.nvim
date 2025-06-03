@@ -307,8 +307,8 @@ function M.get(key)
 		return current_config
 	end
 
-	-- 支持点号分隔的键路径，如 'search.default_backend'
-	local keys = vim.split(key, '%.', { plain = true })
+	-- 支持点号分隔的键路径，如 'backends.telescope.enabled'
+	local keys = vim.split(key, '.', { plain = true })
 	local value = current_config
 
 	for _, k in ipairs(keys) do
@@ -324,7 +324,7 @@ end
 
 -- 设置配置值
 function M.set(key, value)
-	local keys = vim.split(key, '%.', { plain = true })
+	local keys = vim.split(key, '.', { plain = true })
 	local current = current_config
 
 	-- 导航到父级
@@ -365,9 +365,6 @@ end
 -- 获取最佳可用后端
 function M.get_best_backend()
 	local default_backend = M.get('search.default_backend')
-
-	print('telescope:' .. M.is_backend_available('telescope'))
-	print('fzf_lua:' .. M.is_backend_available('fzf-lua'))
 
 	-- 如果启用了自动检测
 	if M.get('search.auto_backend') then
