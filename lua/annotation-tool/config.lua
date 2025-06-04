@@ -392,28 +392,8 @@ end
 
 -- 获取智能搜索范围（根据项目大小）
 function M.get_smart_scope()
-	local perf_config = M.get('performance')
-	if not perf_config or not perf_config.enable_cache then
-		return M.get('search.default_scope') or 'current_file'
-	end
-
-	-- 检查项目大小
-	local cwd = vim.fn.getcwd()
-	local ok, files = pcall(vim.fn.glob, cwd .. '/**/*', false, true)
-	if not ok then
-		-- 如果获取文件列表失败，使用默认范围
-		return M.get('search.default_scope') or 'current_file'
-	end
-
-	local file_count = #files
-	local threshold = perf_config.large_project_threshold or 1000
-	local large_scope = perf_config.large_project_scope or 'current_file'
-
-	if file_count > threshold then
-		return large_scope
-	else
-		return M.get('search.default_scope') or 'current_file'
-	end
+	local core = require('annotation-tool.core')
+	return core.get_smart_scope()
 end
 
 -- 获取后端特定选项
