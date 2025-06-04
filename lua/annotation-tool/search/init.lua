@@ -179,11 +179,6 @@ function M.find_annotations(options)
 			return
 		end
 
-		if result == nil or #result == 0 then
-			deps.logger.info("没有找到标注")
-			return
-		end
-
 		-- 调用后端进行搜索
 		local search_options = {
 			scope = scope,
