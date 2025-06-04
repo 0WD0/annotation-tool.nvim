@@ -6,12 +6,14 @@ local function load_deps()
 	local core = require('annotation-tool.core')
 	local preview = require('annotation-tool.preview')
 	local logger = require('annotation-tool.logger')
+	local config = require('annotation-tool.config')
 
 	return {
 		lsp = lsp,
 		core = core,
 		preview = preview,
-		logger = logger
+		logger = logger,
+		config = config
 	}
 end
 
@@ -55,8 +57,6 @@ end
 ---@param scope string 搜索范围 (current_file | current_project | all_projects)
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
-	local deps = load_deps()
-
 	if scope == M.SCOPE.CURRENT_FILE then
 		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
@@ -119,7 +119,7 @@ local function get_backend(backend_name)
 			return nil
 		end
 	elseif backend_name == M.BACKEND.FZF_LUA then
-		local ok, fzf_backend = pcall(require, 'annotation-tool.search.fzf-lua')
+		local ok, fzf_backend = pcall(require, 'annotation-tool.search.fzf_lua')
 		if ok then
 			backends[backend_name] = fzf_backend
 			return fzf_backend
@@ -133,18 +133,38 @@ local function get_backend(backend_name)
 	end
 end
 
+
+
 ---统一的标注搜索接口
----@param options table 搜索选项 {scope: string, backend: string}
----  - scope: 搜索范围 (current_file | current_project | all_projects)
----  - backend: 使用的后端 (telescope | fzf-lua)，默认为 telescope
+---@param options? table 搜索选项 {scope: string, backend: string}
+---  - scope: 搜索范围 (current_file | current_project | all_projects)，默认使用配置中的智能范围
+---  - backend: 使用的后端 (telescope | fzf-lua)，默认使用配置中的最佳后端
 function M.find_annotations(options)
 	options = options or {}
-	local scope = options.scope or M.SCOPE.CURRENT_FILE
-	local backend_name = options.backend or M.BACKEND.TELESCOPE
+	local deps = load_deps()
+	local config = deps.config
+
+	-- 直接使用配置系统获取默认值
+	local scope = options.scope or config.get_smart_scope()
+	local backend_name = options.backend
+
+	-- 如果没有指定后端，使用配置系统的最佳后端
+	if not backend_name then
+		backend_name = config.get_best_backend()
+	elseif not config.is_backend_available(backend_name) then
+		deps.logger.warn("指定的后端 " .. backend_name .. " 不可用，使用最佳可用后端")
+		backend_name = config.get_best_backend()
+	end
 
 	-- 检查前置条件
 	if not check_annotation_mode() then return end
 	if not get_lsp_client() then return end
+
+	-- 检查后端是否可用
+	if not backend_name then
+		deps.logger.error("没有可用的搜索后端，请安装 telescope.nvim 或 fzf-lua")
+		return
+	end
 
 	-- 获取后端
 	local backend = get_backend(backend_name)
@@ -155,7 +175,6 @@ function M.find_annotations(options)
 	-- 获取标注数据
 	fetch_annotations_by_scope(scope, function(err, result)
 		if err then
-			local deps = load_deps()
 			deps.logger.error("获取标注列表失败: " .. vim.inspect(err))
 			return
 		end
@@ -164,7 +183,8 @@ function M.find_annotations(options)
 		local search_options = {
 			scope = scope,
 			scope_display_name = get_scope_display_name(scope),
-			annotations_result = result
+			annotations_result = result,
+			backend_name = backend_name
 		}
 
 		backend.search_annotations(search_options)
@@ -172,21 +192,30 @@ function M.find_annotations(options)
 end
 
 -- 便捷方法
-function M.find_current_file()
-	M.find_annotations({ scope = M.SCOPE.CURRENT_FILE })
+function M.find_current_file(backend)
+	M.find_annotations({ scope = M.SCOPE.CURRENT_FILE, backend = backend })
 end
 
-function M.find_current_project()
-	M.find_annotations({ scope = M.SCOPE.CURRENT_PROJECT })
+function M.find_current_project(backend)
+	M.find_annotations({ scope = M.SCOPE.CURRENT_PROJECT, backend = backend })
 end
 
-function M.find_all_projects()
-	M.find_annotations({ scope = M.SCOPE.ALL_PROJECTS })
+function M.find_all_projects(backend)
+	M.find_annotations({ scope = M.SCOPE.ALL_PROJECTS, backend = backend })
 end
 
--- 向后兼容
-function M.find_atn_lc()
-	M.find_current_file()
+-- 智能搜索 - 使用配置中的智能后端和范围选择
+function M.smart_find()
+	M.find_annotations() -- 使用默认的智能选择
+end
+
+-- 强制使用特定后端的搜索方法
+function M.find_with_telescope(scope)
+	M.find_annotations({ scope = scope, backend = M.BACKEND.TELESCOPE })
+end
+
+function M.find_with_fzf_lua(scope)
+	M.find_annotations({ scope = scope, backend = M.BACKEND.FZF_LUA })
 end
 
 return M

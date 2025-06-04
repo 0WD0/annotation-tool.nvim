@@ -2,6 +2,7 @@ local M = {}
 local core = require('annotation-tool.core')
 local pvw_manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
+local search = require('annotation-tool.search')
 
 -- 确保虚拟环境存在并安装依赖
 local function ensure_deps(version)
@@ -106,32 +107,47 @@ M.show_annotation_tree = pvw_manager.show_annotation_tree
 ---@param client table LSP 客户端对象。
 ---@param bufnr integer 当前缓冲区编号。
 local function on_attach(client, bufnr)
-	local base_options = { buffer = bufnr, noremap = true, silent = true }
-	local keybindings = {
-		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation,                       desc = "Create annotation at selection" },
-		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations,                        desc = "List annotations" },
-		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation,                       desc = "Delete annotation at position" },
-		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note,            desc = "Preview current annotation" },
-		{ mode = 'n', lhs = '<A-k>',      rhs = function() M.switch_annotation(-1) end,    desc = "Go to previous annotation" },
-		{ mode = 'n', lhs = '<A-j>',      rhs = function() M.switch_annotation(1) end,     desc = "Go to next annotation" },
-		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
-		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                    desc = "Show annotation tree" },
-	}
+	-- 初始化快捷键冲突检测快照
 
-	local ok, search_module = pcall(require, 'annotation-tool.search')
-	if ok then
-		table.insert(keybindings,
-			{
-				mode = 'n',
-				lhs = '<Leader>nf',
-				rhs = search_module.find_atn_lc,
-				desc =
-				"Find annotations with Search"
-			})
-	end
+	-- 获取配置系统中的快捷键
+	local config = require('annotation-tool.config')
+	local keymaps_config = config.get('keymaps')
 
-	for _, config in ipairs(keybindings) do
-		vim.keymap.set(config.mode, config.lhs, config.rhs, vim.tbl_extend('keep', base_options, { desc = config.desc }))
+	-- 设置快捷键（如果启用）
+	if keymaps_config and keymaps_config.enable_default then
+		local base_options = { buffer = bufnr, noremap = true, silent = true }
+		local keymap_mappings = config.get_keymaps() or {}
+
+		-- 基本快捷键映射
+		local keybindings = {
+			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "📝 创建标注" },
+			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "📋 列出标注" },
+			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
+			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
+			-- 搜索功能快捷键
+			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_annotations, desc = "🔍 搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "🧠 智能搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "🔭 Telescope 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "⚡ fzf-lua 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_current_file, rhs = search.find_current_file, desc = "📂 搜索当前文件标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_project, rhs = search.find_current_project, desc = "📁 搜索当前项目标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_all, rhs = search.find_all_projects, desc = "🌍 搜索所有项目标注" },
+			-- 导航操作快捷键
+			{ mode = 'n', lhs = keymap_mappings.preview, rhs = M.goto_current_annotation_note, desc = "📌 预览当前标注" },
+			{ mode = 'n', lhs = keymap_mappings.goto_source, rhs = function() M.goto_annotation_source() end, desc = "📄 跳转到标注源文件" },
+			{ mode = 'n', lhs = keymap_mappings.prev_annotation, rhs = function() M.switch_annotation(-1) end, desc = "上一个标注" },
+			{ mode = 'n', lhs = keymap_mappings.next_annotation, rhs = function() M.switch_annotation(1) end, desc = "下一个标注" }
+		}
+
+		-- 设置所有快捷键
+		for _, keymap in ipairs(keybindings) do
+			if keymap.lhs then -- 只有当快捷键存在时才设置
+				vim.keymap.set(keymap.mode, keymap.lhs, keymap.rhs,
+					vim.tbl_extend('keep', base_options, { desc = keymap.desc }))
+			end
+		end
+	else
+		logger.info("默认快捷键已禁用")
 	end
 
 	-- 设置高亮组
@@ -580,14 +596,17 @@ function M.attach()
 end
 
 -- 初始化 LSP 配置
-function M.setup(opts)
-	opts = opts or {}
+function M.setup()
+	-- 从配置系统获取 LSP 配置
+	local config = require('annotation-tool.config')
+	local lsp_config = config.get_lsp_opts() or {}
+
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
-	local version = opts.version or 'python'
-	local connection = opts.connection or 'stdio'
-	local host = opts.host or '127.0.0.1'
-	local port = opts.port or 2087
+	local version = lsp_config.version or 'python'
+	local connection = lsp_config.connection or 'stdio'
+	local host = lsp_config.host or '127.0.0.1'
+	local port = lsp_config.port or 2087
 
 	-- 获取命令路径
 	local cmd_path, plugin_root = ensure_deps(version)
