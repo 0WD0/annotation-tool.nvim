@@ -359,17 +359,9 @@ function M.search_annotations(options)
 			actions.select_default:replace(open_annotation)
 
 			-- 获取配置中的快捷键
-			-- local open_key = search_keys.open or '<CR>'
-			-- local open_alt_key = search_keys.open_alt or '<C-o>'
 			local delete_key = search_keys.delete or '<C-d>'
 			local toggle_key = search_keys.toggle_mode or '<C-t>'
 			local exit_key = search_keys.exit or '<C-c>'
-
-			-- 映射打开操作
-			-- if open_alt_key ~= '<CR>' then
-			-- 	map("i", open_alt_key, open_annotation)
-			-- 	map("n", string.gsub(open_alt_key, '<C%-(.-)>', '%1'), open_annotation)
-			-- end
 
 			-- 映射删除操作
 			map("i", delete_key, delete_annotation)

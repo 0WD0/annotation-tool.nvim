@@ -307,17 +307,14 @@ function M.search_annotations(options)
 	actions_map['default'] = open_annotation
 
 	-- 使用配置中的快捷键
-	-- local open_alt_key = search_keys.open_alt or 'ctrl-o'
 	local delete_key = search_keys.delete or 'ctrl-d'
 	local toggle_key = search_keys.toggle_mode or 'ctrl-t'
-	local exit_key = search_keys.exit or 'ctrl-c'
 
 	-- 映射快捷键（转换为 fzf-lua 格式）
 	local function normalize_key(key)
 		return key:gsub('<C%-(.-)>', 'ctrl-%1'):gsub('<(.-)>', '%1')
 	end
 
-	-- actions_map[normalize_key(open_alt_key)] = open_annotation
 	actions_map[normalize_key(delete_key)] = delete_annotation
 	actions_map[normalize_key(toggle_key)] = toggle_search_mode
 

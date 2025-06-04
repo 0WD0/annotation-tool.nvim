@@ -124,7 +124,6 @@ local default_config = {
 		-- 搜索界面内快捷键（适用于所有后端）
 		search_keys = {
 			open = '<CR>',
-			-- open_alt = '<C-o>',
 			delete = '<C-d>',
 			toggle_mode = '<C-t>',
 			exit = '<C-c>',
