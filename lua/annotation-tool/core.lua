@@ -163,133 +163,133 @@ local project_size_cache = {}
 
 -- 异步检测项目大小
 local function detect_project_size_async(cwd, callback)
-		-- 检查缓存
-		if project_size_cache[cwd] then
-				local cache_entry = project_size_cache[cwd]
-				local config = require('annotation-tool.config')
-				local cache_ttl = config.get('performance.cache_ttl') or 300
-				if os.time() - cache_entry.timestamp < cache_ttl then
-					callback(cache_entry.file_count)
-					return
-				end
-			end
+	-- 检查缓存
+	if project_size_cache[cwd] then
+		local cache_entry = project_size_cache[cwd]
+		local config = require('annotation-tool.config')
+		local cache_ttl = config.get('performance.cache_ttl') or 300
+		if os.time() - cache_entry.timestamp < cache_ttl then
+			callback(cache_entry.file_count)
+			return
+		end
+	end
 
-		-- 使用 plenary.scandir 进行异步扫描
-		local ok, scandir = pcall(require, 'plenary.scandir')
-		if not ok then
-				-- 如果 plenary 不可用，使用默认值
-				callback(0)
-				return
-			end
+	-- 使用 plenary.scandir 进行异步扫描
+	local ok, scandir = pcall(require, 'plenary.scandir')
+	if not ok then
+		-- 如果 plenary 不可用，使用默认值
+		callback(0)
+		return
+	end
 
-		-- 异步扫描目录
-		scandir.scan_dir_async(cwd, {
-			hidden = false,     -- 不包含隐藏文件
-			add_dirs = false,   -- 只计算文件，不包含目录
-			respect_gitignore = true, -- 尊重 .gitignore
-			on_exit = function(files)
-				local file_count = #files
-				-- 缓存结果
-				project_size_cache[cwd] = {
-					file_count = file_count,
-					timestamp = os.time(),
-					method = 'scandir'
-						}
-				callback(file_count)
-			end
-		})
+	-- 异步扫描目录
+	scandir.scan_dir_async(cwd, {
+		hidden = false,      -- 不包含隐藏文件
+		add_dirs = false,    -- 只计算文件，不包含目录
+		respect_gitignore = true, -- 尊重 .gitignore
+		on_exit = function(files)
+			local file_count = #files
+			-- 缓存结果
+			project_size_cache[cwd] = {
+				file_count = file_count,
+				timestamp = os.time(),
+				method = 'scandir'
+			}
+			callback(file_count)
+		end
+	})
 end
 
 -- 获取项目大小缓存信息
 function M.get_project_cache_info(cwd)
-		cwd = cwd or vim.fn.getcwd()
-		local cache_entry = project_size_cache[cwd]
-		if not cache_entry then
-				return nil
-			end
-		
-		local config = require('annotation-tool.config')
-		local cache_ttl = config.get('performance.cache_ttl') or 300
-		local age = os.time() - cache_entry.timestamp
-		
-		return {
-			file_count = cache_entry.file_count,
-			method = cache_entry.method,
-			age_seconds = age,
-			is_expired = age >= cache_ttl,
-			cached_at = os.date('%Y-%m-%d %H:%M:%S', cache_entry.timestamp)
-		}
+	cwd = cwd or vim.fn.getcwd()
+	local cache_entry = project_size_cache[cwd]
+	if not cache_entry then
+		return nil
+	end
+
+	local config = require('annotation-tool.config')
+	local cache_ttl = config.get('performance.cache_ttl') or 300
+	local age = os.time() - cache_entry.timestamp
+
+	return {
+		file_count = cache_entry.file_count,
+		method = cache_entry.method,
+		age_seconds = age,
+		is_expired = age >= cache_ttl,
+		cached_at = os.date('%Y-%m-%d %H:%M:%S', cache_entry.timestamp)
+	}
 end
 
 -- 清理项目大小缓存
 function M.clear_project_cache(cwd)
-		if cwd then
-				project_size_cache[cwd] = nil
-			else
-				project_size_cache = {}
-			end
+	if cwd then
+		project_size_cache[cwd] = nil
+	else
+		project_size_cache = {}
+	end
 end
 
 -- 强制刷新项目大小检测
 function M.refresh_project_size(cwd, callback)
-		cwd = cwd or vim.fn.getcwd()
-		-- 清除缓存
-		project_size_cache[cwd] = nil
-		
-		-- 重新检测
-		detect_project_size_async(cwd, function(file_count)
-				local cache_info = M.get_project_cache_info(cwd)
-				logger.info(string.format("项目大小刷新完成: %d 文件 (使用 %s)", 
-					file_count, cache_info and cache_info.method or 'unknown'))
-				
-				if callback then
-					callback(file_count, cache_info)
-				end
-			end)
+	cwd = cwd or vim.fn.getcwd()
+	-- 清除缓存
+	project_size_cache[cwd] = nil
+
+	-- 重新检测
+	detect_project_size_async(cwd, function(file_count)
+		local cache_info = M.get_project_cache_info(cwd)
+		logger.info(string.format("项目大小刷新完成: %d 文件 (使用 %s)",
+			file_count, cache_info and cache_info.method or 'unknown'))
+
+		if callback then
+			callback(file_count, cache_info)
+		end
+	end)
 end
 
 -- 获取智能搜索范围（根据项目大小）
 function M.get_smart_scope()
-		local config = require('annotation-tool.config')
-		local perf_config = config.get('performance')
-		local default_scope = config.get('search.default_scope') or 'current_file'
-		
-		if not perf_config or not perf_config.enable_cache then
+	local config = require('annotation-tool.config')
+	local perf_config = config.get('performance')
+	local default_scope = config.get('search.default_scope') or 'current_file'
+
+	if not perf_config or not perf_config.enable_cache then
+		return default_scope
+	end
+
+	local cwd = vim.fn.getcwd()
+	local threshold = perf_config.large_project_threshold or 1000
+	local large_scope = perf_config.large_project_scope or 'current_file'
+
+	-- 检查缓存
+	if project_size_cache[cwd] then
+		local cache_entry = project_size_cache[cwd]
+		local cache_ttl = perf_config.cache_ttl or 300
+		if os.time() - cache_entry.timestamp < cache_ttl then
+			-- 使用缓存的结果
+			if cache_entry.file_count > threshold then
+				return large_scope
+			else
 				return default_scope
 			end
+		end
+	end
 
-		local cwd = vim.fn.getcwd()
-		local threshold = perf_config.large_project_threshold or 1000
-		local large_scope = perf_config.large_project_scope or 'current_file'
+	-- 启动异步检测（不阻塞当前调用）
+	detect_project_size_async(cwd, function(file_count)
+		-- 异步完成后，缓存已更新，下次调用会使用新结果
+		local method = project_size_cache[cwd] and project_size_cache[cwd].method or 'unknown'
+		logger.debug(string.format("项目大小检测完成: %d 文件 (使用 %s)", file_count, method))
+	end)
 
-		-- 检查缓存
-		if project_size_cache[cwd] then
-				local cache_entry = project_size_cache[cwd]
-				local cache_ttl = perf_config.cache_ttl or 300
-				if os.time() - cache_entry.timestamp < cache_ttl then
-					-- 使用缓存的结果
-					if cache_entry.file_count > threshold then
-						return large_scope
-						else
-						return default_scope
-						end
-				end
-			end
-
-		-- 启动异步检测（不阻塞当前调用）
-		detect_project_size_async(cwd, function(file_count)
-				-- 异步完成后，缓存已更新，下次调用会使用新结果
-				local method = project_size_cache[cwd] and project_size_cache[cwd].method or 'unknown'
-				logger.debug(string.format("项目大小检测完成: %d 文件 (使用 %s)", file_count, method))
-			end)
-
-		-- 在异步检测完成前，返回默认范围
-		return default_scope
+	-- 在异步检测完成前，返回默认范围
+	return default_scope
 end
 
 -- 检查 plenary.scandir 是否可用
 function M.is_plenary_available()
-		return pcall(require, 'plenary.scandir')
+	return pcall(require, 'plenary.scandir')
 end
 
 return M
