@@ -37,3 +37,15 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/annotation_ls_py"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "tab"
+docstring-code-format = true
+
+[tool.ruff.lint]
+ignore = ['ALL']
+

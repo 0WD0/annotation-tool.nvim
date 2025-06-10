@@ -131,7 +131,6 @@ use {
 | 快捷键 | 模式 | 功能 |
 |--------|------|------|
 | `<Leader>nf` | Normal | 使用 Telescope 查找所有批注 |
-| `<Leader>ns` | Normal | 使用 Telescope 搜索批注内容 |
 
 ### 预览窗口操作
 
@@ -169,9 +168,10 @@ use {
 
 #### 使用 Telescope 查找批注
 
-1. 确保安装了 [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)。
-2. 按 `<Leader>nf` 查找所有批注。
-3. 按 `<Leader>ns` 搜索批注内容。
+确保安装了 [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim)。
+
+按 `<Leader>nf` 查找所有被批注内容
+<C-t> 可以切换查询的是被批注内容还是笔记内容
 
 #### 使用预览窗口
 
