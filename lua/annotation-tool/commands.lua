@@ -40,21 +40,21 @@ function M.setup()
 			local backend = deps.config.get_best_backend()
 			local scope = deps.config.get_smart_scope()
 			if backend then
-				deps.search.find_current_project({ backend = backend, scope = scope })
+				deps.search.find_annotations({ backend = backend, scope = scope })
 			else
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
 		{ "AnnotationFindTelescope", function()
 			if deps.config.is_backend_available('telescope') then
-				deps.search.find_current_project({ backend = deps.search.BACKEND.TELESCOPE })
+				deps.search.find_annotations({ backend = deps.search.BACKEND.TELESCOPE })
 			else
 				deps.logger.error("Telescope 后端不可用")
 			end
 		end },
 		{ "AnnotationFindFzf", function()
 			if deps.config.is_backend_available('fzf-lua') then
-				deps.search.find_current_project({ backend = deps.search.BACKEND.FZF_LUA })
+				deps.search.find_annotations({ backend = deps.search.BACKEND.FZF_LUA })
 			else
 				deps.logger.error("fzf-lua 后端不可用")
 			end
@@ -62,7 +62,7 @@ function M.setup()
 		{ "AnnotationFindCurrentFile", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
-				deps.search.find_current_project({ backend = backend, scope = deps.search.SCOPE.CURRENT_FILE })
+				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.CURRENT_FILE })
 			else
 				deps.logger.error("没有可用的搜索后端")
 			end
@@ -70,7 +70,7 @@ function M.setup()
 		{ "AnnotationFindCurrentWorkspace", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
-				deps.search.find_current_project({ backend = backend, scope = deps.search.SCOPE.CURRENT_WORKSPACE })
+				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.CURRENT_WORKSPACE })
 			else
 				deps.logger.error("没有可用的搜索后端")
 			end
@@ -78,7 +78,7 @@ function M.setup()
 		{ "AnnotationFindCurrentProject", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
-				deps.search.find_current_project({ backend = backend, scope = deps.search.SCOPE.CURRENT_PROJECT })
+				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.CURRENT_PROJECT })
 			else
 				deps.logger.error("没有可用的搜索后端")
 			end
@@ -113,7 +113,7 @@ function M.setup()
 			deps_local.logger.error("后端不可用: " .. backend)
 			return
 		end
-		deps_local.search.find_current_project({ backend = backend })
+		deps_local.search.find_annotation({ backend = backend })
 	end, {
 		nargs = "?",
 		complete = function()
@@ -152,7 +152,7 @@ function M.setup()
 			return
 		end
 
-		deps_local.search.find_current_project({ scope = scope, backend = backend })
+		deps_local.search.find_annotation({ scope = scope, backend = backend })
 	end, {
 		nargs = "*",
 		complete = function(arg_lead, cmd_line, cursor_pos)
