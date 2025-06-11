@@ -83,7 +83,7 @@ function M.parse_annotations_result(result)
 		return annotations
 	end
 
-	for item in result do
+	for _, item in ipairs(result) do
 		local workspace_path = item.workspace_path
 		for _, note_file_info in ipairs(item.note_files) do
 			local note_file = note_file_info.note_file
