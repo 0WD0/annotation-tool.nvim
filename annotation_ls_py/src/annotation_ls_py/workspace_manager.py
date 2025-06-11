@@ -13,7 +13,7 @@ class Workspace:
 	def __init__(self, root_path: Path):
 		"""
 		初始化 Workspace 实例，表示以指定根路径为根的项目树节点。
-		
+
 		Args:
 			root_path: 工作区的根目录路径。
 		"""
@@ -29,7 +29,7 @@ class Workspace:
 	def add_child(self, child: "Workspace") -> None:
 		"""
 		将指定的子工作区添加为当前工作区的子节点。
-		
+
 		如果该子工作区已有父节点，则先从原父节点移除，再建立新的父子关系。
 		"""
 		if child.parent:
@@ -40,7 +40,7 @@ class Workspace:
 	def remove_child(self, child: "Workspace") -> None:
 		"""
 		从当前工作区中移除指定的子工作区。
-		
+
 		如果该子工作区存在于当前工作区的子节点列表中，将其解除父子关系并移除。
 		"""
 		if child in self.children:
@@ -50,10 +50,10 @@ class Workspace:
 	def contains_file(self, file_uri: str) -> bool:
 		"""
 		判断指定文件是否位于当前工作区的根目录或其子目录下。
-		
+
 		Args:
 			file_uri: 文件的URI。
-		
+
 		Returns:
 			如果文件属于该工作区，则返回True；否则返回False。
 		"""
@@ -67,12 +67,12 @@ class Workspace:
 	def get_workspace_for_file(self, file_uri: str) -> Optional["Workspace"]:
 		"""
 		返回包含指定文件的最深层（最具体）工作区。
-		
+
 		如果该文件属于当前工作区及其子工作区，将递归查找并返回包含该文件的最深层工作区实例；若未找到，则返回 None。
-		
+
 		Args:
 			file_uri: 文件的 URI。
-		
+
 		Returns:
 			包含该文件的最深层 Workspace 实例，若未找到则为 None。
 		"""
@@ -112,7 +112,7 @@ class Workspace:
 	def get_subtree_workspaces(self: "Workspace") -> List["Workspace"]:
 		"""
 		返回当前工作区及其所有子工作区的列表。
-		
+
 		该方法递归遍历当前工作区的所有子节点，收集整个子树中的所有工作区实例。
 		"""
 		result = [self]
@@ -123,7 +123,7 @@ class Workspace:
 	def get_ancestor_workspaces(self: "Workspace") -> List["Workspace"]:
 		"""
 		返回包含自身在内的所有祖先工作区节点列表。
-		
+
 		返回：
 		    包含当前工作区及其所有祖先的列表，顺序为从当前节点到根节点。
 		"""
@@ -146,7 +146,7 @@ class WorkspaceManager:
 	def _find_root_project_for_path(self, path: Path) -> Optional[Workspace]:
 		"""
 		查找给定路径所属的最深层根工作区。
-		
+
 		遍历所有根工作区，返回其根目录为给定路径最近祖先的工作区实例。如果路径不属于任何根工作区，则返回 None。
 		"""
 		try:
@@ -172,12 +172,12 @@ class WorkspaceManager:
 	def _find_subprojects(self, root_path: Path) -> List[Path]:
 		"""
 		递归查找指定根目录下所有包含 .annotation 目录的子目录。
-		
+
 		遍历 root_path 及其所有子目录，返回其中包含 .annotation 目录的所有路径列表。遇到权限或解码错误时会跳过相应目录并记录错误日志。
-		
+
 		Args:
 		    root_path: 要递归搜索的根目录路径。
-		
+
 		Returns:
 		    所有包含 .annotation 目录的子目录路径列表。
 		"""
@@ -215,12 +215,12 @@ class WorkspaceManager:
 	def add_workspace(self, workspace_uri: str) -> Optional[Workspace]:
 		"""
 		添加一个新的工作区，并自动发现并构建其包含的所有子项目树。
-		
+
 		如果指定的 URI 已存在于工作区管理器中，则直接返回对应的工作区。若路径不存在或未找到任何包含 .annotation 目录的子项目，则返回 None。对于新发现的项目，会根据其父子关系插入到现有项目树或新建项目树，并确保所有相关 URI 均有映射。
-		
+
 		Args:
 		    workspace_uri: 待添加工作区的 URI。
-		
+
 		Returns:
 		    添加成功时返回对应的 Workspace 实例，失败时返回 None。
 		"""
@@ -312,12 +312,12 @@ class WorkspaceManager:
 	def remove_workspace(self, workspace_uri: str) -> bool:
 		"""
 		移除指定的工作区。
-		
+
 		如果指定的工作区为根项目，则会移除整个项目树及其所有子工作区；否则仅移除该工作区本身。
-		
+
 		Args:
 			workspace_uri: 要移除的工作区的 URI。
-		
+
 		Returns:
 			移除成功返回 True，失败或未找到工作区返回 False。
 		"""
@@ -348,7 +348,7 @@ class WorkspaceManager:
 	def _insert_workspace(self, workspace: Workspace) -> None:
 		"""
 		将指定工作区插入到项目树的正确层级位置。
-		
+
 		根据工作区的根路径，自动查找最深的父工作区并建立父子关系；若无父工作区，则将其作为根工作区添加。
 		"""
 		try:
@@ -379,12 +379,12 @@ class WorkspaceManager:
 	def get_workspace(self, file_uri: str) -> Optional[Workspace]:
 		"""
 		返回包含指定文件 URI 的最深层工作区。
-		
+
 		如果文件属于某个根项目，则在该项目树中查找包含该文件的最具体（路径最深）的工作区；若未找到，则返回 None。
-		
+
 		参数:
 			file_uri: 文件的 URI。
-		
+
 		返回:
 			包含该文件的最深层 Workspace 实例，若未找到则返回 None。
 		"""
@@ -419,7 +419,7 @@ class WorkspaceManager:
 	def get_first_root_uri(self) -> Optional[str]:
 		"""
 		返回第一个根工作区的 URI。
-		
+
 		如果存在根工作区，则返回其 URI；否则返回 None。
 		"""
 		return self._roots[0].uri if self._roots else None

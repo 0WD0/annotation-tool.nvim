@@ -21,7 +21,7 @@ class Logger:
 	def info(self, msg: str) -> None:
 		"""
 		向服务器发送信息级别的日志消息，仅在调试模式下生效。
-		
+
 		如果已设置服务器且调试模式开启，则通过服务器接口显示信息消息。
 		"""
 		if self._server and self.debug:
@@ -34,7 +34,7 @@ logger = Logger()
 def error(msg: str = "") -> None:
 	"""
 	发送错误日志消息到全局 Logger 实例。
-	
+
 	Args:
 		msg: 要记录的错误信息。
 	"""
@@ -44,7 +44,7 @@ def error(msg: str = "") -> None:
 def info(msg: str = "") -> None:
 	"""
 	向服务器发送信息级别的日志消息。
-	
+
 	如果 Logger 实例已设置服务器且调试模式开启，则将消息作为信息类型发送到服务器。
 	"""
 	logger.info(msg)

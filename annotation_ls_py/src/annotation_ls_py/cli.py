@@ -8,10 +8,10 @@ from . import __version__
 def main(argv: Optional[List[str]] = None) -> int:
 	"""
 	解析命令行参数并启动注释工具的语言服务器。
-	
+
 	Args:
 		argv: 可选的命令行参数列表，默认为 None，表示使用 sys.argv。
-	
+
 	Returns:
 		程序执行完成后的退出码，正常情况下为 0。
 	"""

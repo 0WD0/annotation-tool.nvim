@@ -28,10 +28,10 @@ server = AnnotationServer()
 def initialize(params: types.InitializeParams) -> types.InitializeResult:
 	"""
 	初始化并配置注解 LSP 服务器，设置服务器能力并添加工作区。
-	
+
 	Args:
 		params: LSP 初始化参数，包含初始化选项和根目录 URI。
-	
+
 	Returns:
 		服务器能力的初始化结果，用于告知客户端支持的功能。
 	"""
@@ -75,7 +75,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
 	"""
 	处理工作区文件夹变更事件。
-	
+
 	根据 LSP 通知，添加或移除相应的工作区文件夹。
 	"""
 	try:
@@ -94,7 +94,7 @@ def did_change_workspace_folders(params: types.DidChangeWorkspaceFoldersParams):
 def did_open(params: types.DidOpenTextDocumentParams):
 	"""
 	处理文档打开事件。
-	
+
 	当文档被打开时，显示包含文档 URI 的提示消息。
 	"""
 	server.show_message(f"Document opened: {params.text_document.uri}")
@@ -104,7 +104,7 @@ def did_open(params: types.DidOpenTextDocumentParams):
 def did_change(params: types.DidChangeTextDocumentParams):
 	"""
 	处理文档内容变更事件。
-	
+
 	在文档发生更改时触发，显示变更文档的 URI 信息。
 	"""
 	server.show_message(f"Document changed: {params.text_document.uri}")
@@ -114,7 +114,7 @@ def did_change(params: types.DidChangeTextDocumentParams):
 def hover(ls: LanguageServer, params: types.HoverParams) -> Optional[types.Hover]:
 	"""
 	在悬停于标注位置时，显示对应注释笔记的内容。
-	
+
 	当用户将光标悬停在带有标注的文本上时，检索并展示该标注关联的笔记内容（仅显示“## Notes”标题后的部分），以 Markdown 格式返回。如果未找到标注或笔记内容为空，则不显示悬停信息。
 	"""
 	try:
@@ -162,10 +162,10 @@ def document_highlight(
 ) -> Optional[List[types.DocumentHighlight]]:
 	"""
 	处理文档高亮请求，根据光标位置返回对应标注的高亮区域。
-	
+
 	Args:
 		params: 包含文档 URI 和光标位置信息的参数。
-	
+
 	Returns:
 		若光标处存在标注，则返回该标注范围的高亮列表；否则返回 None。
 	"""
@@ -196,12 +196,12 @@ def document_highlight(
 def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""
 	创建新的文本标注并生成对应的笔记文件。
-	
+
 	处理选中文本范围的标注创建，包括分配标注ID、插入标注括号、更新数据库、生成笔记文件，并返回操作结果。
-	
+
 	参数:
 		params: 包含文档URI和选中范围等信息的字典。
-	
+
 	返回:
 		包含操作是否成功、笔记文件路径和工作区根路径的字典；若失败则包含错误信息。
 	"""
@@ -381,9 +381,9 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 	"""
 	获取指定文档位置处的批注笔记文件信息。
-	
+
 	根据给定的文档 URI 和光标位置，查找该位置关联的批注，并返回对应的笔记文件路径、工作区根路径及批注 ID。
-	
+
 	返回:
 	    包含 note_file（笔记文件路径）、workspace_path（工作区根路径）、annotation_id（批注 ID）的字典；若未找到则返回 None。
 	"""
@@ -425,7 +425,7 @@ def get_annotation_note(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 def delete_annotation_r(ls: LanguageServer, params: List[Dict]) -> Dict:
 	"""
 	从批注笔记文件侧删除对应的源代码批注。
-	
+
 	该命令根据当前批注笔记文件定位源代码中的批注位置，并调用源文件侧的批注删除操作。返回删除结果或错误信息。
 	"""
 	try:
@@ -468,10 +468,10 @@ def delete_annotation_r(ls: LanguageServer, params: List[Dict]) -> Dict:
 def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Dict]:
 	"""
 	根据笔记文件和偏移量，跳转到源文件中对应的批注位置。
-	
+
 	参数说明：
 	    params: 包含当前笔记文件的 textDocument 字段和偏移量 offset（1 表示下一个批注，-1 表示上一个批注，0 表示当前批注）。
-	
+
 	返回值：
 	    包含工作区路径、源文件路径、目标批注的笔记文件路径、批注 ID 及其在源文件中的位置的字典；若查找失败则返回 None。
 	"""
