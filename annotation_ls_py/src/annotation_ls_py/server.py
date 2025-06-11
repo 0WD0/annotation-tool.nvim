@@ -523,11 +523,6 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 		# 根据查询范围获取工作区列表
 		query_scope = query_params.get( "scope", "current_file")
 
-		if query_scope == "current_file":
-			# 获取文件的所有标注
-			note_files = workspace.db_manager.get_note_files_from_source_uri(uri)
-			return [{"workspace_path": str(workspace.root_path), "note_files": note_files}]
-
 		workspaces_to_query = []
 		if query_scope == "current_workspace":
 			workspaces_to_query = [workspace]
@@ -538,6 +533,13 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 			root_workspace = ancestor_workspaces[-1] if ancestor_workspaces else workspace
 			# 获取根工作区的所有子树工作区
 			workspaces_to_query = root_workspace.get_subtree_workspaces()
+		else:
+			if query_scope != "current_file":
+				info(f"Unknown query scope: {query_scope}, defaulting to current_file")
+			# 获取文件的所有标注
+			note_files = workspace.db_manager.get_note_files_from_source_uri(uri)
+			return [{"workspace_path": str(workspace.root_path), "note_files": note_files}]
+
 
 		res = []
 
