@@ -142,7 +142,7 @@ function M.setup()
 			deps_local.search.SCOPE.CURRENT_PROJECT,
 		}
 		if not vim.tbl_contains(valid_scopes, scope) then
-			deps_local.logger.error("不支持的搜索范围: " .. scope .. "\n支持的范围: current_file, current_project, all_projects")
+			deps_local.logger.error("不支持的搜索范围: " .. scope .. "\n支持的范围: current_file, current_workspace, current_project")
 			return
 		end
 
