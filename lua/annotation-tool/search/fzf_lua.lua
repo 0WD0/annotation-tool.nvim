@@ -197,19 +197,21 @@ function M.search_annotations(options)
 		-- 输出调试信息
 		deps.logger.debug_obj("选中的标注", entry)
 
-		-- 打开文件并跳转到标注位置
-		local buf = vim.fn.bufadd(entry.file)
-		if not vim.api.nvim_buf_is_valid(buf) then
-			deps.logger.error("无法创建有效缓冲区")
-			return
-		end
-
-		vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
-		vim.api.nvim_win_set_buf(0, buf)
-
-		local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
-		if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
-			vim.api.nvim_win_set_cursor(0, cursor_pos)
+		if not entry.file or not entry.position then
+			deps.logger.warn("条目缺少必要的文件或位置信息")
+		else
+			-- 打开文件并跳转到标注位置
+			local buf = vim.fn.bufadd(entry.file)
+			if not vim.api.nvim_buf_is_valid(buf) then
+				deps.logger.error("无法创建有效缓冲区")
+				return
+			end
+			vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
+			vim.api.nvim_win_set_buf(0, buf)
+			local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
+			if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
+				vim.api.nvim_win_set_cursor(0, cursor_pos)
+			end
 		end
 
 		-- 打开预览窗口
