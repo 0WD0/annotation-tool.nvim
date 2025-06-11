@@ -113,7 +113,7 @@ local function on_attach(client, bufnr)
 		{ mode = 'n', lhs = '<A-k>',      rhs = function() M.switch_annotation(-1) end,    desc = "Go to previous annotation" },
 		{ mode = 'n', lhs = '<A-j>',      rhs = function() M.switch_annotation(1) end,     desc = "Go to next annotation" },
 		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
-		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                  desc = "Show annotation tree" },
+		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                    desc = "Show annotation tree" },
 	}
 
 	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
@@ -173,10 +173,10 @@ function M.list_annotations()
 			logger.error('Failed to list annotations: ' .. vim.inspect(err))
 		else
 			if result and result.note_files then
-			  logger.info(('Found %d annotations'):format(#result.note_files))
+				logger.info(('Found %d annotations'):format(#result.note_files))
 			else
-			  logger.warn('Server returned unexpected payload for listAnnotations: '
-						  .. vim.inspect(result))
+				logger.warn('Server returned unexpected payload for listAnnotations: '
+					.. vim.inspect(result))
 			end
 			-- 输出调试信息
 			logger.debug_obj('Result', result)
@@ -185,13 +185,27 @@ function M.list_annotations()
 end
 
 -- 删除标注
-function M.delete_annotation()
+function M.delete_annotation(opts)
 	local client = M.get_client()
 	if not client then
 		return
 	end
 
-	local params = vim.lsp.util.make_position_params(0,'utf-16')
+	opts = opts or {}
+	local buffer = opts.buffer or 0
+	local position = opts.position
+
+	local params
+	if position then
+		-- 使用提供的位置信息
+		params = {
+			textDocument = vim.lsp.util.make_text_document_params(buffer),
+			position = position
+		}
+	else
+		-- 使用当前位置
+		params = vim.lsp.util.make_position_params(buffer, 'utf-16')
+	end
 
 	logger.debug('L' .. vim.inspect(params.position.line) .. 'C' .. vim.inspect(params.position.character))
 
@@ -215,11 +229,19 @@ function M.delete_annotation()
 						manager.remove_node(node_id)
 					end
 					logger.info('Annotation deleted successfully')
+
+					-- 如果提供了回调函数，调用它
+					if opts.on_success then
+						opts.on_success(result)
+					end
 				end
 			end)
 		else
 			-- 用户取消删除
 			logger.info('Annotation deletion cancelled by user')
+			if opts.on_cancel then
+				opts.on_cancel()
+			end
 		end
 	end
 	)
