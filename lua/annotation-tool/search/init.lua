@@ -19,7 +19,7 @@ end
 
 -- 搜索范围枚举
 M.SCOPE = {
-    CURRENT_FILE = 'current_file',
+	CURRENT_FILE = 'current_file',
 	CURRENT_WORKSPACE = 'current_workspace',
 	CURRENT_PROJECT = 'current_project'
 }
@@ -29,6 +29,8 @@ M.BACKEND = {
 	TELESCOPE = 'telescope',
 	FZF_LUA = 'fzf-lua'
 }
+
+M.parser = require('annotation-tool.search.parser')
 
 ---检查当前缓冲区是否已启用标注模式。
 ---@return boolean 若已启用标注模式则返回 true，否则返回 false。未启用时会记录警告日志。
