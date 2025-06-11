@@ -19,10 +19,10 @@ M.disable_annotation_mode = core.disable_annotation_mode
 M.toggle_annotation_mode = core.toggle_annotation_mode
 
 -- 搜索相关函数
-M.find_annotations = search.find_current_project
+M.find_annotations = search.find_annotations
 M.find_current_file = search.find_current_file
-M.find_current_project = search.find_current_workspace
-M.find_all_projects = search.find_current_project
+M.find_current_workspace = search.find_current_workspace
+M.find_current_project = search.find_current_project
 M.smart_find = search.smart_find
 M.find_with_telescope = search.find_with_telescope
 M.find_with_fzf_lua = search.find_with_fzf_lua
