@@ -549,7 +549,7 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 			return []
 
 		# 根据查询范围获取工作区列表
-		query_scope = query_params.get("scope", "current_file")  # file, workspace, all
+		query_scope = query_params.get("scope", "current_file")  # current_file, current_workspace, current_project
 
 		if query_scope == "current_file":
 			return list_annotations(ls, params)
