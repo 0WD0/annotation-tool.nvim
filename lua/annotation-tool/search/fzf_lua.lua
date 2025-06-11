@@ -124,7 +124,6 @@ end
 ---使用 fzf-lua 进行标注搜索
 ---@param opts table 搜索选项
 ---  - scope: 搜索范围
----  - scope_display_name: 搜索范围显示名称
 ---  - annotations_result: LSP 返回的标注数据
 function M.search_annotations(opts)
 	local deps = load_deps()
@@ -141,11 +140,13 @@ function M.search_annotations(opts)
 		return
 	end
 
+	local scope_display_name = deps.search.get_scope_display_name(opts.scope)
+
 	if not opts.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 fzf picker
 		fzf_lua.fzf_exec({}, {
-			prompt = string.format('🔍 查找%s批注 (无结果) > ', opts.scope_display_name),
+			prompt = string.format('🔍 查找%s批注 (无结果) > ', scope_display_name),
 		})
 		return
 	end
@@ -324,7 +325,7 @@ function M.search_annotations(opts)
 	local mode_display = search_mode == 'content' and '内容' or '笔记'
 	local picker_opts = vim.tbl_deep_extend('force', {
 		prompt = string.format('🔍 查找%s批注[%s] - %s切换模式 > ',
-			opts.scope_display_name,
+			scope_display_name,
 			mode_display,
 			search_keys.toggle_mode or '<C-t>'),
 		-- 保存条目映射

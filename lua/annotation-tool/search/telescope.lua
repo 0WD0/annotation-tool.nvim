@@ -168,7 +168,6 @@ end
 ---使用 Telescope 进行标注搜索
 ---@param opts table 搜索选项
 ---  - scope: 搜索范围
----  - scope_display_name: 搜索范围显示名称
 ---  - annotations_result: LSP 返回的标注数据
 function M.search_annotations(opts)
 	local deps = load_deps()
@@ -185,6 +184,8 @@ function M.search_annotations(opts)
 		return
 	end
 
+	local scope_display_name = deps.search.get_scope_display_name(opts.scope)
+
 	local pickers = telescope.pickers
 	local finders = telescope.finders
 	local conf = telescope.conf
@@ -195,7 +196,7 @@ function M.search_annotations(opts)
 		deps.logger.info("未找到标注")
 		-- 显示空的 telescope picker
 		pickers.new({}, {
-			prompt_title = string.format('🔍 查找%s批注 (无结果)', opts.scope_display_name),
+			prompt_title = string.format('🔍 查找%s批注 (无结果)', scope_display_name),
 			finder = finders.new_table({
 				results = {},
 				entry_maker = function() return nil end,
@@ -226,7 +227,7 @@ function M.search_annotations(opts)
 	-- 创建 Telescope 选择器
 	local picker_opts = vim.tbl_deep_extend('force', {
 		prompt_title = string.format('🔍 查找%s批注 - %s切换模式',
-			opts.scope_display_name,
+			scope_display_name,
 			search_keys.toggle_mode or '<C-t>'),
 		finder = finders.new_table({
 			results = get_filtered_results(annotations, search_mode),

@@ -170,7 +170,6 @@ function M.find_annotations(options)
 		-- 调用后端进行搜索
 		local search_options = {
 			scope = scope,
-			scope_display_name = get_scope_display_name(scope),
 			annotations_result = result,
 			backend_name = backend_name
 		}
