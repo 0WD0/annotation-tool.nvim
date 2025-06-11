@@ -166,6 +166,7 @@ function M.find_annotations(options)
 			return
 		end
 
+		deps.logger.debug_obj("获取到的标注数据", result)
 		-- 调用后端进行搜索
 		local search_options = {
 			scope = scope,
