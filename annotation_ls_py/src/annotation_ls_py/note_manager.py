@@ -204,6 +204,8 @@ class NoteManager:
 			note_path = Path(self._uri_to_path(note_uri))
 			if not self.notes_dir:
 				raise Exception("Notes directory not set")
+			if not note_path.exists():
+				raise Exception("Note file does not exist")
 			# 检查路径是否在笔记目录下
 			note_path.relative_to(self.notes_dir)
 

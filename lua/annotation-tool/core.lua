@@ -253,8 +253,8 @@ function M.get_smart_scope()
 	local config = require('annotation-tool.config')
 	local perf_config = config.get('performance')
 	local default_scope = config.get('search.default_scope') or 'current_file'
-	if type(default_scope) == 'table'  then
-		logger.warn("default_scope is a table, using 'current_file' as fallback")
+	if type(default_scope) ~= 'string' then
+		logger.warn(string.format("无效的 default_scope 类型: %s，已回退到 'current_file'", type(default_scope)))
 		return "current_file"
 	end
 

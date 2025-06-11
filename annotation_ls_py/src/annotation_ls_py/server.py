@@ -583,7 +583,7 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 					error(f"Error reading note file {note_file}: {str(e)}")
 					continue
 			if note_files:
-				res.extend({"workspace_path": str(workspace.root_path), "note_files": note_files})
+				res.append({"workspace_path": str(workspace.root_path), "note_files": note_files})
 
 		return res
 
