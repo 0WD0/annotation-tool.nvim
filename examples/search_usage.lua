@@ -5,7 +5,7 @@ local search = require('annotation-tool.search')
 search.find_current_file()
 
 -- 或者使用通用接口
-search.find_annotations({
+search.find_current_project({
     scope = search.SCOPE.CURRENT_FILE,
     backend = search.BACKEND.TELESCOPE
 })
@@ -14,22 +14,22 @@ search.find_annotations({
 search.find_current_project()
 
 -- 或者
-search.find_annotations({
-    scope = search.SCOPE.CURRENT_PROJECT,
+search.find_current_project({
+    scope = search.SCOPE.CURRENT_WORKSPACE,
     backend = search.BACKEND.TELESCOPE
 })
 
 -- 所有项目搜索
-search.find_all_projects()
+search.find_current_project()
 
 -- 或者
-search.find_annotations({
-    scope = search.SCOPE.ALL_PROJECTS,
+search.find_current_project({
+    scope = search.SCOPE.CURRENT_PROJECT,
     backend = search.BACKEND.TELESCOPE
 })
 
 -- 未来的 fzf-lua 支持（当后端可用时）
-search.find_annotations({
+search.find_current_project({
     scope = search.SCOPE.CURRENT_FILE,
     backend = search.BACKEND.FZF_LUA
 })
@@ -37,7 +37,4 @@ search.find_annotations({
 -- 键盘映射示例
 vim.keymap.set('n', '<leader>af', search.find_current_file, { desc = '查找当前文件标注' })
 vim.keymap.set('n', '<leader>ap', search.find_current_project, { desc = '查找当前项目标注' })
-vim.keymap.set('n', '<leader>aa', search.find_all_projects, { desc = '查找所有项目标注' })
-
--- 向后兼容的方式
-search.find_atn_lc() -- 等同于 search.find_current_file() 
+vim.keymap.set('n', '<leader>aa', search.find_current_project, { desc = '查找所有项目标注' })
