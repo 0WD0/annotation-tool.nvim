@@ -166,25 +166,25 @@ local function get_filtered_results(annotations, mode)
 end
 
 ---使用 Telescope 进行标注搜索
----@param opts table 搜索选项
+---@param options table 搜索选项
 ---  - scope: 搜索范围
 ---  - annotations_result: LSP 返回的标注数据
-function M.search_annotations(opts)
+function M.search_annotations(options)
 	local deps = load_deps()
 
-	-- 检查 telescop 是否可用
+	-- 检查 telescope 是否可用
 	local ok, telescope = check_telescope()
 	if not ok then
 		deps.logger.error(telescope)
 		return
 	end
 
-	if not vim.tbl_contains(deps.search.SCOPE, opts.scope) then
-		deps.logger.error("不支持的搜索范围: " .. opts.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
+	if not vim.tbl_contains(deps.search.SCOPE, options.scope) then
+		deps.logger.error("不支持的搜索范围: " .. options.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
 		return
 	end
 
-	local scope_display_name = deps.search.get_scope_display_name(opts.scope)
+	local scope_display_name = deps.search.get_scope_display_name(options.scope)
 
 	local pickers = telescope.pickers
 	local finders = telescope.finders
@@ -192,7 +192,7 @@ function M.search_annotations(opts)
 	local actions = telescope.actions
 	local action_state = telescope.action_state
 
-	if not opts.annotations_result then
+	if not options.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 telescope picker
 		pickers.new({}, {
@@ -207,7 +207,7 @@ function M.search_annotations(opts)
 	end
 
 	-- 解析标注数据
-	local annotations = deps.search.parser.parse_annotations_result(opts.annotations_result)
+	local annotations = deps.search.parser.parse_annotations_result(options.annotations_result)
 
 	if #annotations == 0 then
 		deps.logger.info("解析后无有效标注")
@@ -316,7 +316,7 @@ function M.search_annotations(opts)
 						-- 删除成功后刷新列表
 						vim.schedule(function()
 							-- 重新获取标注数据
-							local scope = opts.scope
+							local scope = options.scope
 
 							-- 根据搜索范围获取标注数据
 							vim.lsp.buf_request(0, 'workspace/executeCommand', {

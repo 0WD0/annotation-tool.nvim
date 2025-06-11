@@ -122,10 +122,10 @@ local function create_preview_lines(entry)
 end
 
 ---使用 fzf-lua 进行标注搜索
----@param opts table 搜索选项
+---@param options table 搜索选项
 ---  - scope: 搜索范围
 ---  - annotations_result: LSP 返回的标注数据
-function M.search_annotations(opts)
+function M.search_annotations(options)
 	local deps = load_deps()
 
 	-- 检查 fzf-lua 是否可用
@@ -135,14 +135,14 @@ function M.search_annotations(opts)
 		return
 	end
 
-	if not vim.tbl_contains(deps.search.SCOPE, opts.scope) then
-		deps.logger.error("不支持的搜索范围: " .. opts.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
+	if not vim.tbl_contains(deps.search.SCOPE, options.scope) then
+		deps.logger.error("不支持的搜索范围: " .. options.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
 		return
 	end
 
-	local scope_display_name = deps.search.get_scope_display_name(opts.scope)
+	local scope_display_name = deps.search.get_scope_display_name(options.scope)
 
-	if not opts.annotations_result then
+	if not options.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 fzf picker
 		fzf_lua.fzf_exec({}, {
@@ -152,7 +152,7 @@ function M.search_annotations(opts)
 	end
 
 	-- 解析标注数据
-	local annotations = deps.search.parser.parse_annotations_result(opts.annotations_result)
+	local annotations = deps.search.parser.parse_annotations_result(options.annotations_result)
 
 	if #annotations == 0 then
 		deps.logger.info("解析后无有效标注")
@@ -161,7 +161,7 @@ function M.search_annotations(opts)
 
 	-- 搜索模式状态（'content' 或 'note'）
 	-- 支持从 options 中传入初始模式
-	local search_mode = opts._initial_mode or 'content'
+	local search_mode = options._initial_mode or 'content'
 	-- 全局条目映射，供预览函数使用
 	local global_entry_map = {}
 
