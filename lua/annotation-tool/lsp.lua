@@ -125,7 +125,7 @@ local function on_attach(client, bufnr)
 			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
 			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
 			-- 搜索功能快捷键
-			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_current_project, desc = "🔍 搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_current_file, desc = "🔍 搜索标注" }, -- 默认搜索当前文件
 			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "🧠 智能搜索标注" },
 			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "🔭 Telescope 搜索" },
 			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "⚡ fzf-lua 搜索" },
