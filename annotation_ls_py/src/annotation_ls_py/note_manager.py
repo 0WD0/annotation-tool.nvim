@@ -193,53 +193,10 @@ class NoteManager:
 			error(f"Failed to read note file: {str(e)}")
 			return None
 
-	def search_notes(self, query: str, search_type: str = "all") -> List[Dict]:
-		"""
-		在批注笔记目录中根据查询字符串搜索笔记内容或文件路径。
-		
-		Args:
-			query: 要搜索的字符串。
-			search_type: 搜索类型，可选值为 'file_path'（按源文件路径）、'content'（按全文内容）、'note'（按笔记内容）、'all'（全部匹配），默认为 'all'。
-		
-		Returns:
-			包含匹配笔记元数据和内容的字典列表。如果未设置笔记目录，则返回空列表。
-		"""
-		notes_dir = self.get_notes_dir()
-		if not notes_dir:
-			return []
-
-		results = []
-		for note_file in notes_dir.glob("*.md"):
-			post = frontmatter.load(str(note_file))
-			file_path = str(post.metadata.get("file"))
-
-			note_content = post.content
-
-			# 根据搜索类型进行匹配
-			matched = False
-			if search_type in ("file_path", "all") and query.lower() in file_path.lower():
-				matched = True
-			elif search_type in ("content", "all") and query.lower() in note_content.lower():
-				matched = True
-			elif search_type in ("note", "all") and query.lower() in note_content.lower():
-				matched = True
-
-			if matched:
-				results.append(
-					{
-						"file": file_path,
-						"note_file": str(note_file),
-						"original_text": "",
-						"note_content": note_content,
-					}
-				)
-
-		return results
-
 	def get_annotation_id_by_note_uri(self, note_uri: str) -> Optional[int]:
 		"""
 		根据笔记文件的 URI，获取其对应的注释 ID。
-		
+
 		如果笔记文件存在且包含注释 ID 元数据，则返回该注释 ID 的整数值；否则返回 None。
 		"""
 		try:

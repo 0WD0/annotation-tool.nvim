@@ -62,7 +62,7 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 				"deleteAnnotationR",
 				"getAnnotationNote",
 				"getAnnotationSource",
-				# "queryAnnotations"
+				"queryAnnotations",
 			]
 		),
 		document_highlight_provider=True,
@@ -270,40 +270,13 @@ def create_annotation(ls: LanguageServer, params: Dict) -> Optional[Dict]:
 		return {"success": False, "error": str(e)}
 
 
-@server.command("listAnnotations")
-def list_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
-	"""
-	列出与指定文档关联的所有标注笔记文件。
-	
-	接收文档 URI，返回该文档所在工作区路径及其所有标注笔记文件路径列表。
-	
-	返回:
-	    包含工作区路径和标注笔记文件路径列表的字典；如出错则返回错误信息。
-	"""
-	try:
-		params = params[0]
-		doc = ls.workspace.get_document(params["textDocument"]["uri"])
-		# 获取工作区
-		workspace = workspace_manager.get_workspace(doc.uri)
-		if not workspace:
-			raise Exception(f"No workspace found for {doc.uri}")
-
-		# 获取文件的所有标注
-		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
-		return {"workspace_path": workspace.root_path, "note_files": note_files}
-
-	except Exception as e:
-		error(f"Failed to list annotations: {str(e)}")
-		return {"success": False, "error": str(e)}
-
-
 @server.command("deleteAnnotation")
 def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 	"""
 	从源文档指定位置删除标注及其关联的笔记文件。
-	
+
 	接收包含文档 URI 和光标位置的参数，定位并删除该位置的标注。同步移除数据库中的标注记录、源文档中的标注括号，并删除对应的笔记文件。若操作成功，返回被删除的笔记文件路径；若失败，返回错误信息。
-	
+
 	返回:
 	    包含被删除笔记文件路径的字典，或包含错误信息的字典（success: False）。
 	"""
@@ -532,48 +505,96 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 		return None
 
 
-# @server.command("queryAnnotations")
-# def query_annotations(ls: LanguageServer, params: Dict) -> Optional[Dict]:
-# 	"""处理查询标注的命令"""
-# 	try:
-# 		query_params = params[0]
-# 		current_workspace = workspace_manager.get_workspace(query_params['textDocument']['uri'])
-# 		if not current_workspace:
-# 			return {"annotations": []}
+@server.command("listAnnotations")
+def list_annotations(ls: LanguageServer, params: Dict) -> List:
+	"""
+	列出与指定文档关联的所有标注笔记文件。
 
-# 		# 根据查询范围获取工作区列表
-# 		workspaces_to_query = []
-# 		query_scope = query_params.get('scope', 'current')  # current, subtree, ancestors, all
-#
-# 		if query_scope == 'current':
-# 			workspaces_to_query = [current_workspace]
-# 		elif query_scope == 'subtree':
-# 			workspaces_to_query = current_workspace.get_subtree_workspaces()
-# 		elif query_scope == 'ancestors':
-# 			workspaces_to_query = current_workspace.get_ancestor_workspaces()
-# 		elif query_scope == 'all':
-# 			workspaces_to_query = workspace_manager.root.get_subtree_workspaces()
+	接收文档 URI，返回该文档所在工作区路径及其所有标注笔记文件路径列表。
 
-# 		# 在所有相关工作区中查询
-# 		all_annotations = []
-# 		for workspace in workspaces_to_query:
-# 			annotations = workspace.db_manager.query_annotations(
-# 				query_params.get('query', ''),
-# 				query_params.get('file_pattern', '*')
-# 			)
-# 			all_annotations.extend(annotations)
+	返回:
+	    包含工作区路径和标注笔记文件路径列表的字典；如出错则返回错误信息。
+	"""
+	try:
+		params = params[0]
+		doc = ls.workspace.get_document(params["textDocument"]["uri"])
+		# 获取工作区
+		workspace = workspace_manager.get_workspace(doc.uri)
+		if not workspace:
+			raise Exception(f"No workspace found for {doc.uri}")
 
-# 		return {"annotations": all_annotations}
+		# 获取文件的所有标注
+		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
+		return [{"workspace_path": str(workspace.root_path), "note_files": note_files}]
 
-# 	except Exception as e:
-# 		error(f"Error querying annotations: {str(e)}")
-# 		return {"success": False, "error": str(e)}
+	except Exception as e:
+		error(f"Failed to list annotations: {str(e)}")
+		return []
+
+
+@server.command("queryAnnotations")
+def query_annotations(ls: LanguageServer, params: Dict) -> List:
+	"""
+	查询标注的命令，支持三种查询范围：
+	1. file - 对于单个文件
+	2. workspace - 对于当前的根workspace
+	3. all - 对于整个workspace树
+
+	参考原来的实现逻辑，直接复用 @list_annotations 函数。
+	"""
+	try:
+		query_params = params[0]
+		current_workspace = workspace_manager.get_workspace(query_params["textDocument"]["uri"])
+		if not current_workspace:
+			return []
+
+		# 根据查询范围获取工作区列表
+		query_scope = query_params.get("scope", "file")  # file, workspace, all
+
+		if query_scope == "file":
+			return list_annotations(ls, params)
+
+		workspaces_to_query = []
+		if query_scope == "workspace":
+			workspaces_to_query = [current_workspace]
+		elif query_scope == "all":
+			# 获取当前工作区的所有祖先工作区（包括自身）
+			ancestor_workspaces = current_workspace.get_ancestor_workspaces()
+			# 找到根工作区
+			root_workspace = ancestor_workspaces[-1] if ancestor_workspaces else current_workspace
+			# 获取根工作区的所有子树工作区
+			workspaces_to_query = root_workspace.get_subtree_workspaces()
+
+		res = []
+
+		for workspace in workspaces_to_query:
+			# 扫描工作区的 .annotation/notes 目录
+			notes_dir = workspace.note_manager.get_notes_dir()
+			if not notes_dir or not notes_dir.exists():
+				continue
+
+			note_files = []
+
+			# 遍历所有 .md 文件
+			for note_file in notes_dir.glob("*.md"):
+				try:
+					note_files.append({"note_file": note_file.name})
+				except Exception as e:
+					error(f"Error reading note file {note_file}: {str(e)}")
+					continue
+			res.extend({"workspace_path": str(workspace.root_path), "note_files": note_files})
+
+		return res
+
+	except Exception as e:
+		error(f"Error querying annotations: {str(e)}")
+		return []
 
 
 def start_server(transport: str = "stdio", host: str = "127.0.0.1", port: int = 2087):
 	"""
 	启动 LSP 服务器，支持 stdio 或 TCP 传输模式。
-	
+
 	Args:
 	    transport: 服务器传输方式，可选 "stdio" 或 "tcp"。
 	    host: 当使用 TCP 模式时的主机地址。
