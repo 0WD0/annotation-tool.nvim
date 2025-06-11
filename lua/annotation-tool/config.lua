@@ -22,7 +22,7 @@ local default_config = {
 		-- 默认搜索后端
 		default_backend = 'telescope', -- 'telescope' | 'fzf-lua'
 		-- 默认搜索范围
-		default_scope = 'current_file', -- 'current_file' | 'current_project' | 'all_projects'
+		default_scope = 'current_file', -- 'current_file' | 'current_workspace' | 'current_project'
 		-- 自动检测最优后端
 		auto_backend = false,
 		-- 搜索历史
