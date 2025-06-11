@@ -58,7 +58,6 @@ end
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
 	if vim.tbl_contains(M.SCOPE, scope) then
-		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
 			command = "queryAnnotations",
 			arguments = { {

@@ -121,7 +121,6 @@ local function on_attach(client, bufnr)
 		-- 基本快捷键映射
 		local keybindings = {
 			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "📝 创建标注" },
-			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "📋 列出标注" },
 			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
 			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
 			-- 搜索功能快捷键
@@ -172,35 +171,6 @@ local function on_attach(client, bufnr)
 	-- 启用标注模式
 	core.enable_annotation_mode()
 	logger.info("Annotation LSP attached")
-end
-
----请求 LSP 服务器列出当前文档的所有标注。
----@return nil
-function M.list_annotations()
-	local client = M.get_client()
-	if not client then
-		return
-	end
-
-	client.request('workspace/executeCommand', {
-		command = "listAnnotations",
-		arguments = { {
-			textDocument = vim.lsp.util.make_text_document_params()
-		} }
-	}, function(err, result)
-		if err then
-			logger.error('Failed to list annotations: ' .. vim.inspect(err))
-		else
-			if result and result.note_files then
-				logger.info(('Found %d annotations'):format(#result.note_files))
-			else
-				logger.warn('Server returned unexpected payload for listAnnotations: '
-					.. vim.inspect(result))
-			end
-			-- 输出调试信息
-			logger.debug_obj('Result', result)
-		end
-	end)
 end
 
 ---删除当前或指定位置的标注，并支持自定义删除行为与回调。

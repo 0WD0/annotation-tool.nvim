@@ -112,7 +112,6 @@ local default_config = {
 
 			-- 管理操作
 			delete = '@d', -- 删除标注 -> <leader>nd
-			list = '@l', -- 列出标注 -> <leader>nl
 			tree = '@w', -- 显示标注树 -> <leader>nw
 
 			-- 导航操作

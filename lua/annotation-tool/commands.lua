@@ -32,7 +32,6 @@ function M.setup()
 		{ "AnnotationDisable", deps.core.disable_annotation_mode },
 		{ "AnnotationToggle",  deps.core.toggle_annotation_mode },
 		{ "AnnotationCreate",  deps.lsp.create_annotation },
-		{ "AnnotationList",    deps.lsp.list_annotations },
 		{ "AnnotationDelete",  deps.lsp.delete_annotation },
 		{ "AnnotationTree",    deps.pvw_manager.show_annotation_tree },
 		-- 搜索命令
