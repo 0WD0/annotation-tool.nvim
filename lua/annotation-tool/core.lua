@@ -184,8 +184,8 @@ local function detect_project_size_async(cwd, callback)
 
 	-- 异步扫描目录
 	scandir.scan_dir_async(cwd, {
-		hidden = false,      -- 不包含隐藏文件
-		add_dirs = false,    -- 只计算文件，不包含目录
+		hidden = false,     -- 不包含隐藏文件
+		add_dirs = false,   -- 只计算文件，不包含目录
 		respect_gitignore = true, -- 尊重 .gitignore
 		on_exit = function(files)
 			local file_count = #files
