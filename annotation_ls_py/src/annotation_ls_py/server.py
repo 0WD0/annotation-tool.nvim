@@ -57,7 +57,6 @@ def initialize(params: types.InitializeParams) -> types.InitializeResult:
 		execute_command_provider=types.ExecuteCommandOptions(
 			commands=[
 				"createAnnotation",
-				"listAnnotations",
 				"deleteAnnotation",
 				"deleteAnnotationR",
 				"getAnnotationNote",
@@ -505,33 +504,6 @@ def get_annotation_source(ls: LanguageServer, params: List[Dict]) -> Optional[Di
 		return None
 
 
-@server.command("listAnnotations")
-def list_annotations(ls: LanguageServer, params: Dict) -> List:
-	"""
-	列出与指定文档关联的所有标注笔记文件。
-
-	接收文档 URI，返回该文档所在工作区路径及其所有标注笔记文件路径列表。
-
-	返回:
-	    包含工作区路径和标注笔记文件路径列表的字典；如出错则返回错误信息。
-	"""
-	try:
-		params = params[0]
-		doc = ls.workspace.get_document(params["textDocument"]["uri"])
-		# 获取工作区
-		workspace = workspace_manager.get_workspace(doc.uri)
-		if not workspace:
-			raise Exception(f"No workspace found for {doc.uri}")
-
-		# 获取文件的所有标注
-		note_files = workspace.db_manager.get_note_files_from_source_uri(doc.uri)
-		return [{"workspace_path": str(workspace.root_path), "note_files": note_files}]
-
-	except Exception as e:
-		error(f"Failed to list annotations: {str(e)}")
-		return []
-
-
 @server.command("queryAnnotations")
 def query_annotations(ls: LanguageServer, params: Dict) -> List:
 	"""
@@ -539,29 +511,31 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 	1. current_file - 对于单个文件
 	2. current_workspace - 对于当前workspace
 	3. current_project - 对于当前项目（当前workspace树）
-
-	参考原来的实现逻辑，直接复用 @list_annotations 函数。
 	"""
 	try:
 		query_params = params[0]
-		current_workspace = workspace_manager.get_workspace(query_params["textDocument"]["uri"])
-		if not current_workspace:
+		uri = query_params["textDocument"]["uri"]
+		workspace = workspace_manager.get_workspace(uri)
+		if not workspace:
+			error(f"No workspace found for {uri}")
 			return []
 
 		# 根据查询范围获取工作区列表
-		query_scope = query_params.get("scope", "current_file")  # current_file, current_workspace, current_project
+		query_scope = query_params.get( "scope", "current_file")
 
 		if query_scope == "current_file":
-			return list_annotations(ls, params)
+			# 获取文件的所有标注
+			note_files = workspace.db_manager.get_note_files_from_source_uri(uri)
+			return [{"workspace_path": str(workspace.root_path), "note_files": note_files}]
 
 		workspaces_to_query = []
 		if query_scope == "current_workspace":
-			workspaces_to_query = [current_workspace]
+			workspaces_to_query = [workspace]
 		elif query_scope == "current_project":
 			# 获取当前工作区的所有祖先工作区（包括自身）
-			ancestor_workspaces = current_workspace.get_ancestor_workspaces()
+			ancestor_workspaces = workspace.get_ancestor_workspaces()
 			# 找到根工作区
-			root_workspace = ancestor_workspaces[-1] if ancestor_workspaces else current_workspace
+			root_workspace = ancestor_workspaces[-1] if ancestor_workspaces else workspace
 			# 获取根工作区的所有子树工作区
 			workspaces_to_query = root_workspace.get_subtree_workspaces()
 
