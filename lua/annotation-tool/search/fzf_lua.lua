@@ -255,29 +255,27 @@ function M.search_annotations(opts)
 					local scope = opts.scope
 
 					-- 根据搜索范围获取标注数据
-					if scope == 'current_file' then
-						vim.lsp.buf_request(0, 'workspace/executeCommand', {
-							command = "queryAnnotations",
-							arguments = { {
-								textDocument = vim.lsp.util.make_text_document_params(),
-								scope = scope
-							} }
-						}, function(err, new_result)
-							if err then
-								deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
-								return
-							end
+					vim.lsp.buf_request(0, 'workspace/executeCommand', {
+						command = "queryAnnotations",
+						arguments = { {
+							textDocument = vim.lsp.util.make_text_document_params(),
+							scope = scope
+						} }
+					}, function(err, new_result)
+						if err then
+							deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+							return
+						end
 
-							-- 更新全局annotations变量
-							annotations = deps.search.parser.parse_annotations_result(new_result)
-							deps.logger.info("标注删除成功，列表已刷新")
+						-- 更新全局annotations变量
+						annotations = deps.search.parser.parse_annotations_result(new_result)
+						deps.logger.info("标注删除成功，列表已刷新")
 
-							-- 重新启动搜索
-							M.search_annotations(vim.tbl_extend("force", opts, {
-								annotations_result = new_result
-							}))
-						end)
-					end
+						-- 重新启动搜索
+						M.search_annotations(vim.tbl_extend("force", opts, {
+							annotations_result = new_result
+						}))
+					end)
 				end)
 			end,
 			on_cancel = function()
