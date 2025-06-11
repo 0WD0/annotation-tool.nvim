@@ -1,18 +1,10 @@
 -- logger.lua - 日志模块
 local M = {}
 
--- 日志级别
-M.levels = {
-	DEBUG = 1,
-	INFO = 2,
-	WARN = 3,
-	ERROR = 4,
-}
-
 -- 默认配置
 local config = {
 	debug = false,
-	level = M.levels.INFO,
+	level = vim.log.levels.INFO,
 	prefix = "[annotation-tool]"
 }
 
@@ -23,7 +15,7 @@ function M.setup(opts)
 			config.debug = opts.debug
 			-- 如果开启调试模式，自动设置日志级别为 DEBUG
 			if opts.debug and not opts.level then
-				config.level = M.levels.DEBUG
+				config.level = vim.log.levels.DEBUG
 			end
 		end
 		if opts.level then
@@ -47,6 +39,7 @@ end
 
 -- 内部日志函数
 local function log(level, msg, ...)
+	-- 如果当前日志级别低于配置级别，则不记录日志
 	if level < config.level then
 		return
 	end
@@ -57,48 +50,30 @@ local function log(level, msg, ...)
 		formatted_msg = string.format(formatted_msg, ...)
 	end
 
-	-- 确定日志级别和颜色
-	local hl_group
-	if level == M.levels.DEBUG then
-		hl_group = "Comment"
-	elseif level == M.levels.INFO then
-		hl_group = "None"
-	elseif level == M.levels.WARN then
-		hl_group = "WarningMsg"
-	elseif level == M.levels.ERROR then
-		hl_group = "ErrorMsg"
-	else
-		hl_group = "None"
-	end
-
 	-- 使用 vim.schedule 延迟消息显示，避免多条消息堆积
 	vim.schedule(function()
-		-- 使用 nvim_echo 显示带颜色的消息
-		vim.api.nvim_echo({ { formatted_msg, hl_group } }, false, {})
-		-- 同时使用 nvim_out_write 将消息写入 :messages 历史
-		-- 添加换行符确保消息正确显示
-		-- vim.api.nvim_out_write(formatted_msg .. "\n")
+		vim.notify(formatted_msg, level)
 	end)
 end
 
 -- 调试日志
 function M.debug(msg, ...)
-	log(M.levels.DEBUG, msg, ...)
+	log(vim.log.levels.DEBUG, msg, ...)
 end
 
 -- 信息日志
 function M.info(msg, ...)
-	log(M.levels.INFO, msg, ...)
+	log(vim.log.levels.INFO, msg, ...)
 end
 
 -- 警告日志
 function M.warn(msg, ...)
-	log(M.levels.WARN, msg, ...)
+	log(vim.log.levels.WARN, msg, ...)
 end
 
 -- 错误日志
 function M.error(msg, ...)
-	log(M.levels.ERROR, msg, ...)
+	log(vim.log.levels.ERROR, msg, ...)
 end
 
 -- 调试对象（用于输出复杂数据结构）
@@ -108,7 +83,7 @@ function M.debug_obj(label, obj)
 	end
 
 	local formatted_obj = vim.inspect(obj)
-	log(M.levels.DEBUG, "%s: %s", label, formatted_obj)
+	log(vim.log.levels.DEBUG, "%s: %s", label, formatted_obj)
 end
 
 return M

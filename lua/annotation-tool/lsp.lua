@@ -1,7 +1,8 @@
 local M = {}
 local core = require('annotation-tool.core')
-local manager = require('annotation-tool.preview.manager')
+local pvw_manager = require('annotation-tool.preview.manager')
 local logger = require('annotation-tool.logger')
+local search = require('annotation-tool.search')
 
 -- 确保虚拟环境存在并安装依赖
 local function ensure_deps(version)
@@ -100,44 +101,53 @@ function M.highlight()
 	vim.lsp.buf.document_highlight()
 end
 
-M.show_annotation_tree = manager.show_annotation_tree
+M.show_annotation_tree = pvw_manager.show_annotation_tree
 
--- LSP 回调函数
+---LSP 客户端附加时的回调函数，设置标注相关的快捷键、高亮和自动高亮功能。
+---@param client table LSP 客户端对象。
+---@param bufnr integer 当前缓冲区编号。
 local function on_attach(client, bufnr)
-	local base_options = { buffer = bufnr, noremap = true, silent = true }
-	local keybindings = {
-		{ mode = 'v', lhs = '<Leader>na', rhs = M.create_annotation,                       desc = "Create annotation at selection" },
-		{ mode = 'n', lhs = '<Leader>nl', rhs = M.list_annotations,                        desc = "List annotations" },
-		{ mode = 'n', lhs = '<Leader>nd', rhs = M.delete_annotation,                       desc = "Delete annotation at position" },
-		{ mode = 'n', lhs = '<Leader>np', rhs = M.goto_current_annotation_note,            desc = "Preview current annotation" },
-		{ mode = 'n', lhs = '<A-k>',      rhs = function() M.switch_annotation(-1) end,    desc = "Go to previous annotation" },
-		{ mode = 'n', lhs = '<A-j>',      rhs = function() M.switch_annotation(1) end,     desc = "Go to next annotation" },
-		{ mode = 'n', lhs = '<Leader>nh', rhs = function() M.goto_annotation_source() end, desc = "Go to annotation source" },
-		{ mode = 'n', lhs = '<Leader>nt', rhs = M.show_annotation_tree,                  desc = "Show annotation tree" },
-	}
+	-- 初始化快捷键冲突检测快照
 
-	local ok, telescope_module = pcall(require, 'annotation-tool.telescope')
-	if ok then
-		table.insert(keybindings,
-			{
-				mode = 'n',
-				lhs = '<Leader>nf',
-				rhs = telescope_module.find_annotations,
-				desc =
-				"Find annotations with Telescope"
-			})
-		table.insert(keybindings,
-			{
-				mode = 'n',
-				lhs = '<Leader>ns',
-				rhs = telescope_module.search_annotations,
-				desc =
-				"Search annotation contents"
-			})
-	end
+	-- 获取配置系统中的快捷键
+	local config = require('annotation-tool.config')
+	local keymaps_config = config.get('keymaps')
 
-	for _, config in ipairs(keybindings) do
-		vim.keymap.set(config.mode, config.lhs, config.rhs, vim.tbl_extend('keep', base_options, { desc = config.desc }))
+	-- 设置快捷键（如果启用）
+	if keymaps_config and keymaps_config.enable_default then
+		local base_options = { buffer = bufnr, noremap = true, silent = true }
+		local keymap_mappings = config.get_keymaps() or {}
+
+		-- 基本快捷键映射
+		local keybindings = {
+			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "📝 创建标注" },
+			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "📋 列出标注" },
+			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
+			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
+			-- 搜索功能快捷键
+			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_annotations, desc = "🔍 搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "🧠 智能搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "🔭 Telescope 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "⚡ fzf-lua 搜索" },
+			{ mode = 'n', lhs = keymap_mappings.find_current_file, rhs = search.find_current_file, desc = "📂 搜索当前文件标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_project, rhs = search.find_current_project, desc = "📁 搜索当前项目标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_all, rhs = search.find_all_projects, desc = "🌍 搜索所有项目标注" },
+			-- 导航操作快捷键
+			{ mode = 'n', lhs = keymap_mappings.preview, rhs = M.goto_current_annotation_note, desc = "📌 预览当前标注" },
+			{ mode = 'n', lhs = keymap_mappings.goto_source, rhs = function() M.goto_annotation_source() end, desc = "📄 跳转到标注源文件" },
+			{ mode = 'n', lhs = keymap_mappings.prev_annotation, rhs = function() M.switch_annotation(-1) end, desc = "上一个标注" },
+			{ mode = 'n', lhs = keymap_mappings.next_annotation, rhs = function() M.switch_annotation(1) end, desc = "下一个标注" }
+		}
+
+		-- 设置所有快捷键
+		for _, keymap in ipairs(keybindings) do
+			if keymap.lhs then -- 只有当快捷键存在时才设置
+				vim.keymap.set(keymap.mode, keymap.lhs, keymap.rhs,
+					vim.tbl_extend('keep', base_options, { desc = keymap.desc }))
+			end
+		end
+	else
+		logger.info("默认快捷键已禁用")
 	end
 
 	-- 设置高亮组
@@ -164,7 +174,8 @@ local function on_attach(client, bufnr)
 	logger.info("Annotation LSP attached")
 end
 
--- 列出标注
+---请求 LSP 服务器列出当前文档的所有标注。
+---@return nil
 function M.list_annotations()
 	local client = M.get_client()
 	if not client then
@@ -181,10 +192,10 @@ function M.list_annotations()
 			logger.error('Failed to list annotations: ' .. vim.inspect(err))
 		else
 			if result and result.note_files then
-			  logger.info(('Found %d annotations'):format(#result.note_files))
+				logger.info(('Found %d annotations'):format(#result.note_files))
 			else
-			  logger.warn('Server returned unexpected payload for listAnnotations: '
-						  .. vim.inspect(result))
+				logger.warn('Server returned unexpected payload for listAnnotations: '
+					.. vim.inspect(result))
 			end
 			-- 输出调试信息
 			logger.debug_obj('Result', result)
@@ -192,16 +203,45 @@ function M.list_annotations()
 	end)
 end
 
--- 删除标注
-function M.delete_annotation()
+---删除当前或指定位置的标注，并支持自定义删除行为与回调。
+---@param opts? table 可选参数表。支持以下字段：
+---  - buffer: 指定操作的缓冲区编号，默认为当前缓冲区。
+---  - position: 指定标注位置，若未提供则使用当前光标位置。
+---  - rev: 若为 true，则执行反向删除（deleteAnnotationR）。
+---  - on_success: 删除成功后的回调函数，参数为 LSP 返回结果。
+---  - on_cancel: 用户取消删除时的回调函数。
+---
+---弹出确认对话框，用户确认后向 LSP 发送删除标注请求。删除成功后会同步移除相关节点，并调用成功回调；取消则调用取消回调。
+function M.delete_annotation(opts)
 	local client = M.get_client()
 	if not client then
 		return
 	end
 
-	local params = vim.lsp.util.make_position_params(0,'utf-16')
+	opts = opts or {}
+	local buffer = opts.buffer or 0
+	local position = opts.position
 
-	logger.debug('L' .. vim.inspect(params.position.line) .. 'C' .. vim.inspect(params.position.character))
+	local command = "deleteAnnotation"
+	local params
+	if opts.rev then
+		-- 如果 opts.rev 存在，使用 rev 参数
+		command = command .. 'R'
+		params = {
+			textDocument = vim.lsp.util.make_text_document_params(buffer)
+		}
+	else
+		if position then
+			-- 使用提供的位置信息
+			params = {
+				textDocument = vim.lsp.util.make_text_document_params(buffer),
+				position = position
+			}
+		else
+			-- 使用当前位置
+			params = vim.lsp.util.make_position_params(buffer, 'utf-16')
+		end
+	end
 
 	-- 直接显示确认对话框
 	vim.ui.select({ "Yes", "No" }, {
@@ -210,29 +250,41 @@ function M.delete_annotation()
 	}, function(choice)
 		if choice == "Yes" then
 			-- 用户确认删除，执行删除操作
+			logger.info("Command: " .. command)
+			logger.info('Deleting annotation at position: ' .. vim.inspect(params))
 			client.request('workspace/executeCommand', {
-				command = "deleteAnnotation",
+				command = command,
 				arguments = { params }
 			}, function(err, result)
 				if err then
 					logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 				else
-					local node_id = manager.find_node(result.note_file)
+					local node_id = pvw_manager.find_node(result.note_file)
 					if node_id then
 						logger.info('Removing node ' .. node_id)
-						manager.remove_node(node_id)
+						pvw_manager.remove_node(node_id)
 					end
 					logger.info('Annotation deleted successfully')
+
+					-- 如果提供了回调函数，调用它
+					if opts.on_success then
+						opts.on_success(result)
+					end
 				end
 			end)
 		else
 			-- 用户取消删除
 			logger.info('Annotation deletion cancelled by user')
+			if opts.on_cancel then
+				opts.on_cancel()
+			end
 		end
 	end
 	)
 end
 
+---请求并打开与当前光标位置对应的注释笔记文件。
+---@details 如果当前位置存在注释，自动创建源节点并在注释管理器中打开相关笔记文件。若未找到注释或LSP客户端不可用，将记录相应日志。
 function M.goto_current_annotation_note()
 	local client = M.get_client()
 	if not client then
@@ -257,10 +309,10 @@ function M.goto_current_annotation_note()
 
 		local buf_id = vim.api.nvim_get_current_buf()
 		local win_id = vim.api.nvim_get_current_win()
-		local source_id = manager.create_source(buf_id, win_id, {
+		local source_id = pvw_manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id, {
+		pvw_manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -288,10 +340,10 @@ function M.create_annotation()
 
 		local buf_id = vim.api.nvim_get_current_buf()
 		local win_id = vim.api.nvim_get_current_win()
-		local source_id = manager.create_source(buf_id, win_id, {
+		local source_id = pvw_manager.create_source(buf_id, win_id, {
 			workspace_path = result.workspace_path
 		})
-		manager.open_note_file(result.note_file, source_id, {
+		pvw_manager.open_note_file(result.note_file, source_id, {
 			workspace_path = result.workspace_path
 		})
 	end)
@@ -335,7 +387,7 @@ function M.goto_annotation_source()
 
 		-- 获取当前批注文件的节点ID
 		local note_node_id = nil
-		for node_id, node in pairs(manager.nodes) do
+		for node_id, node in pairs(pvw_manager.nodes) do
 			if node.window == current_win and node.buffer == current_buf then
 				note_node_id = node_id
 				break
@@ -358,19 +410,19 @@ function M.goto_annotation_source()
 			local source_win = vim.api.nvim_get_current_win()
 
 			-- 创建源文件节点并与批注文件节点建立关系
-			local source_node_id = manager.create_node(source_buf, source_win, nil, {
+			local source_node_id = pvw_manager.create_node(source_buf, source_win, nil, {
 				type = "source",
 				note_file = result.note_file,
 				workspace_path = result.workspace_path
 			})
 
 			-- 将批注文件节点设为源文件节点的子节点
-			if manager.nodes[note_node_id] then
-				manager.nodes[note_node_id].parent = source_node_id
-				if not manager.edges[source_node_id] then
-					manager.edges[source_node_id] = {}
+			if pvw_manager.nodes[note_node_id] then
+				pvw_manager.nodes[note_node_id].parent = source_node_id
+				if not pvw_manager.edges[source_node_id] then
+					pvw_manager.edges[source_node_id] = {}
 				end
-				table.insert(manager.edges[source_node_id], note_node_id)
+				table.insert(pvw_manager.edges[source_node_id], note_node_id)
 			end
 		end
 	end)
@@ -414,7 +466,7 @@ function M.switch_annotation(offset)
 
 		-- 获取当前批注文件的节点ID
 		local note_node_id = nil
-		for node_id, node in pairs(manager.nodes) do
+		for node_id, node in pairs(pvw_manager.nodes) do
 			if node.window == current_win and node.buffer == current_buf then
 				note_node_id = node_id
 				break
@@ -453,25 +505,25 @@ function M.switch_annotation(offset)
 				local new_note_buf = vim.api.nvim_get_current_buf()
 
 				-- 创建新的批注文件节点
-				local new_note_node_id = manager.create_node(new_note_buf, note_win, nil, {
+				local new_note_node_id = pvw_manager.create_node(new_note_buf, note_win, nil, {
 					type = "annotation",
 					workspace_path = result.workspace_path
 				})
 				logger.debug("New note node ID: " .. new_note_node_id)
 
 				-- 如果原批注文件有父节点，将新节点也设为其子节点
-				local parent_node_id = manager.get_parent(note_node_id)
+				local parent_node_id = pvw_manager.get_parent(note_node_id)
 				if parent_node_id then
-					manager.nodes[new_note_node_id].parent = parent_node_id
-					if not manager.edges[parent_node_id] then
-						manager.edges[parent_node_id] = {}
+					pvw_manager.nodes[new_note_node_id].parent = parent_node_id
+					if not pvw_manager.edges[parent_node_id] then
+						pvw_manager.edges[parent_node_id] = {}
 					end
-					table.insert(manager.edges[parent_node_id], new_note_node_id)
+					table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
 				end
 			end
 
 			logger.debug("Switched to annotation " .. result.note_file)
-			manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
+			pvw_manager.remove_node(annotation_buf .. '_' .. annotation_win, false)
 			logger.debug("Removed node " .. annotation_buf .. '_' .. annotation_win)
 
 			-- 如果有源文件信息，也更新源文件中的光标位置
@@ -544,14 +596,17 @@ function M.attach()
 end
 
 -- 初始化 LSP 配置
-function M.setup(opts)
-	opts = opts or {}
+function M.setup()
+	-- 从配置系统获取 LSP 配置
+	local config = require('annotation-tool.config')
+	local lsp_config = config.get_lsp_opts() or {}
+
 	local lspconfig = require('lspconfig')
 	local configs = require('lspconfig.configs')
-	local version = opts.version or 'python'
-	local connection = opts.connection or 'stdio'
-	local host = opts.host or '127.0.0.1'
-	local port = opts.port or 2087
+	local version = lsp_config.version or 'python'
+	local connection = lsp_config.connection or 'stdio'
+	local host = lsp_config.host or '127.0.0.1'
+	local port = lsp_config.port or 2087
 
 	-- 获取命令路径
 	local cmd_path, plugin_root = ensure_deps(version)
