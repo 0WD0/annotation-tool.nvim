@@ -582,7 +582,8 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 				except Exception as e:
 					error(f"Error reading note file {note_file}: {str(e)}")
 					continue
-			res.extend({"workspace_path": str(workspace.root_path), "note_files": note_files})
+			if note_files:
+				res.extend({"workspace_path": str(workspace.root_path), "note_files": note_files})
 
 		return res
 
