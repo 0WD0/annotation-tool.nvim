@@ -9,6 +9,7 @@ from .config import initialize_config
 from .workspace_manager import workspace_manager
 from .utils import *
 from .logger import *
+import pathlib
 
 
 class AnnotationServer(LanguageServer):
@@ -253,6 +254,7 @@ def delete_annotation(ls: LanguageServer, params: Dict) -> Dict:
 		position = types.Position(
 			line=params["position"]["line"], character=params["position"]["character"]
 		)
+		logger.info("uri:" + params["textDocument"]["uri"])
 		annotation_id = get_annotation_at_position(doc, position)
 		if annotation_id is None:
 			raise Exception("Failed to get annotation_id")
@@ -358,17 +360,26 @@ def delete_annotation_r(ls: LanguageServer, params: List[Dict]) -> Dict:
 	"""从批注文件中删除批注"""
 	try:
 		# 先获取批注的源文件位置信息
+		params[0]["offset"] = 0  # 确保获取当前批注
 		source_info = get_annotation_source(ls, params)
 		if not source_info:
 			raise Exception("Failed to get annotation source information")
 
+		# source_path已经是绝对路径，直接转换为URI格式
+		source_path = source_info["source_path"]
+		# 转换为URI格式
+		if not source_path.startswith("file://"):
+			source_uri = pathlib.Path(source_path).as_uri()
+		else:
+			source_uri = source_path
+
 		# 构建delete_annotation需要的参数格式
 		delete_params = [
 			{
-				"textDocument": {"uri": source_info["source_path"]},
+				"textDocument": {"uri": source_uri},
 				"position": {
-					"line": source_info["position"]["line"],
-					"character": source_info["position"]["character"],
+					"line": source_info["position"].line,
+					"character": source_info["position"].character,
 				},
 			}
 		]

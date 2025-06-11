@@ -195,19 +195,26 @@ function M.delete_annotation(opts)
 	local buffer = opts.buffer or 0
 	local position = opts.position
 
+	local command = "deleteAnnotation"
 	local params
-	if position then
-		-- 使用提供的位置信息
+	if opts.rev then
+		-- 如果 opts.rev 存在，使用 rev 参数
+		command = command .. 'R'
 		params = {
-			textDocument = vim.lsp.util.make_text_document_params(buffer),
-			position = position
+			textDocument = vim.lsp.util.make_text_document_params(buffer)
 		}
 	else
-		-- 使用当前位置
-		params = vim.lsp.util.make_position_params(buffer, 'utf-16')
+		if position then
+			-- 使用提供的位置信息
+			params = {
+				textDocument = vim.lsp.util.make_text_document_params(buffer),
+				position = position
+			}
+		else
+			-- 使用当前位置
+			params = vim.lsp.util.make_position_params(buffer, 'utf-16')
+		end
 	end
-
-	logger.debug('L' .. vim.inspect(params.position.line) .. 'C' .. vim.inspect(params.position.character))
 
 	-- 直接显示确认对话框
 	vim.ui.select({ "Yes", "No" }, {
@@ -216,8 +223,10 @@ function M.delete_annotation(opts)
 	}, function(choice)
 		if choice == "Yes" then
 			-- 用户确认删除，执行删除操作
+			logger.info("Command: " .. command)
+			logger.info('Deleting annotation at position: ' .. vim.inspect(params))
 			client.request('workspace/executeCommand', {
-				command = "deleteAnnotation",
+				command = command,
 				arguments = { params }
 			}, function(err, result)
 				if err then
