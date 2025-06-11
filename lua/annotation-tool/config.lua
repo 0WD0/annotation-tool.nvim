@@ -258,7 +258,7 @@ local function validate_config(config)
 	-- 验证搜索范围
 	if config.search and config.search.default_scope then
 		local scope = config.search.default_scope
-		local valid_scopes = { 'current_file', 'current_project', 'all_projects' }
+		local valid_scopes = { 'current_file', 'current_workspace', 'current_project' }
 		if not vim.tbl_contains(valid_scopes, scope) then
 			table.insert(errors, "无效的默认搜索范围: " .. scope)
 		end
