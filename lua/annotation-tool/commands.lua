@@ -9,7 +9,7 @@ local function load_deps()
 	local config = require('annotation-tool.config')
 	local keymaps = require('annotation-tool.keymaps')
 	local logger = require('annotation-tool.logger')
-	
+
 	return {
 		core = core,
 		lsp = lsp,
@@ -30,15 +30,15 @@ function M.setup()
 	end
 
 	local commands = {
-		{ "AnnotationEnable",            deps.core.enable_annotation_mode },
-		{ "AnnotationDisable",           deps.core.disable_annotation_mode },
-		{ "AnnotationToggle",            deps.core.toggle_annotation_mode },
-		{ "AnnotationCreate",            deps.lsp.create_annotation },
-		{ "AnnotationList",              deps.lsp.list_annotations },
-		{ "AnnotationDelete",            deps.lsp.delete_annotation },
-		{ "AnnotationTree",              deps.pvw_manager.show_annotation_tree },
+		{ "AnnotationEnable",  deps.core.enable_annotation_mode },
+		{ "AnnotationDisable", deps.core.disable_annotation_mode },
+		{ "AnnotationToggle",  deps.core.toggle_annotation_mode },
+		{ "AnnotationCreate",  deps.lsp.create_annotation },
+		{ "AnnotationList",    deps.lsp.list_annotations },
+		{ "AnnotationDelete",  deps.lsp.delete_annotation },
+		{ "AnnotationTree",    deps.pvw_manager.show_annotation_tree },
 		-- 搜索命令
-		{ "AnnotationFind",              function() 
+		{ "AnnotationFind", function()
 			local backend = deps.config.get_best_backend()
 			local scope = deps.config.get_smart_scope()
 			if backend then
@@ -47,21 +47,21 @@ function M.setup()
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
-		{ "AnnotationFindTelescope",     function() 
+		{ "AnnotationFindTelescope", function()
 			if deps.config.is_backend_available('telescope') then
 				deps.search.find_annotations({ backend = deps.search.BACKEND.TELESCOPE })
 			else
 				deps.logger.error("Telescope 后端不可用")
 			end
 		end },
-		{ "AnnotationFindFzf",           function() 
+		{ "AnnotationFindFzf", function()
 			if deps.config.is_backend_available('fzf-lua') then
 				deps.search.find_annotations({ backend = deps.search.BACKEND.FZF_LUA })
 			else
 				deps.logger.error("fzf-lua 后端不可用")
 			end
 		end },
-		{ "AnnotationFindCurrentFile",   function()
+		{ "AnnotationFindCurrentFile", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
 				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.CURRENT_FILE })
@@ -69,7 +69,7 @@ function M.setup()
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
-		{ "AnnotationFindProject",       function()
+		{ "AnnotationFindProject", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
 				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.CURRENT_PROJECT })
@@ -77,7 +77,7 @@ function M.setup()
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
-		{ "AnnotationFindAll",           function()
+		{ "AnnotationFindAll", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
 				deps.search.find_annotations({ backend = backend, scope = deps.search.SCOPE.ALL_PROJECTS })
@@ -140,7 +140,8 @@ function M.setup()
 		local backend = args[2] or deps_local.config.get_best_backend()
 
 		-- 验证范围
-		local valid_scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT, deps_local.search.SCOPE.ALL_PROJECTS }
+		local valid_scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT, deps_local
+			.search.SCOPE.ALL_PROJECTS }
 		if not vim.tbl_contains(valid_scopes, scope) then
 			deps_local.logger.error("不支持的搜索范围: " .. scope .. "\n支持的范围: current_file, current_project, all_projects")
 			return
@@ -162,7 +163,8 @@ function M.setup()
 
 			-- 如果当前正在输入第一个参数（scope）
 			if arg_count == 1 then
-				local scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT, deps_local.search.SCOPE.ALL_PROJECTS }
+				local scopes = { deps_local.search.SCOPE.CURRENT_FILE, deps_local.search.SCOPE.CURRENT_PROJECT,
+					deps_local.search.SCOPE.ALL_PROJECTS }
 				return vim.tbl_filter(function(scope)
 					return vim.startswith(scope, arg_lead)
 				end, scopes)

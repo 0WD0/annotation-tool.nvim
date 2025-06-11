@@ -6,12 +6,14 @@ local function load_deps()
 	local preview = require('annotation-tool.preview')
 	local logger = require('annotation-tool.logger')
 	local lsp = require('annotation-tool.lsp')
+	local config = require('annotation-tool.config')
 
 	return {
 		core = core,
 		preview = preview,
 		logger = logger,
-		lsp = lsp
+		lsp = lsp,
+		config = config
 	}
 end
 
@@ -35,11 +37,13 @@ local function create_annotation_previewer()
 				return
 			end
 
+			local deps = load_deps()
 			local lines = {}
 			local value = entry.value
+			local preview_format = deps.config.get('preview.format') or {}
 
 			-- 添加标注内容（使用完整内容）
-			table.insert(lines, "# 📝 标注内容")
+			table.insert(lines, "# " .. (preview_format.content_title or "📝 标注内容"))
 			table.insert(lines, "")
 			if value.full_content and value.full_content ~= "" then
 				for content_line in value.full_content:gmatch("[^\r\n]+") do
@@ -51,7 +55,7 @@ local function create_annotation_previewer()
 			table.insert(lines, "")
 
 			-- 添加笔记内容（使用完整笔记）
-			table.insert(lines, "# 💡 笔记")
+			table.insert(lines, "# " .. (preview_format.notes_title or "💡 笔记"))
 			table.insert(lines, "")
 			if value.full_note and value.full_note ~= "" then
 				for note_line in value.full_note:gmatch("[^\r\n]+") do
@@ -64,7 +68,7 @@ local function create_annotation_previewer()
 			-- 添加当前选中信息
 			if value.line_info then
 				table.insert(lines, "")
-				table.insert(lines, "# 🎯 当前选中")
+				table.insert(lines, "# " .. (preview_format.current_title or "🎯 当前选中"))
 				table.insert(lines, "")
 				table.insert(lines, value.line_info)
 				if value.entry_type == "content" then
@@ -76,7 +80,7 @@ local function create_annotation_previewer()
 
 			-- 添加文件信息
 			table.insert(lines, "")
-			table.insert(lines, "# 📂 文件信息")
+			table.insert(lines, "# " .. (preview_format.meta_title or "📂 文件信息"))
 			table.insert(lines, "")
 			table.insert(lines, "源文件: " .. (value.file or "未知"))
 			table.insert(lines, "笔记文件: " .. (value.note_file or "未知"))
@@ -138,8 +142,10 @@ local function create_entry_maker(mode)
 			display_text = entry.note or ""
 		end
 
-		-- 添加类型指示符
-		local type_icon = (mode == 'content') and "📄" or "📝"
+		-- 添加类型指示符（使用配置中的图标）
+		local deps = load_deps()
+		local icons = deps.config.get('theme.icons') or {}
+		local type_icon = (mode == 'content') and (icons.content or "📄") or (icons.note or "📝")
 
 		-- 安全地限制显示长度，避免在多字节字符中间截断
 		display_text = safe_truncate_utf8(display_text, 80, "...")
@@ -403,9 +409,15 @@ function M.search_annotations(options)
 	-- 搜索模式状态（'content' 或 'note'）
 	local search_mode = 'content'
 
+	-- 获取 telescope 配置
+	local telescope_opts = deps.config.get_backend_opts('telescope')
+	local search_keys = deps.config.get('keymaps.search_keys') or {}
+
 	-- 创建 Telescope 选择器
-	pickers.new({}, {
-		prompt_title = string.format('🔍 查找%s批注 - <C-t>切换模式', options.scope_display_name),
+	local picker_opts = vim.tbl_deep_extend('force', {
+		prompt_title = string.format('🔍 查找%s批注 - %s切换模式',
+			options.scope_display_name,
+			search_keys.toggle_mode or '<C-t>'),
 		finder = finders.new_table({
 			results = get_filtered_results(annotations, search_mode),
 			entry_maker = create_entry_maker(search_mode),
@@ -533,18 +545,45 @@ function M.search_annotations(options)
 				})
 			end
 
-			-- 映射按键
+			-- 映射按键（使用配置中的快捷键）
 			actions.select_default:replace(open_annotation)
-			map("i", "<C-d>", delete_annotation)
-			map("n", "d", delete_annotation)
-			map("i", "<C-o>", open_annotation)
-			map("n", "o", open_annotation)
-			map("i", "<C-t>", toggle_search_mode)
-			map("n", "t", toggle_search_mode)
+
+			-- 获取配置中的快捷键
+			local open_key = search_keys.open or '<CR>'
+			local open_alt_key = search_keys.open_alt or '<C-o>'
+			local delete_key = search_keys.delete or '<C-d>'
+			local toggle_key = search_keys.toggle_mode or '<C-t>'
+			local exit_key = search_keys.exit or '<C-c>'
+
+			-- 映射打开操作
+			if open_alt_key ~= '<CR>' then
+				map("i", open_alt_key, open_annotation)
+				map("n", string.gsub(open_alt_key, '<C%-(.-)>', '%1'), open_annotation)
+			end
+
+			-- 映射删除操作
+			map("i", delete_key, delete_annotation)
+			map("n", string.gsub(delete_key, '<C%-(.-)>', '%1'), delete_annotation)
+
+			-- 映射切换模式
+			map("i", toggle_key, toggle_search_mode)
+			map("n", string.gsub(toggle_key, '<C%-(.-)>', '%1'), toggle_search_mode)
+
+			-- 如果配置了特殊的退出键，映射它
+			if exit_key ~= '<C-c>' and exit_key ~= '<Esc>' then
+				map("i", exit_key, function()
+					actions.close(prompt_bufnr)
+				end)
+				map("n", string.gsub(exit_key, '<C%-(.-)>', '%1'), function()
+					actions.close(prompt_bufnr)
+				end)
+			end
 
 			return true
 		end,
-	}):find()
+	}, telescope_opts)
+
+	pickers.new({}, picker_opts):find()
 end
 
 return M

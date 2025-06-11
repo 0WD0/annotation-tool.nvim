@@ -6,12 +6,14 @@ local function load_deps()
 	local preview = require('annotation-tool.preview')
 	local logger = require('annotation-tool.logger')
 	local lsp = require('annotation-tool.lsp')
+	local config = require('annotation-tool.config')
 
 	return {
 		core = core,
 		preview = preview,
 		logger = logger,
-		lsp = lsp
+		lsp = lsp,
+		config = config
 	}
 end
 
@@ -238,8 +240,10 @@ end
 ---@param mode string 搜索模式
 ---@return string 格式化后的字符串
 local function format_entry_for_fzf(entry, mode)
+	local deps = load_deps()
 	local display_text = ""
-	local type_icon = (mode == 'content') and "📄" or "📝"
+	local icons = deps.config.get('theme.icons') or {}
+	local type_icon = (mode == 'content') and (icons.content or "📄") or (icons.note or "📝")
 
 	if mode == 'content' then
 		display_text = entry.content or ""
@@ -257,10 +261,12 @@ end
 ---@param entry table 标注条目
 ---@return table 预览内容行
 local function create_preview_lines(entry)
+	local deps = load_deps()
 	local lines = {}
+	local preview_format = deps.config.get('preview.format') or {}
 
 	-- 添加标注内容（使用完整内容）
-	table.insert(lines, "# 📝 标注内容")
+	table.insert(lines, "# " .. (preview_format.content_title or "📝 标注内容"))
 	table.insert(lines, "")
 	if entry.full_content and entry.full_content ~= "" then
 		for content_line in entry.full_content:gmatch("[^\r\n]+") do
@@ -272,7 +278,7 @@ local function create_preview_lines(entry)
 	table.insert(lines, "")
 
 	-- 添加笔记内容（使用完整笔记）
-	table.insert(lines, "# 💡 笔记")
+	table.insert(lines, "# " .. (preview_format.notes_title or "💡 笔记"))
 	table.insert(lines, "")
 	if entry.full_note and entry.full_note ~= "" then
 		for note_line in entry.full_note:gmatch("[^\r\n]+") do
@@ -285,7 +291,7 @@ local function create_preview_lines(entry)
 	-- 添加当前选中信息
 	if entry.line_info then
 		table.insert(lines, "")
-		table.insert(lines, "# 🎯 当前选中")
+		table.insert(lines, "# " .. (preview_format.current_title or "🎯 当前选中"))
 		table.insert(lines, "")
 		table.insert(lines, entry.line_info)
 		if entry.entry_type == "content" then
@@ -297,7 +303,7 @@ local function create_preview_lines(entry)
 
 	-- 添加文件信息
 	table.insert(lines, "")
-	table.insert(lines, "# 📂 文件信息")
+	table.insert(lines, "# " .. (preview_format.meta_title or "📂 文件信息"))
 	table.insert(lines, "")
 	table.insert(lines, "源文件: " .. (entry.file or "未知"))
 	table.insert(lines, "笔记文件: " .. (entry.note_file or "未知"))
@@ -497,20 +503,40 @@ function M.search_annotations(options)
 		entry_map[formatted] = entry
 	end
 
-	-- 创建 fzf-lua picker
-	fzf_lua.fzf_exec(formatted_entries, {
-		prompt = string.format('🔍 查找%s批注 - <C-t>切换模式 > ', options.scope_display_name),
+	-- 获取 fzf-lua 配置
+	local fzf_opts = deps.config.get_backend_opts('fzf-lua')
+	local search_keys = deps.config.get('keymaps.search_keys') or {}
+
+	-- 构建动作映射（使用配置中的快捷键）
+	local actions_map = {}
+	actions_map['default'] = open_annotation
+
+	-- 使用配置中的快捷键
+	local open_alt_key = search_keys.open_alt or 'ctrl-o'
+	local delete_key = search_keys.delete or 'ctrl-d'
+	local toggle_key = search_keys.toggle_mode or 'ctrl-t'
+	local exit_key = search_keys.exit or 'ctrl-c'
+
+	-- 映射快捷键（转换为 fzf-lua 格式）
+	local function normalize_key(key)
+		return key:gsub('<C%-(.-)>', 'ctrl-%1'):gsub('<(.-)>', '%1')
+	end
+
+	actions_map[normalize_key(open_alt_key)] = open_annotation
+	actions_map[normalize_key(delete_key)] = delete_annotation
+	actions_map[normalize_key(toggle_key)] = {
+		fn = toggle_search_mode,
+		reload = true,
+	}
+
+	-- 构建 fzf-lua picker 选项
+	local picker_opts = vim.tbl_deep_extend('force', {
+		prompt = string.format('🔍 查找%s批注 - %s切换模式 > ',
+			options.scope_display_name,
+			search_keys.toggle_mode or '<C-t>'),
 		-- 保存条目映射
 		_entry_map = entry_map,
-		actions = {
-			['default'] = open_annotation,
-			['ctrl-d'] = delete_annotation,
-			['ctrl-o'] = open_annotation,
-			['ctrl-t'] = {
-				fn = toggle_search_mode,
-				reload = true,
-			},
-		},
+		actions = actions_map,
 		-- 使用 fzf 原生预览
 		preview = {
 			type = 'cmd',
@@ -522,21 +548,10 @@ function M.search_annotations(options)
 				return { "预览数据无效" }
 			end
 		},
-		-- fzf 选项
-		fzf_opts = {
-			['--preview-window'] = 'right:50%:wrap',
-			['--layout'] = 'reverse',
-		},
-		-- 窗口选项
-		winopts = {
-			height = 0.8,
-			width = 0.9,
-			preview = {
-				layout = 'vertical',
-			}
-		}
-	})
+	}, fzf_opts)
+
+	-- 创建 fzf-lua picker
+	fzf_lua.fzf_exec(formatted_entries, picker_opts)
 end
 
 return M
-
