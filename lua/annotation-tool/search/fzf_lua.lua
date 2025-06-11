@@ -136,10 +136,7 @@ function M.search_annotations(options)
 		return
 	end
 
-	-- 输出调试信息
-	deps.logger.debug_obj("服务器返回结果", options.annotations_result)
-
-	if not options.annotations_result or not options.annotations_result.note_files or #options.annotations_result.note_files == 0 then
+	if not options.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 fzf picker
 		fzf_lua.fzf_exec({}, {
@@ -147,9 +144,6 @@ function M.search_annotations(options)
 		})
 		return
 	end
-
-	-- 输出第一个标注的信息
-	deps.logger.debug_obj("第一个标注", options.annotations_result.note_files[1])
 
 	-- 解析标注数据
 	local annotations = deps.parser.parse_annotations_result(options.annotations_result)
