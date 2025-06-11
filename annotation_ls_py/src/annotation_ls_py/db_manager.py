@@ -20,7 +20,7 @@ class DatabaseManager:
 	def __init__(self, project_root: Optional[Path] = None):
 		"""
 		初始化 DatabaseManager 实例，可选地为指定项目根路径建立数据库连接。
-		
+
 		如果提供了项目根路径，则自动初始化并连接对应的注释数据库。
 		"""
 		self.connections = {}  # 项目路径 -> sqlite3.Connection
@@ -33,7 +33,7 @@ class DatabaseManager:
 	def init_db(self, project_root: Path):
 		"""
 		初始化或连接指定项目根目录下的注释数据库。
-		
+
 		如果数据库已连接则复用，否则创建新连接并确保所需的数据表存在。自动管理连接池，超出最大连接数时关闭最早的连接。
 		"""
 		self.project_root = project_root
@@ -86,7 +86,7 @@ class DatabaseManager:
 	def _get_conn(self) -> sqlite3.Connection:
 		"""
 		返回当前活动的数据库连接。
-		
+
 		如果当前没有可用的数据库连接，则抛出 DatabaseError 异常。
 		"""
 		if not self.current_db or self.current_db not in self.connections:
@@ -96,7 +96,7 @@ class DatabaseManager:
 	def _uri_to_relative_path(self, uri: str) -> str:
 		"""
 		将 URI 转换为相对于项目根目录的路径。
-		
+
 		如果无法相对化，则返回绝对路径。若未设置项目根目录，则抛出 DatabaseError 异常。
 		"""
 		if not self.project_root:
@@ -115,11 +115,11 @@ class DatabaseManager:
 	def get_annotation_note_file(self, file_uri: str, annotation_id: int) -> Optional[str]:
 		"""
 		根据文件 URI 和标注 ID，获取对应的笔记文件路径。
-		
+
 		Args:
 			file_uri: 文件的 URI。
 			annotation_id: 标注的唯一标识符。
-		
+
 		Returns:
 			笔记文件的路径字符串，如果未找到则返回 None。
 		"""
@@ -147,14 +147,14 @@ class DatabaseManager:
 	def create_annotation(self, doc_uri: str, annotation_id: int) -> str:
 		"""
 		为指定文档 URI 和标注 ID 创建新的标注记录，并生成对应的笔记文件名。
-		
+
 		Args:
 			doc_uri: 文档的 URI 路径。
 			annotation_id: 标注的唯一标识符。
-		
+
 		Returns:
 			新创建的笔记文件名。
-		
+
 		Raises:
 			DatabaseError: 创建标注记录失败时抛出。
 		"""
@@ -194,10 +194,10 @@ class DatabaseManager:
 	def get_note_files_from_source_uri(self, source_uri: str) -> List[Dict]:
 		"""
 		获取指定源文件 URI 关联的所有标注笔记文件。
-		
+
 		Args:
 			source_uri: 源文件的 URI。
-		
+
 		Returns:
 			包含所有关联标注笔记文件路径的字典列表；如查询失败则返回空列表。
 		"""
@@ -225,11 +225,11 @@ class DatabaseManager:
 	def delete_annotation(self, file_uri: str, annotation_id: int) -> bool:
 		"""
 		删除指定文件 URI 和标注 ID 对应的标注记录。
-		
+
 		Args:
 			file_uri: 文件的 URI。
 			annotation_id: 要删除的标注 ID。
-		
+
 		Returns:
 			若成功删除标注记录则返回 True，否则返回 False。
 		"""
@@ -257,12 +257,12 @@ class DatabaseManager:
 	def increase_annotation_ids(self, file_uri: str, from_id: int, increment: int = 1) -> bool:
 		"""
 		批量调整指定文件中从给定ID开始的所有标注ID，可递增或递减。
-		
+
 		Args:
 			file_uri: 文件的URI路径。
 			from_id: 起始的标注ID，包含该ID。
 			increment: 调整的步长，正值为递增，负值为递减。
-		
+
 		Returns:
 			操作成功返回True，否则返回False。
 		"""
