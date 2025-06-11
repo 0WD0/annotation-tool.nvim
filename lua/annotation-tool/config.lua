@@ -104,7 +104,7 @@ local default_config = {
 
 			-- 范围搜索
 			find_current_file = '@1',
-			find_curren_workspace = '@2',
+			find_current_workspace = '@2',
 			find_current_project = '@3',
 
 			-- 智能搜索

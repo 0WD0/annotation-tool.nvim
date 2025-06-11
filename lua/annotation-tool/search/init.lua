@@ -19,7 +19,7 @@ end
 
 -- 搜索范围枚举
 M.SCOPE = {
-	CURRENT_FILE = 'currnt_file',
+    CURRENT_FILE = 'current_file',
 	CURRENT_WORKSPACE = 'current_workspace',
 	CURRENT_PROJECT = 'current_project'
 }
