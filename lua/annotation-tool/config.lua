@@ -103,9 +103,9 @@ local default_config = {
 			find_fzf = '@F', -- 强制使用 fzf-lua -> <leader>nF
 
 			-- 范围搜索
-			find_current_file = '@1', -- 搜索当前文件 -> <leader>n1
-			find_project = '@2', -- 搜索当前项目 -> <leader>n2
-			find_all = '@3', -- 搜索所有项目 -> <leader>n3
+			find_current_file = '@1',
+			find_curren_workspace = '@2',
+			find_current_project = '@3',
 
 			-- 智能搜索
 			smart_find = '@s', -- 智能搜索（自动选择后端和范围） -> <leader>ns
@@ -275,9 +275,6 @@ local function validate_config(config)
 	return errors
 end
 
--- 配置是否已初始化的标志
-local is_setup_called = false
-
 -- 设置配置
 function M.setup(user_config)
 	user_config = user_config or {}
@@ -293,9 +290,6 @@ function M.setup(user_config)
 	if #errors > 0 then
 		error("配置验证失败:\n" .. table.concat(errors, "\n"))
 	end
-
-	-- 标记已初始化
-	is_setup_called = true
 
 	return current_config
 end

@@ -125,13 +125,13 @@ local function on_attach(client, bufnr)
 			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
 			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
 			-- 搜索功能快捷键
-			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_annotations, desc = "🔍 搜索标注" },
+			{ mode = 'n', lhs = keymap_mappings.find, rhs = search.find_current_project, desc = "🔍 搜索标注" },
 			{ mode = 'n', lhs = keymap_mappings.smart_find, rhs = search.smart_find, desc = "🧠 智能搜索标注" },
 			{ mode = 'n', lhs = keymap_mappings.find_telescope, rhs = search.find_with_telescope, desc = "🔭 Telescope 搜索" },
 			{ mode = 'n', lhs = keymap_mappings.find_fzf, rhs = search.find_with_fzf_lua, desc = "⚡ fzf-lua 搜索" },
 			{ mode = 'n', lhs = keymap_mappings.find_current_file, rhs = search.find_current_file, desc = "📂 搜索当前文件标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_project, rhs = search.find_current_project, desc = "📁 搜索当前项目标注" },
-			{ mode = 'n', lhs = keymap_mappings.find_all, rhs = search.find_all_projects, desc = "🌍 搜索所有项目标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_current_workspace, rhs = search.find_current_workspace, desc = "📁 搜索当前工作区标注" },
+			{ mode = 'n', lhs = keymap_mappings.find_current_project, rhs = search.find_current_project, desc = "🌍 搜索当前项目标注" },
 			-- 导航操作快捷键
 			{ mode = 'n', lhs = keymap_mappings.preview, rhs = M.goto_current_annotation_note, desc = "📌 预览当前标注" },
 			{ mode = 'n', lhs = keymap_mappings.goto_source, rhs = function() M.goto_annotation_source() end, desc = "📄 跳转到标注源文件" },

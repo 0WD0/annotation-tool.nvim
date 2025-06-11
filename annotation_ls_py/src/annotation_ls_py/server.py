@@ -536,9 +536,9 @@ def list_annotations(ls: LanguageServer, params: Dict) -> List:
 def query_annotations(ls: LanguageServer, params: Dict) -> List:
 	"""
 	查询标注的命令，支持三种查询范围：
-	1. file - 对于单个文件
-	2. workspace - 对于当前的根workspace
-	3. all - 对于整个workspace树
+	1. current_file - 对于单个文件
+	2. current_workspace - 对于当前workspace
+	3. current_project - 对于当前项目（当前workspace树）
 
 	参考原来的实现逻辑，直接复用 @list_annotations 函数。
 	"""
@@ -549,15 +549,15 @@ def query_annotations(ls: LanguageServer, params: Dict) -> List:
 			return []
 
 		# 根据查询范围获取工作区列表
-		query_scope = query_params.get("scope", "file")  # file, workspace, all
+		query_scope = query_params.get("scope", "current_file")  # file, workspace, all
 
-		if query_scope == "file":
+		if query_scope == "current_file":
 			return list_annotations(ls, params)
 
 		workspaces_to_query = []
-		if query_scope == "workspace":
+		if query_scope == "current_workspace":
 			workspaces_to_query = [current_workspace]
-		elif query_scope == "all":
+		elif query_scope == "current_project":
 			# 获取当前工作区的所有祖先工作区（包括自身）
 			ancestor_workspaces = current_workspace.get_ancestor_workspaces()
 			# 找到根工作区

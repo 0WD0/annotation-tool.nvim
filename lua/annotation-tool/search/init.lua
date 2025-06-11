@@ -19,9 +19,9 @@ end
 
 -- 搜索范围枚举
 M.SCOPE = {
-	CURRENT_FILE = 'current_file',
-	CURRENT_PROJECT = 'current_project',
-	ALL_PROJECTS = 'all_projects'
+	CURRENT_FILE = 'currnt_file',
+	CURRENT_WORKSPACE = 'current_workspace',
+	CURRENT_PROJECT = 'current_project'
 }
 
 -- 后端枚举
@@ -54,7 +54,7 @@ local function get_lsp_client()
 end
 
 ---根据搜索范围获取标注数据
----@param scope string 搜索范围 (current_file | current_project | all_projects)
+---@param scope string 搜索范围 (current_file | current_workspace | current_project)
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
 	if scope == M.SCOPE.CURRENT_FILE then
@@ -65,7 +65,7 @@ local function fetch_annotations_by_scope(scope, callback)
 				textDocument = vim.lsp.util.make_text_document_params()
 			} }
 		}, callback)
-	elseif scope == M.SCOPE.CURRENT_PROJECT then
+	elseif scope == M.SCOPE.CURRENT_WORKSPACE then
 		-- 当前项目搜索 - 需要新的 LSP 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
 			command = "listProjectAnnotations",
@@ -73,7 +73,7 @@ local function fetch_annotations_by_scope(scope, callback)
 				textDocument = vim.lsp.util.make_text_document_params()
 			} }
 		}, callback)
-	elseif scope == M.SCOPE.ALL_PROJECTS then
+	elseif scope == M.SCOPE.CURRENT_PROJECT then
 		-- 所有项目搜索 - 需要新的 LSP 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
 			command = "listAllAnnotations",
@@ -90,8 +90,8 @@ end
 local function get_scope_display_name(scope)
 	local scope_names = {
 		[M.SCOPE.CURRENT_FILE] = "当前文件",
-		[M.SCOPE.CURRENT_PROJECT] = "当前项目",
-		[M.SCOPE.ALL_PROJECTS] = "所有项目"
+		[M.SCOPE.CURRENT_WORKSPACE] = "当前工作区",
+		[M.SCOPE.CURRENT_PROJECT] = "当前项目"
 	}
 	return scope_names[scope] or "未知范围"
 end
@@ -137,7 +137,7 @@ end
 
 ---统一的标注搜索接口
 ---@param options? table 搜索选项 {scope: string, backend: string}
----  - scope: 搜索范围 (current_file | current_project | all_projects)，默认使用配置中的智能范围
+---  - scope: 搜索范围 (current_file | current_workspace | current_project)，默认使用配置中的智能范围
 ---  - backend: 使用的后端 (telescope | fzf-lua)，默认使用配置中的最佳后端
 function M.find_annotations(options)
 	options = options or {}
@@ -196,12 +196,12 @@ function M.find_current_file(backend)
 	M.find_annotations({ scope = M.SCOPE.CURRENT_FILE, backend = backend })
 end
 
-function M.find_current_project(backend)
-	M.find_annotations({ scope = M.SCOPE.CURRENT_PROJECT, backend = backend })
+function M.find_current_workspace(backend)
+	M.find_annotations({ scope = M.SCOPE.CURRENT_WORKSPACE, backend = backend })
 end
 
-function M.find_all_projects(backend)
-	M.find_annotations({ scope = M.SCOPE.ALL_PROJECTS, backend = backend })
+function M.find_current_project(backend)
+	M.find_annotations({ scope = M.SCOPE.CURRENT_PROJECT, backend = backend })
 end
 
 -- 智能搜索 - 使用配置中的智能后端和范围选择
