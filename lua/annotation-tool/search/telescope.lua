@@ -315,9 +315,10 @@ function M.search_annotations(options)
 							-- 根据搜索范围获取标注数据
 							if scope == search_module.SCOPE.CURRENT_FILE then
 								vim.lsp.buf_request(0, 'workspace/executeCommand', {
-									command = "listAnnotations",
+									command = "queryAnnotations",
 									arguments = { {
-										textDocument = vim.lsp.util.make_text_document_params()
+										textDocument = vim.lsp.util.make_text_document_params(),
+										scope = scope
 									} }
 								}, function(err, new_result)
 									if err then
