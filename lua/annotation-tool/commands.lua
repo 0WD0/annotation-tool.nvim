@@ -67,7 +67,7 @@ function M.setup()
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
-		{ "AnnotationFindProject", function()
+		{ "AnnotationFindCurrentWorkspace", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
 				deps.search.find_current_project({ backend = backend, scope = deps.search.SCOPE.CURRENT_WORKSPACE })
@@ -75,7 +75,7 @@ function M.setup()
 				deps.logger.error("没有可用的搜索后端")
 			end
 		end },
-		{ "AnnotationFindAll", function()
+		{ "AnnotationFindCurrentProject", function()
 			local backend = deps.config.get_best_backend()
 			if backend then
 				deps.search.find_current_project({ backend = backend, scope = deps.search.SCOPE.CURRENT_PROJECT })
