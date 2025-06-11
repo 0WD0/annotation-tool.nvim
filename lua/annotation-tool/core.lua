@@ -253,6 +253,10 @@ function M.get_smart_scope()
 	local config = require('annotation-tool.config')
 	local perf_config = config.get('performance')
 	local default_scope = config.get('search.default_scope') or 'current_file'
+	if type(default_scope) == 'table'  then
+		logger.warn("default_scope is a table, using 'current_file' as fallback")
+		return "current_file"
+	end
 
 	if not perf_config or not perf_config.enable_cache then
 		return default_scope
