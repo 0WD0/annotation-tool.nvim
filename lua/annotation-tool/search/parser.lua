@@ -105,7 +105,7 @@ function M.parse_annotations_result(result)
 			-- 提取标注内容和笔记
 			local content = ""
 			local note = ""
-			local source_file = vim.fn.expand('%:p') -- 默认使用当前文件
+			local source_file = nil -- 只能从 frontmatter 中获取，没有就保留nil
 			local in_notes_section = false
 			local in_selected_text_section = false
 			local in_code_block = false
