@@ -11,7 +11,6 @@ local logger = require('annotation-tool.logger')
 -- 暴露主要函数
 M.enable = lsp.attach
 M.create_annotation = lsp.create_annotation
-M.list_annotations = lsp.list_annotations
 M.delete_annotation = lsp.delete_annotation
 M.setup_preview = lsp.goto_current_annotation_note
 M.enable_annotation_mode = core.enable_annotation_mode

@@ -19,7 +19,7 @@ end
 
 -- 搜索范围枚举
 M.SCOPE = {
-    CURRENT_FILE = 'current_file',
+	CURRENT_FILE = 'current_file',
 	CURRENT_WORKSPACE = 'current_workspace',
 	CURRENT_PROJECT = 'current_project'
 }
@@ -29,6 +29,8 @@ M.BACKEND = {
 	TELESCOPE = 'telescope',
 	FZF_LUA = 'fzf-lua'
 }
+
+M.parser = require('annotation-tool.search.parser')
 
 ---检查当前缓冲区是否已启用标注模式。
 ---@return boolean 若已启用标注模式则返回 true，否则返回 false。未启用时会记录警告日志。
@@ -58,7 +60,6 @@ end
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
 	if vim.tbl_contains(M.SCOPE, scope) then
-		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
 			command = "queryAnnotations",
 			arguments = { {
@@ -169,7 +170,6 @@ function M.find_annotations(options)
 		-- 调用后端进行搜索
 		local search_options = {
 			scope = scope,
-			scope_display_name = get_scope_display_name(scope),
 			annotations_result = result,
 			backend_name = backend_name
 		}
