@@ -57,27 +57,14 @@ end
 ---@param scope string 搜索范围 (current_file | current_workspace | current_project)
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
-	if scope == M.SCOPE.CURRENT_FILE then
+	if vim.tbl_contains(M.SCOPE, scope) then
 		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
-			command = "listAnnotations",
+			command = "queryAnnotations",
 			arguments = { {
-				textDocument = vim.lsp.util.make_text_document_params()
+				textDocument = vim.lsp.util.make_text_document_params(),
+				scope = scope
 			} }
-		}, callback)
-	elseif scope == M.SCOPE.CURRENT_WORKSPACE then
-		-- 当前项目搜索 - 需要新的 LSP 命令
-		vim.lsp.buf_request(0, 'workspace/executeCommand', {
-			command = "listProjectAnnotations",
-			arguments = { {
-				textDocument = vim.lsp.util.make_text_document_params()
-			} }
-		}, callback)
-	elseif scope == M.SCOPE.CURRENT_PROJECT then
-		-- 所有项目搜索 - 需要新的 LSP 命令
-		vim.lsp.buf_request(0, 'workspace/executeCommand', {
-			command = "listAllAnnotations",
-			arguments = {}
 		}, callback)
 	else
 		callback({ message = "不支持的搜索范围: " .. scope }, nil)
