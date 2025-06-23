@@ -365,10 +365,11 @@ function M.goto_annotation_source()
 		end
 
 		-- 检查源文件是否存在
+		local source_buf = nil
 		if vim.fn.filereadable(result.source_path) == 1 then
 			-- 文件存在，从注释跳转到源文件
 			-- 在当前窗口打开源文件
-			local source_buf = vim.fn.bufadd(result.source_path)
+			source_buf = vim.fn.bufadd(result.source_path)
 			vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
 			vim.api.nvim_win_set_buf(current_win, source_buf)
 
@@ -381,8 +382,8 @@ function M.goto_annotation_source()
 			logger.info("无法跳转到源文件，保持在当前批注文件")
 		end
 
-		-- 如果找到了批注文件的节点ID，更新节点关系
-		if note_node_id then
+		-- 如果找到了批注文件的节点ID，并且源文件存在，更新节点关系
+		if note_node_id and source_buf then
 			-- 获取当前源文件的window
 			local source_win = vim.api.nvim_get_current_win()
 
@@ -394,7 +395,7 @@ function M.goto_annotation_source()
 			})
 
 			-- 将批注文件节点设为源文件节点的子节点
-			if pvw_manager.nodes[note_node_id] then
+			if source_node_id and pvw_manager.nodes[note_node_id] then
 				pvw_manager.nodes[note_node_id].parent = source_node_id
 				if not pvw_manager.edges[source_node_id] then
 					pvw_manager.edges[source_node_id] = {}
@@ -486,16 +487,21 @@ function M.switch_annotation(offset)
 					type = "annotation",
 					workspace_path = result.workspace_path
 				})
-				logger.debug("New note node ID: " .. new_note_node_id)
 
-				-- 如果原批注文件有父节点，将新节点也设为其子节点
-				local parent_node_id = pvw_manager.get_parent(note_node_id)
-				if parent_node_id then
-					pvw_manager.nodes[new_note_node_id].parent = parent_node_id
-					if not pvw_manager.edges[parent_node_id] then
-						pvw_manager.edges[parent_node_id] = {}
+				if new_note_node_id then
+					logger.debug("New note node ID: " .. new_note_node_id)
+
+					-- 如果原批注文件有父节点，将新节点也设为其子节点
+					local parent_node_id = pvw_manager.get_parent(note_node_id)
+					if parent_node_id then
+						pvw_manager.nodes[new_note_node_id].parent = parent_node_id
+						if not pvw_manager.edges[parent_node_id] then
+							pvw_manager.edges[parent_node_id] = {}
+						end
+						table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
 					end
-					table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
+				else
+					logger.error("Failed to create new note node")
 				end
 			end
 
