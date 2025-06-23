@@ -607,7 +607,7 @@ function M.setup()
 	local port = lsp_config.port or 2087
 
 	-- 获取命令路径
-	local cmd_path, plugin_root = ensure_deps(version)
+	local cmd_path, server_root = ensure_deps(version)
 	if not cmd_path then
 		logger.error(string.format("Failed to setup LSP client for version %s", version))
 		return
@@ -626,7 +626,7 @@ function M.setup()
 	else
 		cmd = {
 			cmd_path,
-			plugin_root .. "/annotation_ls_node/out/cli.js",
+			server_root .. "/out/cli.js",
 			"--transport",
 			connection
 		}
