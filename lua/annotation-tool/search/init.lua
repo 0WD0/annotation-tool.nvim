@@ -121,7 +121,38 @@ local function get_backend(backend_name)
 	end
 end
 
+---通用的刷新标注函数，供后端复用
+---@param scope string 搜索范围
+---@param callback function 回调函数，接收 (err, annotations_result) 参数
+function M.refresh_annotations(scope, callback)
+	local deps = load_deps()
 
+	-- 验证 scope 参数
+	if not vim.tbl_contains(M.SCOPE, scope) then
+		local err = { message = "不支持的搜索范围: " .. tostring(scope) }
+		callback(err, nil)
+		return
+	end
+
+	-- 发起 LSP 请求获取最新的标注数据
+	vim.lsp.buf_request(0, 'workspace/executeCommand', {
+		command = "queryAnnotations",
+		arguments = { {
+			textDocument = vim.lsp.util.make_text_document_params(),
+			scope = scope
+		} }
+	}, function(err, result)
+		if err then
+			deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+			callback(err, nil)
+			return
+		end
+
+		-- 成功获取数据
+		deps.logger.debug(string.format("成功刷新%s标注数据", M.get_scope_display_name(scope)))
+		callback(nil, result)
+	end)
+end
 
 ---统一的标注搜索接口
 ---@param options? table 搜索选项 {scope: string, backend: string}

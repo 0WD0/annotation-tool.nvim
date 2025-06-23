@@ -251,17 +251,9 @@ function M.search_annotations(options)
 			on_success = function(result)
 				-- 删除成功后刷新列表
 				vim.schedule(function()
-					-- 重新获取标注数据
+					-- 使用通用的刷新标注函数
 					local scope = opts.scope
-
-					-- 根据搜索范围获取标注数据
-					vim.lsp.buf_request(0, 'workspace/executeCommand', {
-						command = "queryAnnotations",
-						arguments = { {
-							textDocument = vim.lsp.util.make_text_document_params(),
-							scope = scope
-						} }
-					}, function(err, new_result)
+					deps.search.refresh_annotations(scope, function(err, new_result)
 						if err then
 							deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
 							return
