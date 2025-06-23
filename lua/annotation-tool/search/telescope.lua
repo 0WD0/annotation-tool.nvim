@@ -186,11 +186,11 @@ function M.search_annotations(options)
 
 	local scope_display_name = deps.search.get_scope_display_name(options.scope)
 
-	local pickers = telescope.pickers
-	local finders = telescope.finders
-	local conf = telescope.conf
-	local actions = telescope.actions
-	local action_state = telescope.action_state
+	local pickers = require('telescope.pickers')
+	local finders = require('telescope.finders')
+	local conf = require('telescope.config').values
+	local actions = require('telescope.actions')
+	local action_state = require('telescope.actions.state')
 
 	if not options.annotations_result then
 		deps.logger.info("未找到标注")
