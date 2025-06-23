@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 
 import { program } from 'commander';
-import { version } from '../package.json';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// 读取 package.json 版本信息
+const packagePath = path.join(__dirname, '..', 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+const version = packageJson.version;
 
 program
     .version(version)
