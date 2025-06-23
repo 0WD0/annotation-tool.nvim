@@ -203,24 +203,42 @@ function M.search_annotations(options)
 		-- 输出调试信息
 		deps.logger.debug_obj("选中的标注", entry)
 
-		if not entry.file or not entry.position then
-			deps.logger.warn("条目缺少必要的文件或位置信息")
+		-- 检查源文件是否存在
+		if entry.file and entry.position then
+			-- 确定文件路径
+			local file_path
+			if not entry.file:match("^/") then
+				-- 相对路径，基于工作区路径
+				file_path = entry.workspace_path .. "/" .. entry.file
+			else
+				-- 绝对路径
+				file_path = entry.file
+			end
+
+			-- 检查文件是否存在
+			if vim.fn.filereadable(file_path) == 1 then
+				-- 文件存在，打开文件并跳转到标注位置
+				local buf = vim.fn.bufadd(file_path)
+				if not vim.api.nvim_buf_is_valid(buf) then
+					deps.logger.error("无法创建有效缓冲区")
+					return
+				end
+				vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
+				vim.api.nvim_win_set_buf(0, buf)
+				local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
+				if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
+					vim.api.nvim_win_set_cursor(0, cursor_pos)
+				end
+			else
+				-- 文件不存在，显示警告信息
+				deps.logger.warn(string.format("源文件不存在: %s", file_path))
+				deps.logger.info("仅打开批注文本，不会创建新文件")
+			end
 		else
-			-- 打开文件并跳转到标注位置
-			local buf = vim.fn.bufadd(entry.file)
-			if not vim.api.nvim_buf_is_valid(buf) then
-				deps.logger.error("无法创建有效缓冲区")
-				return
-			end
-			vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
-			vim.api.nvim_win_set_buf(0, buf)
-			local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
-			if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
-				vim.api.nvim_win_set_cursor(0, cursor_pos)
-			end
+			deps.logger.warn("条目缺少必要的文件或位置信息")
 		end
 
-		-- 打开预览窗口
+		-- 始终打开预览窗口显示批注内容
 		deps.preview.goto_annotation_note({
 			workspace_path = entry.workspace_path,
 			note_file = entry.note_file

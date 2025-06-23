@@ -364,15 +364,22 @@ function M.goto_annotation_source()
 			end
 		end
 
-		-- 从注释跳转到源文件
-		-- 在当前窗口打开源文件
-		local source_buf = vim.fn.bufadd(result.source_path)
-		vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
-		vim.api.nvim_win_set_buf(current_win, source_buf)
+		-- 检查源文件是否存在
+		if vim.fn.filereadable(result.source_path) == 1 then
+			-- 文件存在，从注释跳转到源文件
+			-- 在当前窗口打开源文件
+			local source_buf = vim.fn.bufadd(result.source_path)
+			vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
+			vim.api.nvim_win_set_buf(current_win, source_buf)
 
-		-- 跳转到批注位置
-		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
-		vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+			-- 跳转到批注位置
+			local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+			vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+		else
+			-- 文件不存在，显示警告信息
+			logger.warn(string.format("源文件不存在: %s", result.source_path))
+			logger.info("无法跳转到源文件，保持在当前批注文件")
+		end
 
 		-- 如果找到了批注文件的节点ID，更新节点关系
 		if note_node_id then
