@@ -19,7 +19,7 @@ end
 
 -- 搜索范围枚举
 M.SCOPE = {
-    CURRENT_FILE = 'current_file',
+	CURRENT_FILE = 'current_file',
 	CURRENT_WORKSPACE = 'current_workspace',
 	CURRENT_PROJECT = 'current_project'
 }
@@ -29,6 +29,8 @@ M.BACKEND = {
 	TELESCOPE = 'telescope',
 	FZF_LUA = 'fzf-lua'
 }
+
+M.parser = require('annotation-tool.search.parser')
 
 ---检查当前缓冲区是否已启用标注模式。
 ---@return boolean 若已启用标注模式则返回 true，否则返回 false。未启用时会记录警告日志。
@@ -58,7 +60,6 @@ end
 ---@param callback function 回调函数，接收 (err, annotations) 参数
 local function fetch_annotations_by_scope(scope, callback)
 	if vim.tbl_contains(M.SCOPE, scope) then
-		-- 当前文件搜索 - 使用现有的 listAnnotations 命令
 		vim.lsp.buf_request(0, 'workspace/executeCommand', {
 			command = "queryAnnotations",
 			arguments = { {
@@ -74,7 +75,7 @@ end
 ---获取搜索范围的显示名称
 ---@param scope string 搜索范围
 ---@return string 显示名称
-local function get_scope_display_name(scope)
+function M.get_scope_display_name(scope)
 	local scope_names = {
 		[M.SCOPE.CURRENT_FILE] = "当前文件",
 		[M.SCOPE.CURRENT_WORKSPACE] = "当前工作区",
@@ -120,7 +121,38 @@ local function get_backend(backend_name)
 	end
 end
 
+---通用的刷新标注函数，供后端复用
+---@param scope string 搜索范围
+---@param callback function 回调函数，接收 (err, annotations_result) 参数
+function M.refresh_annotations(scope, callback)
+	local deps = load_deps()
 
+	-- 验证 scope 参数
+	if not vim.tbl_contains(M.SCOPE, scope) then
+		local err = { message = "不支持的搜索范围: " .. tostring(scope) }
+		callback(err, nil)
+		return
+	end
+
+	-- 发起 LSP 请求获取最新的标注数据
+	vim.lsp.buf_request(0, 'workspace/executeCommand', {
+		command = "queryAnnotations",
+		arguments = { {
+			textDocument = vim.lsp.util.make_text_document_params(),
+			scope = scope
+		} }
+	}, function(err, result)
+		if err then
+			deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+			callback(err, nil)
+			return
+		end
+
+		-- 成功获取数据
+		deps.logger.debug(string.format("成功刷新%s标注数据", M.get_scope_display_name(scope)))
+		callback(nil, result)
+	end)
+end
 
 ---统一的标注搜索接口
 ---@param options? table 搜索选项 {scope: string, backend: string}
@@ -169,7 +201,6 @@ function M.find_annotations(options)
 		-- 调用后端进行搜索
 		local search_options = {
 			scope = scope,
-			scope_display_name = get_scope_display_name(scope),
 			annotations_result = result,
 			backend_name = backend_name
 		}

@@ -7,14 +7,14 @@ local function load_deps()
 	local logger = require('annotation-tool.logger')
 	local lsp = require('annotation-tool.lsp')
 	local config = require('annotation-tool.config')
-	local parser = require('annotation-tool.search.parser')
+	local search = require('annotation-tool.search')
 
 	return {
 		core = core,
 		preview = preview,
 		logger = logger,
 		lsp = lsp,
-		parser = parser,
+		search = search,
 		config = config
 	}
 end
@@ -124,7 +124,6 @@ end
 ---使用 fzf-lua 进行标注搜索
 ---@param options table 搜索选项
 ---  - scope: 搜索范围
----  - scope_display_name: 搜索范围显示名称
 ---  - annotations_result: LSP 返回的标注数据
 function M.search_annotations(options)
 	local deps = load_deps()
@@ -136,17 +135,24 @@ function M.search_annotations(options)
 		return
 	end
 
+	if not vim.tbl_contains(deps.search.SCOPE, options.scope) then
+		deps.logger.error("不支持的搜索范围: " .. options.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
+		return
+	end
+
+	local scope_display_name = deps.search.get_scope_display_name(options.scope)
+
 	if not options.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 fzf picker
 		fzf_lua.fzf_exec({}, {
-			prompt = string.format('🔍 查找%s批注 (无结果) > ', options.scope_display_name),
+			prompt = string.format('🔍 查找%s批注 (无结果) > ', scope_display_name),
 		})
 		return
 	end
 
 	-- 解析标注数据
-	local annotations = deps.parser.parse_annotations_result(options.annotations_result)
+	local annotations = deps.search.parser.parse_annotations_result(options.annotations_result)
 
 	if #annotations == 0 then
 		deps.logger.info("解析后无有效标注")
@@ -197,22 +203,42 @@ function M.search_annotations(options)
 		-- 输出调试信息
 		deps.logger.debug_obj("选中的标注", entry)
 
-		-- 打开文件并跳转到标注位置
-		local buf = vim.fn.bufadd(entry.file)
-		if not vim.api.nvim_buf_is_valid(buf) then
-			deps.logger.error("无法创建有效缓冲区")
-			return
+		-- 检查源文件是否存在
+		if entry.file and entry.position then
+			-- 确定文件路径
+			local file_path
+			if not entry.file:match("^/") then
+				-- 相对路径，基于工作区路径
+				file_path = entry.workspace_path .. "/" .. entry.file
+			else
+				-- 绝对路径
+				file_path = entry.file
+			end
+
+			-- 检查文件是否存在
+			if vim.fn.filereadable(file_path) == 1 then
+				-- 文件存在，打开文件并跳转到标注位置
+				local buf = vim.fn.bufadd(file_path)
+				if not vim.api.nvim_buf_is_valid(buf) then
+					deps.logger.error("无法创建有效缓冲区")
+					return
+				end
+				vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
+				vim.api.nvim_win_set_buf(0, buf)
+				local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
+				if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
+					vim.api.nvim_win_set_cursor(0, cursor_pos)
+				end
+			else
+				-- 文件不存在，显示警告信息
+				deps.logger.warn(string.format("源文件不存在: %s", file_path))
+				deps.logger.info("仅打开批注文本，不会创建新文件")
+			end
+		else
+			deps.logger.warn("条目缺少必要的文件或位置信息")
 		end
 
-		vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
-		vim.api.nvim_win_set_buf(0, buf)
-
-		local cursor_pos = deps.core.convert_utf8_to_bytes(0, entry.position)
-		if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
-			vim.api.nvim_win_set_cursor(0, cursor_pos)
-		end
-
-		-- 打开预览窗口
+		-- 始终打开预览窗口显示批注内容
 		deps.preview.goto_annotation_note({
 			workspace_path = entry.workspace_path,
 			note_file = entry.note_file
@@ -243,32 +269,23 @@ function M.search_annotations(options)
 			on_success = function(result)
 				-- 删除成功后刷新列表
 				vim.schedule(function()
-					-- 重新获取标注数据
+					-- 使用通用的刷新标注函数
 					local scope = options.scope
+					deps.search.refresh_annotations(scope, function(err, new_result)
+						if err then
+							deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+							return
+						end
 
-					-- 根据搜索范围获取标注数据
-					if scope == 'current_file' then
-						vim.lsp.buf_request(0, 'workspace/executeCommand', {
-							command = "listAnnotations",
-							arguments = { {
-								textDocument = vim.lsp.util.make_text_document_params()
-							} }
-						}, function(err, new_result)
-							if err then
-								deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
-								return
-							end
+						-- 更新全局annotations变量
+						annotations = deps.search.parser.parse_annotations_result(new_result)
+						deps.logger.info("标注删除成功，列表已刷新")
 
-							-- 更新全局annotations变量
-							annotations = deps.parser.parse_annotations_result(new_result)
-							deps.logger.info("标注删除成功，列表已刷新")
-
-							-- 重新启动搜索
-							M.search_annotations(vim.tbl_extend("force", options, {
-								annotations_result = new_result
-							}))
-						end)
-					end
+						-- 重新启动搜索
+						M.search_annotations(vim.tbl_extend("force", options, {
+							annotations_result = new_result
+						}))
+					end)
 				end)
 			end,
 			on_cancel = function()
@@ -316,7 +333,7 @@ function M.search_annotations(options)
 	local mode_display = search_mode == 'content' and '内容' or '笔记'
 	local picker_opts = vim.tbl_deep_extend('force', {
 		prompt = string.format('🔍 查找%s批注[%s] - %s切换模式 > ',
-			options.scope_display_name,
+			scope_display_name,
 			mode_display,
 			search_keys.toggle_mode or '<C-t>'),
 		-- 保存条目映射

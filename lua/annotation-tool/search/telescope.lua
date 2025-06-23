@@ -7,16 +7,26 @@ local function load_deps()
 	local logger = require('annotation-tool.logger')
 	local lsp = require('annotation-tool.lsp')
 	local config = require('annotation-tool.config')
-	local parser = require('annotation-tool.search.parser')
+	local search = require('annotation-tool.search')
 
 	return {
 		core = core,
 		preview = preview,
 		logger = logger,
 		lsp = lsp,
-		parser = parser,
+		search = search,
 		config = config
 	}
+end
+
+---检查 telescope 是否可用
+---@return boolean, table|string 是否可用，telescope 模块或错误信息
+local function check_telescope()
+	local ok, telescope = pcall(require, 'telescope')
+	if not ok then
+		return false, "telescope 模块未安装或加载失败"
+	end
+	return true, telescope
 end
 
 ---创建自定义的标注预览器，使用 telescope 的预览器构建函数
@@ -158,38 +168,35 @@ end
 ---使用 Telescope 进行标注搜索
 ---@param options table 搜索选项
 ---  - scope: 搜索范围
----  - scope_display_name: 搜索范围显示名称
 ---  - annotations_result: LSP 返回的标注数据
 function M.search_annotations(options)
 	local deps = load_deps()
 
 	-- 检查 telescope 是否可用
-	local ok, telescope_modules = pcall(function()
-		return {
-			pickers = require('telescope.pickers'),
-			finders = require('telescope.finders'),
-			conf = require('telescope.config').values,
-			actions = require('telescope.actions'),
-			action_state = require('telescope.actions.state')
-		}
-	end)
-
+	local ok, telescope = check_telescope()
 	if not ok then
-		deps.logger.error("Telescope 模块加载失败")
+		deps.logger.error(telescope)
 		return
 	end
 
-	local pickers = telescope_modules.pickers
-	local finders = telescope_modules.finders
-	local conf = telescope_modules.conf
-	local actions = telescope_modules.actions
-	local action_state = telescope_modules.action_state
+	if not vim.tbl_contains(deps.search.SCOPE, options.scope) then
+		deps.logger.error("不支持的搜索范围: " .. options.scope .. "\n支持的范围: " .. table.concat(deps.search.SCOPE, ", "))
+		return
+	end
+
+	local scope_display_name = deps.search.get_scope_display_name(options.scope)
+
+	local pickers = require('telescope.pickers')
+	local finders = require('telescope.finders')
+	local conf = require('telescope.config').values
+	local actions = require('telescope.actions')
+	local action_state = require('telescope.actions.state')
 
 	if not options.annotations_result then
 		deps.logger.info("未找到标注")
 		-- 显示空的 telescope picker
 		pickers.new({}, {
-			prompt_title = string.format('🔍 查找%s批注 (无结果)', options.scope_display_name),
+			prompt_title = string.format('🔍 查找%s批注 (无结果)', scope_display_name),
 			finder = finders.new_table({
 				results = {},
 				entry_maker = function() return nil end,
@@ -200,7 +207,7 @@ function M.search_annotations(options)
 	end
 
 	-- 解析标注数据
-	local annotations = deps.parser.parse_annotations_result(options.annotations_result)
+	local annotations = deps.search.parser.parse_annotations_result(options.annotations_result)
 
 	if #annotations == 0 then
 		deps.logger.info("解析后无有效标注")
@@ -220,7 +227,7 @@ function M.search_annotations(options)
 	-- 创建 Telescope 选择器
 	local picker_opts = vim.tbl_deep_extend('force', {
 		prompt_title = string.format('🔍 查找%s批注 - %s切换模式',
-			options.scope_display_name,
+			scope_display_name,
 			search_keys.toggle_mode or '<C-t>'),
 		finder = finders.new_table({
 			results = get_filtered_results(annotations, search_mode),
@@ -267,22 +274,46 @@ function M.search_annotations(options)
 				-- 输出调试信息
 				deps.logger.debug_obj("选中的标注", selection.value)
 
-				-- 打开文件并跳转到标注位置
-				local buf = vim.fn.bufadd(selection.value.file)
-				if not vim.api.nvim_buf_is_valid(buf) then
-					deps.logger.error("无法创建有效缓冲区")
-					return
+				-- 检查源文件是否存在
+				if selection.value.file and selection.value.position then
+					-- 确定文件路径
+					local file_path
+					-- 如果是相对路径或绝对路径，直接使用
+					-- 如果是相对路径，基于工作区路径解析
+					if not selection.value.file:match("^/") then
+						-- 相对路径，基于工作区路径
+						file_path = selection.value.workspace_path .. "/" .. selection.value.file
+					else
+						-- 绝对路径
+						file_path = selection.value.file
+					end
+
+					-- 检查文件是否存在
+					if vim.fn.filereadable(file_path) == 1 then
+						-- 文件存在，打开文件并跳转到标注位置
+						local buf = vim.fn.bufadd(file_path)
+						if not vim.api.nvim_buf_is_valid(buf) then
+							deps.logger.error("无法创建有效缓冲区")
+							return
+						end
+
+						vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
+						vim.api.nvim_win_set_buf(0, buf)
+
+						local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
+						if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
+							vim.api.nvim_win_set_cursor(0, cursor_pos)
+						end
+					else
+						-- 文件不存在，显示警告信息
+						deps.logger.warn(string.format("源文件不存在: %s", file_path))
+						deps.logger.info("仅打开批注文本，不会创建新文件")
+					end
+				else
+					deps.logger.warn("条目缺少必要的文件或位置信息")
 				end
 
-				vim.api.nvim_set_option_value('buflisted', true, { buf = buf })
-				vim.api.nvim_win_set_buf(0, buf)
-
-				local cursor_pos = deps.core.convert_utf8_to_bytes(0, selection.value.position)
-				if cursor_pos and cursor_pos[1] > 0 and cursor_pos[2] >= 0 then
-					vim.api.nvim_win_set_cursor(0, cursor_pos)
-				end
-
-				-- 打开预览窗口
+				-- 始终打开预览窗口显示批注内容
 				deps.preview.goto_annotation_note({
 					workspace_path = selection.value.workspace_path,
 					note_file = selection.value.note_file
@@ -308,38 +339,28 @@ function M.search_annotations(options)
 					on_success = function(result)
 						-- 删除成功后刷新列表
 						vim.schedule(function()
-							-- 重新获取标注数据
-							local search_module = require('annotation-tool.search')
+							-- 使用通用的刷新标注函数
 							local scope = options.scope
+							deps.search.refresh_annotations(scope, function(err, new_result)
+								if err then
+									deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
+									return
+								end
 
-							-- 根据搜索范围获取标注数据
-							if scope == search_module.SCOPE.CURRENT_FILE then
-								vim.lsp.buf_request(0, 'workspace/executeCommand', {
-									command = "listAnnotations",
-									arguments = { {
-										textDocument = vim.lsp.util.make_text_document_params()
-									} }
-								}, function(err, new_result)
-									if err then
-										deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
-										return
-									end
+								-- 更新全局annotations变量
+								annotations = deps.search.parser.parse_annotations_result(new_result)
 
-									-- 更新全局annotations变量
-									annotations = deps.parser.parse_annotations_result(new_result)
-
-									-- 刷新picker
-									local current_picker = action_state.get_current_picker(prompt_bufnr)
-									if current_picker then
-										local new_finder = finders.new_table({
-											results = get_filtered_results(annotations, search_mode),
-											entry_maker = create_entry_maker(search_mode),
-										})
-										current_picker:refresh(new_finder, {})
-										deps.logger.info("标注删除成功，列表已刷新")
-									end
-								end)
-							end
+								-- 刷新picker
+								local current_picker = action_state.get_current_picker(prompt_bufnr)
+								if current_picker then
+									local new_finder = finders.new_table({
+										results = get_filtered_results(annotations, search_mode),
+										entry_maker = create_entry_maker(search_mode),
+									})
+									current_picker:refresh(new_finder, {})
+									deps.logger.info("标注删除成功，列表已刷新")
+								end
+							end)
 						end)
 					end,
 					on_cancel = function()

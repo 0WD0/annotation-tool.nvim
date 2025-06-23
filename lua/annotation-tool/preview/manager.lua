@@ -92,6 +92,13 @@ end
 ---@param metadata table|nil 节点元数据
 ---@return string 节点ID
 function M.create_node(buf_id, win_id, parent_id, metadata)
+	-- 验证参数
+	if not buf_id or not win_id then
+		logger.error(string.format("创建节点失败：无效的参数 buf_id=%s, win_id=%s", 
+			tostring(buf_id), tostring(win_id)))
+		return nil
+	end
+
 	-- 首先检查是否已经存在使用相同 buffer 和 window 的节点
 	local existing_node_id = nil
 	for node_id, node in pairs(M.nodes) do
@@ -142,13 +149,23 @@ end
 ---@return string 节点ID
 function M.create_source(buf_id, win_id, metadata)
 	logger.debug(string.format("创建根批注: %s, %s", buf_id, win_id))
-	return M.create_node(buf_id, win_id, nil, metadata)
+	local node_id = M.create_node(buf_id, win_id, nil, metadata)
+	if not node_id then
+		logger.error("Failed to create source node")
+	end
+	return node_id
 end
 
 ---输入批注文件名，查找是否已经打开了该批注文件
 ---@param note_file string 批注文件名
 ---@return string|nil 如果找到则返回节点ID，否则返回nil
 function M.find_node(note_file)
+	-- 验证参数
+	if not note_file or note_file == "" then
+		logger.warn("find_node called with invalid note_file: " .. tostring(note_file))
+		return nil
+	end
+
 	for node_id, node in pairs(M.nodes) do
 		-- 检查 buffer 是否有效
 		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
@@ -336,6 +353,12 @@ end
 ---@param metadata table|nil 节点元数据
 ---@return string|nil 创建的节点ID，如果打开失败则返回nil
 function M.open_note_file(note_file, parent_node_id, metadata)
+	-- 验证参数
+	if not note_file or note_file == "" then
+		logger.error("open_note_file called with invalid note_file: " .. tostring(note_file))
+		return nil
+	end
+
 	logger.debug(string.format("打开批注文件: %s, 父节点ID: %s", note_file, parent_node_id or "无"))
 
 	-- 检查是否已经打开了这个批注文件
@@ -412,7 +435,12 @@ function M.open_note_file(note_file, parent_node_id, metadata)
 		note_file = note_file,
 		workspace_path = workspace_path
 	})
-	logger.debug(string.format("创建新的批注节点: %s", node_id))
+	
+	if node_id then
+		logger.debug(string.format("创建新的批注节点: %s", node_id))
+	else
+		logger.error("Failed to create annotation node")
+	end
 
 	return node_id
 end

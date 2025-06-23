@@ -22,7 +22,7 @@ local default_config = {
 		-- 默认搜索后端
 		default_backend = 'telescope', -- 'telescope' | 'fzf-lua'
 		-- 默认搜索范围
-		default_scope = 'current_file', -- 'current_file' | 'current_project' | 'all_projects'
+		default_scope = 'current_file', -- 'current_file' | 'current_workspace' | 'current_project'
 		-- 自动检测最优后端
 		auto_backend = false,
 		-- 搜索历史
@@ -112,7 +112,6 @@ local default_config = {
 
 			-- 管理操作
 			delete = '@d', -- 删除标注 -> <leader>nd
-			list = '@l', -- 列出标注 -> <leader>nl
 			tree = '@w', -- 显示标注树 -> <leader>nw
 
 			-- 导航操作

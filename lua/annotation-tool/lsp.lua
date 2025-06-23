@@ -121,7 +121,6 @@ local function on_attach(client, bufnr)
 		-- 基本快捷键映射
 		local keybindings = {
 			{ mode = 'v', lhs = keymap_mappings.create, rhs = M.create_annotation, desc = "📝 创建标注" },
-			{ mode = 'n', lhs = keymap_mappings.list, rhs = M.list_annotations, desc = "📋 列出标注" },
 			{ mode = 'n', lhs = keymap_mappings.delete, rhs = M.delete_annotation, desc = "🗑️ 删除标注" },
 			{ mode = 'n', lhs = keymap_mappings.tree, rhs = M.show_annotation_tree, desc = "🌳 显示标注树" },
 			-- 搜索功能快捷键
@@ -170,37 +169,8 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 启用标注模式
-	core.enable_annotation_mode()
+	core.enable_annotation_mode(bufnr)
 	logger.info("Annotation LSP attached")
-end
-
----请求 LSP 服务器列出当前文档的所有标注。
----@return nil
-function M.list_annotations()
-	local client = M.get_client()
-	if not client then
-		return
-	end
-
-	client.request('workspace/executeCommand', {
-		command = "listAnnotations",
-		arguments = { {
-			textDocument = vim.lsp.util.make_text_document_params()
-		} }
-	}, function(err, result)
-		if err then
-			logger.error('Failed to list annotations: ' .. vim.inspect(err))
-		else
-			if result and result.note_files then
-				logger.info(('Found %d annotations'):format(#result.note_files))
-			else
-				logger.warn('Server returned unexpected payload for listAnnotations: '
-					.. vim.inspect(result))
-			end
-			-- 输出调试信息
-			logger.debug_obj('Result', result)
-		end
-	end)
 end
 
 ---删除当前或指定位置的标注，并支持自定义删除行为与回调。
@@ -259,10 +229,15 @@ function M.delete_annotation(opts)
 				if err then
 					logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 				else
-					local node_id = pvw_manager.find_node(result.note_file)
-					if node_id then
-						logger.info('Removing node ' .. node_id)
-						pvw_manager.remove_node(node_id)
+					-- 检查 result 和 note_file 是否有效
+					if result and result.note_file then
+						local node_id = pvw_manager.find_node(result.note_file)
+						if node_id then
+							logger.info('Removing node ' .. node_id)
+							pvw_manager.remove_node(node_id)
+						end
+					else
+						logger.warn('Delete result missing note_file: ' .. vim.inspect(result))
 					end
 					logger.info('Annotation deleted successfully')
 
@@ -307,14 +282,19 @@ function M.goto_current_annotation_note()
 			return
 		end
 
-		local buf_id = vim.api.nvim_get_current_buf()
-		local win_id = vim.api.nvim_get_current_win()
-		local source_id = pvw_manager.create_source(buf_id, win_id, {
-			workspace_path = result.workspace_path
-		})
-		pvw_manager.open_note_file(result.note_file, source_id, {
-			workspace_path = result.workspace_path
-		})
+		-- 检查 result 和 note_file 是否有效
+		if result and result.note_file then
+			local buf_id = vim.api.nvim_get_current_buf()
+			local win_id = vim.api.nvim_get_current_win()
+			local source_id = pvw_manager.create_source(buf_id, win_id, {
+				workspace_path = result.workspace_path
+			})
+			pvw_manager.open_note_file(result.note_file, source_id, {
+				workspace_path = result.workspace_path
+			})
+		else
+			logger.warn("Invalid result or missing note_file: " .. vim.inspect(result))
+		end
 	end)
 end
 
@@ -338,14 +318,19 @@ function M.create_annotation()
 			logger.info("Annotation created successfully")
 		end
 
-		local buf_id = vim.api.nvim_get_current_buf()
-		local win_id = vim.api.nvim_get_current_win()
-		local source_id = pvw_manager.create_source(buf_id, win_id, {
-			workspace_path = result.workspace_path
-		})
-		pvw_manager.open_note_file(result.note_file, source_id, {
-			workspace_path = result.workspace_path
-		})
+		-- 检查 result 和 note_file 是否有效
+		if result and result.note_file then
+			local buf_id = vim.api.nvim_get_current_buf()
+			local win_id = vim.api.nvim_get_current_win()
+			local source_id = pvw_manager.create_source(buf_id, win_id, {
+				workspace_path = result.workspace_path
+			})
+			pvw_manager.open_note_file(result.note_file, source_id, {
+				workspace_path = result.workspace_path
+			})
+		else
+			logger.warn("Invalid result or missing note_file: " .. vim.inspect(result))
+		end
 	end)
 end
 
@@ -394,18 +379,26 @@ function M.goto_annotation_source()
 			end
 		end
 
-		-- 从注释跳转到源文件
-		-- 在当前窗口打开源文件
-		local source_buf = vim.fn.bufadd(result.source_path)
-		vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
-		vim.api.nvim_win_set_buf(current_win, source_buf)
+		-- 检查源文件是否存在
+		local source_buf = nil
+		if vim.fn.filereadable(result.source_path) == 1 then
+			-- 文件存在，从注释跳转到源文件
+			-- 在当前窗口打开源文件
+			source_buf = vim.fn.bufadd(result.source_path)
+			vim.api.nvim_set_option_value('buflisted', true, { buf = source_buf })
+			vim.api.nvim_win_set_buf(current_win, source_buf)
 
-		-- 跳转到批注位置
-		local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
-		vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+			-- 跳转到批注位置
+			local cursor_pos = core.convert_utf8_to_bytes(0, result.position)
+			vim.api.nvim_win_set_cursor(current_win, cursor_pos)
+		else
+			-- 文件不存在，显示警告信息
+			logger.warn(string.format("源文件不存在: %s", result.source_path))
+			logger.info("无法跳转到源文件，保持在当前批注文件")
+		end
 
-		-- 如果找到了批注文件的节点ID，更新节点关系
-		if note_node_id then
+		-- 如果找到了批注文件的节点ID，并且源文件存在，更新节点关系
+		if note_node_id and source_buf then
 			-- 获取当前源文件的window
 			local source_win = vim.api.nvim_get_current_win()
 
@@ -417,7 +410,7 @@ function M.goto_annotation_source()
 			})
 
 			-- 将批注文件节点设为源文件节点的子节点
-			if pvw_manager.nodes[note_node_id] then
+			if source_node_id and pvw_manager.nodes[note_node_id] then
 				pvw_manager.nodes[note_node_id].parent = source_node_id
 				if not pvw_manager.edges[source_node_id] then
 					pvw_manager.edges[source_node_id] = {}
@@ -509,16 +502,21 @@ function M.switch_annotation(offset)
 					type = "annotation",
 					workspace_path = result.workspace_path
 				})
-				logger.debug("New note node ID: " .. new_note_node_id)
 
-				-- 如果原批注文件有父节点，将新节点也设为其子节点
-				local parent_node_id = pvw_manager.get_parent(note_node_id)
-				if parent_node_id then
-					pvw_manager.nodes[new_note_node_id].parent = parent_node_id
-					if not pvw_manager.edges[parent_node_id] then
-						pvw_manager.edges[parent_node_id] = {}
+				if new_note_node_id then
+					logger.debug("New note node ID: " .. new_note_node_id)
+
+					-- 如果原批注文件有父节点，将新节点也设为其子节点
+					local parent_node_id = pvw_manager.get_parent(note_node_id)
+					if parent_node_id then
+						pvw_manager.nodes[new_note_node_id].parent = parent_node_id
+						if not pvw_manager.edges[parent_node_id] then
+							pvw_manager.edges[parent_node_id] = {}
+						end
+						table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
 					end
-					table.insert(pvw_manager.edges[parent_node_id], new_note_node_id)
+				else
+					logger.error("Failed to create new note node")
 				end
 			end
 

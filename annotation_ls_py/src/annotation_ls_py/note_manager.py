@@ -219,11 +219,15 @@ class NoteManager:
 			error(f"Failed to get annotation id: {str(e)}")
 			return None
 
-	def get_source_path_by_note_uri(self, note_uri: str) -> Optional[str]:
+	def get_source_path_by_note_uri(self, note_uri: str, check_exists: bool = False) -> Optional[str]:
 		"""
 		根据笔记文件的 URI，返回与该笔记关联的源文件的绝对路径。
 
 		如果笔记文件的 frontmatter 中未包含源文件路径，或路径无法解析，则返回 None。
+		
+		Args:
+			note_uri: 笔记文件的 URI
+			check_exists: 是否检查源文件是否存在，如果为 True 且文件不存在则返回 None
 		"""
 		try:
 			# 将 URI 转换为文件路径
@@ -245,6 +249,11 @@ class NoteManager:
 				if not self.project_root:
 					raise Exception("Project root not set")
 				source_path = self.project_root / source_path
+			
+			# 如果需要检查文件存在性
+			if check_exists and not source_path.exists():
+				return None
+				
 			return str(source_path)
 		except (ValueError, Exception) as e:
 			error(f"Failed to get source path: {str(e)}")
