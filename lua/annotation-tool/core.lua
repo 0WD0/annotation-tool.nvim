@@ -44,61 +44,113 @@ function M.make_selection_params()
 end
 
 -- 启用标注模式
-function M.enable_annotation_mode(bufnr)
-	bufnr = bufnr or vim.api.nvim_get_current_buf()
+function M.enable_annotation_mode(buf)
+	buf = buf or vim.api.nvim_get_current_buf()
 
 	-- 如果已经启用，直接返回
-	if vim.b[bufnr].annotation_mode then
+	if vim.b[buf].annotation_mode then
+		logger.warn("Annotation mode is already enabled for buffer " .. buf)
 		return
 	end
 
-	vim.b[bufnr].annotation_mode = true
-	vim.api.nvim_set_option_value('conceallevel', 2, { win = 0 })
-	vim.cmd([[
-		syn conceal on
-		syn match AnnotationBracket "｢\|｣"
-		syn conceal off
-	]])
-	logger.info("Annotation mode enabled")
+	vim.b[buf].annotation_mode = true
+
+	-- 为所有显示此buffer的窗口设置conceallevel
+	for _, winid in ipairs(vim.fn.win_findbuf(buf)) do
+		vim.api.nvim_set_option_value('conceallevel', 2, { win = winid })
+	end
+
+	-- 在buffer上下文中设置语法规则
+	vim.api.nvim_buf_call(buf, function()
+		logger.info("Setting up conceal rule for buffer " .. buf)
+		-- 设置新的 conceal 语法规则
+		vim.cmd([[
+			syn conceal on
+			syn match AnnotationBracket "｢\|｣"
+			syn conceal off
+			]])
+	end)
+
+	-- 创建自动命令组来处理此buffer在新窗口中的显示
+	local augroup_name = "AnnotationMode_" .. buf
+	vim.api.nvim_create_augroup(augroup_name, { clear = true })
+
+	-- 当此buffer在新窗口中显示时重新应用标注模式设置
+	vim.api.nvim_create_autocmd('BufWinEnter', {
+		group = augroup_name,
+		buffer = buf,
+		callback = function()
+			logger.info("BufWinEnter triggered for buffer " .. buf)
+			-- 为当前窗口设置conceallevel
+			vim.api.nvim_set_option_value('conceallevel', 2, { win = 0 })
+
+			-- 重新应用语法规则（确保在新窗口中也生效）
+			vim.api.nvim_buf_call(buf, function()
+				vim.cmd([[
+					syn conceal on
+					syn match AnnotationBracket "｢\|｣"
+					syn conceal off
+					]])
+			end)
+		end,
+		desc = "Set conceallevel and syntax for annotation mode when this buffer enters window"
+	})
+
+	logger.info("Annotation mode enabled for buffer " .. buf)
 end
 
 -- 禁用标注模式
-function M.disable_annotation_mode(bufnr)
-	bufnr = bufnr or vim.api.nvim_get_current_buf()
+function M.disable_annotation_mode(buf)
+	buf = buf or vim.api.nvim_get_current_buf()
 
 	-- 如果已经禁用，直接返回
-	if not vim.b[bufnr].annotation_mode then
+	if not vim.b[buf].annotation_mode then
 		return
 	end
 
-	vim.b[bufnr].annotation_mode = false
-	vim.api.nvim_set_option_value('conceallevel', 0, { win = 0 })
-	vim.cmd([[syntax clear AnnotationBracket]])
-	logger.info("Annotation mode disabled")
+	vim.b[buf].annotation_mode = false
+
+	-- 为所有显示此buffer的窗口重置conceallevel
+	for _, winid in ipairs(vim.fn.win_findbuf(buf)) do
+		vim.api.nvim_set_option_value('conceallevel', 0, { win = winid })
+	end
+
+	-- 在buffer上下文中清除语法规则
+	vim.api.nvim_buf_call(buf, function()
+		vim.cmd([[syntax clear AnnotationBracket]])
+	end)
+
+	-- 清除自动命令组
+	local augroup_name = "AnnotationMode_" .. buf
+	vim.api.nvim_clear_autocmds({
+		group = augroup_name
+	})
+
+	logger.info("Annotation mode disabled for buffer " .. buf)
 end
 
 -- 切换标注模式
-function M.toggle_annotation_mode(bufnr)
-	bufnr = bufnr or vim.api.nvim_get_current_buf()
+function M.toggle_annotation_mode(buf)
+	buf = buf or vim.api.nvim_get_current_buf()
 
-	if vim.b[bufnr].annotation_mode then
-		M.disable_annotation_mode(bufnr)
+	if vim.b[buf].annotation_mode then
+		M.disable_annotation_mode(buf)
 	else
-		M.enable_annotation_mode(bufnr)
+		M.enable_annotation_mode(buf)
 	end
 end
 
 -- 将 UTF-8 字符位置转换为字节位置
--- @param bufnr number 缓冲区 ID
+-- @param buf number 缓冲区 ID
 -- @param pos_or_range table 位置或范围信息
 -- @return table 转换后的位置或范围信息
-function M.convert_utf8_to_bytes(bufnr, pos_or_range)
-	-- 确保 bufnr 是有效的
-	if bufnr == nil then
-		bufnr = 0
-	elseif type(bufnr) == 'number' and not vim.api.nvim_buf_is_valid(bufnr) then
-		logger.warn("Invalid buffer ID in convert_utf8_to_bytes: " .. tostring(bufnr))
-		bufnr = 0 -- 如果无效，使用当前缓冲区
+function M.convert_utf8_to_bytes(buf, pos_or_range)
+	-- 确保 buf 是有效的
+	if buf == nil then
+		buf = 0
+	elseif type(buf) == 'number' and not vim.api.nvim_buf_is_valid(buf) then
+		logger.warn("Invalid buffer ID in convert_utf8_to_bytes: " .. tostring(buf))
+		buf = 0 -- 如果无效，使用当前缓冲区
 	end
 
 	-- 检查 pos_or_range 是否有效
@@ -110,7 +162,7 @@ function M.convert_utf8_to_bytes(bufnr, pos_or_range)
 	-- 定义位置转换函数
 	local function convert_position(line, character)
 		-- 获取指定行的内容
-		local line_content = vim.api.nvim_buf_get_lines(bufnr, line, line + 1, false)[1] or ""
+		local line_content = vim.api.nvim_buf_get_lines(buf, line, line + 1, false)[1] or ""
 		-- 转换为字节索引
 		return vim.str_byteindex(line_content, character)
 	end

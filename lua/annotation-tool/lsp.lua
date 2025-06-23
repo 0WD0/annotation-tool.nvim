@@ -169,7 +169,7 @@ local function on_attach(client, bufnr)
 	})
 
 	-- 启用标注模式
-	core.enable_annotation_mode()
+	core.enable_annotation_mode(bufnr)
 	logger.info("Annotation LSP attached")
 end
 
