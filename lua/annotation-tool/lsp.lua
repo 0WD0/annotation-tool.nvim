@@ -229,10 +229,15 @@ function M.delete_annotation(opts)
 				if err then
 					logger.error('Failed to delete annotation: ' .. vim.inspect(err))
 				else
-					local node_id = pvw_manager.find_node(result.note_file)
-					if node_id then
-						logger.info('Removing node ' .. node_id)
-						pvw_manager.remove_node(node_id)
+					-- 检查 result 和 note_file 是否有效
+					if result and result.note_file then
+						local node_id = pvw_manager.find_node(result.note_file)
+						if node_id then
+							logger.info('Removing node ' .. node_id)
+							pvw_manager.remove_node(node_id)
+						end
+					else
+						logger.warn('Delete result missing note_file: ' .. vim.inspect(result))
 					end
 					logger.info('Annotation deleted successfully')
 
@@ -277,14 +282,19 @@ function M.goto_current_annotation_note()
 			return
 		end
 
-		local buf_id = vim.api.nvim_get_current_buf()
-		local win_id = vim.api.nvim_get_current_win()
-		local source_id = pvw_manager.create_source(buf_id, win_id, {
-			workspace_path = result.workspace_path
-		})
-		pvw_manager.open_note_file(result.note_file, source_id, {
-			workspace_path = result.workspace_path
-		})
+		-- 检查 result 和 note_file 是否有效
+		if result and result.note_file then
+			local buf_id = vim.api.nvim_get_current_buf()
+			local win_id = vim.api.nvim_get_current_win()
+			local source_id = pvw_manager.create_source(buf_id, win_id, {
+				workspace_path = result.workspace_path
+			})
+			pvw_manager.open_note_file(result.note_file, source_id, {
+				workspace_path = result.workspace_path
+			})
+		else
+			logger.warn("Invalid result or missing note_file: " .. vim.inspect(result))
+		end
 	end)
 end
 
@@ -308,14 +318,19 @@ function M.create_annotation()
 			logger.info("Annotation created successfully")
 		end
 
-		local buf_id = vim.api.nvim_get_current_buf()
-		local win_id = vim.api.nvim_get_current_win()
-		local source_id = pvw_manager.create_source(buf_id, win_id, {
-			workspace_path = result.workspace_path
-		})
-		pvw_manager.open_note_file(result.note_file, source_id, {
-			workspace_path = result.workspace_path
-		})
+		-- 检查 result 和 note_file 是否有效
+		if result and result.note_file then
+			local buf_id = vim.api.nvim_get_current_buf()
+			local win_id = vim.api.nvim_get_current_win()
+			local source_id = pvw_manager.create_source(buf_id, win_id, {
+				workspace_path = result.workspace_path
+			})
+			pvw_manager.open_note_file(result.note_file, source_id, {
+				workspace_path = result.workspace_path
+			})
+		else
+			logger.warn("Invalid result or missing note_file: " .. vim.inspect(result))
+		end
 	end)
 end
 

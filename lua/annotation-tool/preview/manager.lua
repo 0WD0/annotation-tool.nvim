@@ -160,6 +160,12 @@ end
 ---@param note_file string 批注文件名
 ---@return string|nil 如果找到则返回节点ID，否则返回nil
 function M.find_node(note_file)
+	-- 验证参数
+	if not note_file or note_file == "" then
+		logger.warn("find_node called with invalid note_file: " .. tostring(note_file))
+		return nil
+	end
+
 	for node_id, node in pairs(M.nodes) do
 		-- 检查 buffer 是否有效
 		if node.buffer and vim.api.nvim_buf_is_valid(node.buffer) then
@@ -347,6 +353,12 @@ end
 ---@param metadata table|nil 节点元数据
 ---@return string|nil 创建的节点ID，如果打开失败则返回nil
 function M.open_note_file(note_file, parent_node_id, metadata)
+	-- 验证参数
+	if not note_file or note_file == "" then
+		logger.error("open_note_file called with invalid note_file: " .. tostring(note_file))
+		return nil
+	end
+
 	logger.debug(string.format("打开批注文件: %s, 父节点ID: %s", note_file, parent_node_id or "无"))
 
 	-- 检查是否已经打开了这个批注文件
