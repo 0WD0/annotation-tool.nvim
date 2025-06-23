@@ -40,7 +40,7 @@ function M.setup_preview_window(file_path)
 	-- 在右侧打开文件
 	-- 创建新的 buffer
 	local buf = vim.fn.bufadd(file_path)
-	vim.api.nvim_buf_set_option(buf, 'buflisted', true)
+	vim.api.nvim_set_option_value('buflisted', true, {buf = buf})
 
 	-- 创建垂直分割窗口
 	vim.cmd('vsplit')
