@@ -75,7 +75,7 @@ end
 ---获取搜索范围的显示名称
 ---@param scope string 搜索范围
 ---@return string 显示名称
-local function get_scope_display_name(scope)
+function M.get_scope_display_name(scope)
 	local scope_names = {
 		[M.SCOPE.CURRENT_FILE] = "当前文件",
 		[M.SCOPE.CURRENT_WORKSPACE] = "当前工作区",
