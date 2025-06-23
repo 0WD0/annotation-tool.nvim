@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "commander": "^11.0.0",
+    "gray-matter": "^4.0.3",
     "sqlite3": "^5.1.7",
     "vscode-languageserver": "^8.1.0",
     "vscode-languageserver-textdocument": "^1.0.8",

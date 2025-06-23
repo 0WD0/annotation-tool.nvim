@@ -123,10 +123,11 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
             executeCommandProvider: {
                 commands: [
                     'createAnnotation',
-                    'listAnnotations',
                     'deleteAnnotation',
+                    'deleteAnnotationR',
                     'getAnnotationNote',
-                    'getAnnotationSource'
+                    'getAnnotationSource',
+                    'queryAnnotations'
                 ]
             },
             hoverProvider: true,
@@ -245,7 +246,35 @@ connection.onHover(async (params: HoverParams) => {
             if ((start.line < position.line || (start.line === position.line && start.character <= position.character)) &&
                 (end.line > position.line || (end.line === position.line && end.character >= position.character))) {
                 
-                // 返回需要高亮的范围
+                if (!dbManager || !noteManager) {
+                    return {
+                        contents: `Annotation ${annotation.id}`
+                    };
+                }
+
+                // 获取笔记文件内容
+                try {
+                    const noteFile = await dbManager.getAnnotationNoteFile(params.textDocument.uri, annotation.id);
+                    if (noteFile) {
+                        const noteContent = await noteManager.getNoteContent(noteFile);
+                        if (noteContent) {
+                            // 只显示 ## Notes 后面的内容
+                            const notesContent = noteManager.extractNotesContent(noteContent);
+                            if (notesContent) {
+                                return {
+                                    contents: {
+                                        kind: 'markdown',
+                                        value: notesContent
+                                    }
+                                };
+                            }
+                        }
+                    }
+                } catch (err) {
+                    logger.error(`Error getting note content for hover: ${err}`);
+                }
+                
+                // 如果无法获取笔记内容，返回基本信息
                 return {
                     contents: `Annotation ${annotation.id}`
                 };
@@ -404,11 +433,11 @@ async function handleCreateAnnotation(params: any): Promise<any> {
         // 在数据库中更新可能受影响的标注 ID
         await dbManager.increaseAnnotationIds(uri, annotationId);
         
-        // 创建笔记文件
-        const initialContent = `# Annotation ${annotationId}\n\n${selectedText}\n\n## Notes\n\n`;
-        logger.info(`Creating note with initial content length: ${initialContent.length}`);
+        // 创建带 frontmatter 的笔记文件
+        const noteFile = `note_${annotationId}.md`;
+        logger.info(`Creating note with frontmatter for annotation ${annotationId}`);
         
-        const noteFile = await noteManager.createAnnotationNote(annotationId, initialContent);
+        await noteManager.createAnnotationNoteWithFrontmatter(uri, annotationId, selectedText, noteFile);
         
         // 保存标注信息
         await dbManager.saveAnnotation(uri, annotationId, selectionRange, noteFile);
@@ -447,17 +476,20 @@ connection.onExecuteCommand(async (params: ExecuteCommandParams) => {
                 logger.info(`CreateAnnotation args: ${JSON.stringify(args)}`);
                 return await handleCreateAnnotation(args[0]);
             
-            case 'listAnnotations':
-                return await handleListAnnotations(args[0].textDocument.uri);
-            
             case 'deleteAnnotation':
                 return await handleDeleteNote(args[0].textDocument.uri, args[0].annotationId);
+            
+            case 'deleteAnnotationR':
+                return await handleDeleteAnnotationR(args[0]);
             
             case 'getAnnotationNote':
                 return await handleGetAnnotationNote(args[0].textDocument.uri, args[0].annotationId);
             
             case 'getAnnotationSource':
                 return await handleGetAnnotationSource(args[0].textDocument.uri, args[0].offset || 0);
+            
+            case 'queryAnnotations':
+                return await handleQueryAnnotations(args[0]);
             
             default:
                 logger.error(`Unknown command: ${command}`);
@@ -564,22 +596,168 @@ async function handleDeleteNote(uri: string, annotationId: number): Promise<bool
 }
 
 /**
- * 处理列出标注命令
+ * 处理从笔记文件反向删除标注命令
  */
-async function handleListAnnotations(uri: string): Promise<string[]> {
+async function handleDeleteAnnotationR(params: any): Promise<any> {
     try {
+        const noteUri = params.textDocument.uri;
+        const noteDocument = documents.get(noteUri);
+        
+        if (!noteDocument) {
+            throw new Error(`Note document not found: ${noteUri}`);
+        }
+
+        if (!dbManager || !noteManager) {
+            throw new Error('Database or note manager not initialized');
+        }
+
+        // 从笔记文件路径获取标注ID和源文件路径
+        const parseResult = await noteManager.parseNoteFile(noteUri);
+        
+        if (!parseResult || !parseResult.annotationId || !parseResult.sourceUri) {
+            throw new Error('Failed to parse note file information');
+        }
+        
+        const { annotationId, sourceUri } = parseResult;
+
+        // 检查源文件是否存在
+        const fs = require('fs');
+        const sourcePath = URI.parse(sourceUri).fsPath;
+        
+        if (fs.existsSync(sourcePath)) {
+            // 源文件存在，执行正常的删除流程
+            const sourceDocument = documents.get(sourceUri);
+            if (sourceDocument) {
+                // 找到标注位置并删除
+                const text = sourceDocument.getText();
+                const ranges = findAnnotationRanges(text, config.leftBracket, config.rightBracket);
+                const targetRange = ranges.find(r => r.id === annotationId);
+                
+                if (targetRange) {
+                    // 删除数据库记录
+                    await dbManager.deleteAnnotation(sourceUri, annotationId);
+                    
+                    // 删除笔记文件
+                    const noteFile = await dbManager.getAnnotationNoteFile(sourceUri, annotationId);
+                    if (noteFile) {
+                        await noteManager.deleteAnnotationNote(noteFile);
+                    }
+                    
+                    logger.info(`Deleted annotation ${annotationId} from ${sourceUri}`);
+                    return { success: true, noteFile };
+                }
+            }
+        } else {
+            // 源文件不存在，只删除笔记文件和数据库记录
+            logger.info(`Source file does not exist: ${sourcePath}, deleting annotation file only`);
+            
+            const noteFile = await dbManager.getAnnotationNoteFile(sourceUri, annotationId);
+            if (noteFile) {
+                await dbManager.deleteAnnotation(sourceUri, annotationId);
+                await noteManager.deleteAnnotationNote(noteFile);
+                
+                logger.info(`Successfully deleted orphaned annotation: ${noteFile}`);
+                return { success: true, noteFile, orphaned: true };
+            }
+        }
+        
+        throw new Error('Failed to delete annotation');
+    } catch (err) {
+        logger.error(`Failed to delete annotation R: ${err}`);
+        return { success: false, error: `${err}` };
+    }
+}
+
+/**
+ * 处理查询标注命令
+ */
+async function handleQueryAnnotations(params: any): Promise<any[]> {
+    try {
+        const uri = params.textDocument.uri;
+        const scope = params.scope || 'current_file';
+        
         if (!dbManager) {
             throw new Error('Database not initialized');
         }
         
-        // 获取标注列表
-        const annotations = await dbManager.getAnnotations(uri);
-        
-        return annotations.map(annotation => `Annotation ${annotation.id}`);
+        const workspace = workspaceManager.getWorkspace(uri);
+        if (!workspace) {
+            logger.error(`No workspace found for ${uri}`);
+            return [];
+        }
+
+        const result: any[] = [];
+
+        switch (scope) {
+            case 'current_file':
+                // 获取当前文件的所有标注
+                const noteFiles = await dbManager.getNoteFilesFromSourceUri(uri);
+                return [{
+                    workspace_path: workspace.rootPath,
+                    note_files: noteFiles.map(file => ({ note_file: file }))
+                }];
+
+            case 'current_workspace':
+                // 获取当前工作区的所有标注
+                return await getWorkspaceAnnotations([workspace]);
+
+            case 'current_project':
+                // 获取当前项目（工作区树）的所有标注
+                const allWorkspaces = workspaceManager.getAllWorkspaces();
+                return await getWorkspaceAnnotations(allWorkspaces);
+
+            default:
+                logger.info(`Unknown query scope: ${scope}, defaulting to current_file`);
+                const defaultNoteFiles = await dbManager.getNoteFilesFromSourceUri(uri);
+                return [{
+                    workspace_path: workspace.rootPath,
+                    note_files: defaultNoteFiles.map(file => ({ note_file: file }))
+                }];
+        }
     } catch (err) {
-        logger.error(`Error listing annotations: ${err}`);
+        logger.error(`Error querying annotations: ${err}`);
         return [];
     }
+}
+
+/**
+ * 获取工作区标注的辅助函数
+ */
+async function getWorkspaceAnnotations(workspaces: any[]): Promise<any[]> {
+    const result: any[] = [];
+    
+    for (const workspace of workspaces) {
+        try {
+            // 扫描工作区的 .annotation/notes 目录
+            const notesDir = noteManager?.getNotesDir(workspace.rootPath);
+            if (!notesDir) continue;
+
+            const fs = require('fs');
+            const path = require('path');
+            
+            if (fs.existsSync(notesDir)) {
+                const noteFiles: any[] = [];
+                const files = fs.readdirSync(notesDir);
+                
+                for (const file of files) {
+                    if (file.endsWith('.md')) {
+                        noteFiles.push({ note_file: file });
+                    }
+                }
+                
+                if (noteFiles.length > 0) {
+                    result.push({
+                        workspace_path: workspace.rootPath,
+                        note_files: noteFiles
+                    });
+                }
+            }
+        } catch (err) {
+            logger.error(`Error scanning workspace ${workspace.rootPath}: ${err}`);
+        }
+    }
+    
+    return result;
 }
 
 // 监听文档管理器

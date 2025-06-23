@@ -292,6 +292,35 @@ export class DatabaseManager {
     }
 
     /**
+     * 获取源文件的所有笔记文件
+     * @param sourceUri 源文件URI
+     */
+    async getNoteFilesFromSourceUri(sourceUri: string): Promise<string[]> {
+        try {
+            const db = await this.getDb();
+
+            return new Promise((resolve, reject) => {
+                db.all(
+                    `SELECT note_file FROM annotations WHERE file_uri = ? ORDER BY annotation_id`,
+                    [sourceUri],
+                    (err, rows) => {
+                        if (err) {
+                            console.error('Failed to get note files from source URI:', err);
+                            resolve([]);
+                            return;
+                        }
+
+                        resolve(rows.map((row: any) => row.note_file).filter(Boolean));
+                    }
+                );
+            });
+        } catch (err) {
+            console.error('Error getting note files from source URI:', err);
+            return [];
+        }
+    }
+
+    /**
      * 关闭数据库连接
      */
     async close(): Promise<void> {

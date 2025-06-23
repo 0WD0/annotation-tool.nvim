@@ -124,6 +124,21 @@ export class WorkspaceManager {
     }
 
     /**
+     * 获取包含指定URI的工作区（兼容方法）
+     * @param uri 文件或工作区URI
+     */
+    getWorkspace(uri: string): Workspace | null {
+        // 首先尝试作为工作区URI直接匹配
+        const directMatch = this.workspaces.find(ws => ws.uri === uri);
+        if (directMatch) {
+            return directMatch;
+        }
+        
+        // 如果没有直接匹配，尝试作为文件URI查找包含它的工作区
+        return this.getWorkspaceForFile(uri);
+    }
+
+    /**
      * 获取所有工作区
      */
     getAllWorkspaces(): Workspace[] {
