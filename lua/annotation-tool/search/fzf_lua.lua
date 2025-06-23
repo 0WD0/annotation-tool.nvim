@@ -176,7 +176,7 @@ function M.search_annotations(options)
 		-- 延迟执行，避免在当前 picker 操作中重新创建
 		vim.schedule(function()
 			-- 重新调用搜索，但传入新的搜索模式
-			local new_options = vim.tbl_extend('force', opts, {
+			local new_options = vim.tbl_extend('force', options, {
 				_initial_mode = new_mode
 			})
 			M.search_annotations(new_options)
@@ -252,7 +252,7 @@ function M.search_annotations(options)
 				-- 删除成功后刷新列表
 				vim.schedule(function()
 					-- 使用通用的刷新标注函数
-					local scope = opts.scope
+					local scope = options.scope
 					deps.search.refresh_annotations(scope, function(err, new_result)
 						if err then
 							deps.logger.error("刷新标注列表失败: " .. vim.inspect(err))
@@ -264,7 +264,7 @@ function M.search_annotations(options)
 						deps.logger.info("标注删除成功，列表已刷新")
 
 						-- 重新启动搜索
-						M.search_annotations(vim.tbl_extend("force", opts, {
+						M.search_annotations(vim.tbl_extend("force", options, {
 							annotations_result = new_result
 						}))
 					end)
