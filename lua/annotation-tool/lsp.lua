@@ -59,7 +59,7 @@ local function ensure_deps(version)
 		return venv_python, plugin_root
 	else
 		-- 获取 Node.js 实现目录
-		local node_root = plugin_root .. "/annotation_ls_js"
+		local node_root = plugin_root .. "/annotation_ls_node"
 		local server_path = node_root .. "/out/cli.js"
 
 		-- 检查编译后的文件是否存在
@@ -626,7 +626,7 @@ function M.setup()
 	else
 		cmd = {
 			cmd_path,
-			plugin_root .. "/annotation_ls_js/out/cli.js",
+			plugin_root .. "/annotation_ls_node/out/cli.js",
 			"--transport",
 			connection
 		}

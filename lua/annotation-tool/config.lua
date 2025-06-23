@@ -5,7 +5,7 @@ local default_config = {
 	-- LSP 配置
 	lsp = {
 		-- LSP 实现版本
-		version = 'python', -- 'python' | 'javascript'
+		version = 'node', -- 'python' | 'node'
 		-- 连接方式
 		connection = 'stdio', -- 'stdio' | 'tcp'
 		-- TCP 连接配置（仅在 connection = 'tcp' 时使用）
@@ -224,7 +224,7 @@ local function validate_config(config)
 		-- 验证 LSP 版本
 		if config.lsp.version then
 			local version = config.lsp.version
-			if version ~= 'python' and version ~= 'javascript' then
+			if version ~= 'python' and version ~= 'node' then
 				table.insert(errors, "无效的 LSP 版本: " .. version)
 			end
 		end
