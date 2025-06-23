@@ -398,38 +398,84 @@ def delete_annotation_r(ls: LanguageServer, params: List[Dict]) -> Dict:
 	"""
 	从批注笔记文件侧删除对应的源代码批注。
 
-	该命令根据当前批注笔记文件定位源代码中的批注位置，并调用源文件侧的批注删除操作。返回删除结果或错误信息。
+	该命令根据当前批注笔记文件定位源代码中的批注位置，并调用源文件侧的批注删除操作。
+	如果源文件不存在，则只删除批注文件和数据库记录。
 	"""
 	try:
-		# 先获取批注的源文件位置信息
-		params[0]["offset"] = 0  # 确保获取当前批注
-		source_info = get_annotation_source(ls, params)
-		if not source_info:
-			raise Exception("Failed to get annotation source information")
+		param = params[0]
+		note = ls.workspace.get_document(param["textDocument"]["uri"])
+		
+		# 获取工作区和相关管理器
+		workspace = workspace_manager.get_workspace(note.uri)
+		if not workspace:
+			raise Exception(f"No workspace found for {note.uri}")
+		
+		db_manager = workspace.db_manager
+		note_manager = workspace.note_manager
+		
+		# 获取当前批注的信息
+		current_id = note_manager.get_annotation_id_by_note_uri(note.uri)
+		if not current_id:
+			raise Exception("Failed to get annotation ID from note file")
+		
+		source_path = note_manager.get_source_path_by_note_uri(note.uri)
+		if not source_path:
+			raise Exception("Failed to get source path from note file")
+		
+		# 检查源文件是否存在
+		source_file_exists = pathlib.Path(source_path).exists()
+		
+		if source_file_exists:
+			# 源文件存在，使用原有逻辑删除源文件中的批注
+			params[0]["offset"] = 0  # 确保获取当前批注
+			source_info = get_annotation_source(ls, params)
+			if not source_info:
+				raise Exception("Failed to get annotation source information")
 
-		# source_path已经是绝对路径，直接转换为URI格式
-		source_path = source_info["source_path"]
-		# 转换为URI格式
-		if not source_path.startswith("file://"):
-			source_uri = pathlib.Path(source_path).as_uri()
+			# 转换为URI格式
+			if not source_path.startswith("file://"):
+				source_uri = pathlib.Path(source_path).as_uri()
+			else:
+				source_uri = source_path
+
+			# 构建delete_annotation需要的参数格式
+			delete_params = [
+				{
+					"textDocument": {"uri": source_uri},
+					"position": {
+						"line": source_info["position"].line,
+						"character": source_info["position"].character,
+					},
+				}
+			]
+
+			# 调用delete_annotation删除批注
+			result = delete_annotation(ls, delete_params)
+			return result
 		else:
-			source_uri = source_path
-
-		# 构建delete_annotation需要的参数格式
-		delete_params = [
-			{
-				"textDocument": {"uri": source_uri},
-				"position": {
-					"line": source_info["position"].line,
-					"character": source_info["position"].character,
-				},
-			}
-		]
-
-		# 调用delete_annotation删除批注
-		result = delete_annotation(ls, delete_params)
-
-		return result
+			# 源文件不存在，直接删除批注文件和数据库记录
+			info(f"Source file does not exist: {source_path}, deleting annotation file only")
+			
+			# 获取笔记文件名
+			note_file = db_manager.get_annotation_note_file(source_path, current_id)
+			if not note_file:
+				# 如果数据库中没有记录，尝试从笔记文件路径推断
+				note_path = pathlib.Path(note_manager._uri_to_path(note.uri))
+				if note_path.exists() and note_path.parent.name == "notes":
+					note_file = note_path.name
+				else:
+					raise Exception("Failed to determine note file name")
+			
+			# 删除数据库记录
+			if not db_manager.delete_annotation(source_path, current_id):
+				info("Failed to delete annotation from database (may not exist)")
+			
+			# 删除笔记文件
+			if not note_manager.delete_note(note_file):
+				raise Exception("Failed to delete note file")
+			
+			info(f"Successfully deleted orphaned annotation: {note_file}")
+			return {"note_file": note_file, "orphaned": True}
 
 	except Exception as e:
 		error(f"Failed to delete annotation R: {str(e)}")
